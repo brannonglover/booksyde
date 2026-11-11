@@ -1,0 +1,30 @@
+{
+  "name": "booksyde",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@booksyde/web",
+    "dev:mobile": "npm run start --workspace=@booksyde/mobile",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:new": "supabase migration new",
+    "db:types": "supabase gen types typescript --local > packages/types/src/database.ts"
+  },
+  "devDependencies": {
+    "supabase": "^3.1.0",
+    "turbo": "^2.11.11",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "npm@11.11.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/* Colour tokens come from @booksyde/theme and are injected in layout.tsx as
+   --bk-* custom properties; these map them onto Tailwind utilities. */
+@theme inline {
+  --color-background: var(--bk-background);
+  --color-surface: var(--bk-surface);
+  --color-surface-raised: var(--bk-surface-raised);
+  --color-text: var(--bk-text);
+  --color-muted: var(--bk-text-muted);
+  --color-border: var(--bk-border);
+  --color-primary: var(--bk-primary);
+  --color-primary-text: var(--bk-primary-text);
+  --color-accent: var(--bk-accent);
+  --color-highlight: var(--bk-highlight);
+  --color-success: var(--bk-success);
+  --color-grape: var(--bk-grape);
+  --color-coral: var(--bk-coral);
+  --color-sunshine: var(--bk-sunshine);
+  --color-mint: var(--bk-mint);
+  --color-sky: var(--bk-sky);
+  --color-bubblegum: var(--bk-bubblegum);
+  --font-display: var(--font-bricolage);
+  --font-sans: var(--font-jakarta);
+}
+
+body {
+  background: var(--bk-background);
+  color: var(--bk-text);
+}

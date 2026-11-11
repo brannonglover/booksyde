@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# builds
+.next/
+out/
+dist/
+build/
+.turbo/
+.expo/
+web-build/
+ios/
+android/
+
+# env
+.env
+.env*.local
+
+# misc
+.DS_Store
+*.log
+*.tsbuildinfo
+coverage/
+
+# supabase
+supabase/.branches
+supabase/.temp
+
+# local Claude preview config
+.claude/launch.json
