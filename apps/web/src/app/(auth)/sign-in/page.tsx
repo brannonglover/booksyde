@@ -27,7 +27,7 @@ export default function SignInPage() {
     <AuthShell
       aside={<ReadingWindow />}
       quote={{ text: "A room without books is like a body without a soul.", source: "Attributed to Cicero" }}
-      switchPrompt={{ text: "New here?", label: "Get a library card", href: "/sign-up" }}
+      switchPrompt={{ text: "New here?", label: "Start your shelf", href: "/sign-up" }}
     >
       <AuthHeading kicker="Welcome back" title={<>Your chair is <em className="text-accent">right where you left it</em>.</>}>
         Sign in to pick up your shelves and your notes in the margins.

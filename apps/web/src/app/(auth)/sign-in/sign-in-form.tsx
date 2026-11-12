@@ -14,7 +14,16 @@ export function SignInForm() {
   const [linkState, linkAction, linkPending] = useActionState<AuthFormState, FormData>(sendSignInLink, {});
 
   if (linkState.sentTo) {
-    return <CheckYourInbox email={linkState.sentTo}>Open it on this device to sign in.</CheckYourInbox>;
+    const signUpHref = next === "/" ? "/sign-up" : `/sign-up?next=${encodeURIComponent(next)}`;
+    return (
+      <CheckYourInbox email={linkState.sentTo} onlyIfMember>
+        Open it on this device to sign in. New here? Sign-in links only work once you have an account, so{" "}
+        <Link href={signUpHref} className="font-semibold text-accent underline underline-offset-4">
+          start your shelf
+        </Link>{" "}
+        first.
+      </CheckYourInbox>
+    );
   }
 
   const errors = { ...linkState.fieldErrors, ...state.fieldErrors };

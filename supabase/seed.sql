@@ -2,39 +2,7 @@
 -- Real catalog data comes from the Open Library import (see supabase/import/README.md).
 -- Everything below is public-domain books plus made-up demo readers.
 
-insert into public.tags (slug, name, kind) values
-  ('fantasy',            'Fantasy',            'genre'),
-  ('romance',            'Romance',            'genre'),
-  ('thriller',           'Thriller',           'genre'),
-  ('mystery',            'Mystery',            'genre'),
-  ('science-fiction',    'Science Fiction',    'genre'),
-  ('horror',             'Horror',             'genre'),
-  ('literary-fiction',   'Literary Fiction',   'genre'),
-  ('historical-fiction', 'Historical Fiction', 'genre'),
-  ('non-fiction',        'Non-fiction',        'genre'),
-  ('biography',          'Biography',          'genre'),
-  ('young-adult',        'Young Adult',        'genre'),
-  ('poetry',             'Poetry',             'genre'),
-  ('classics',           'Classics',           'genre'),
-  ('gothic',             'Gothic',             'genre'),
-  ('cozy',               'Cozy',               'mood'),
-  ('dark',               'Dark',               'mood'),
-  ('funny',              'Funny',              'mood'),
-  ('emotional',          'Emotional',          'mood'),
-  ('hopeful',            'Hopeful',            'mood'),
-  ('tense',              'Tense',              'mood'),
-  ('adventurous',        'Adventurous',        'mood'),
-  ('reflective',         'Reflective',         'mood'),
-  ('mysterious',         'Mysterious',         'mood'),
-  ('found-family',       'Found Family',       'trope'),
-  ('enemies-to-lovers',  'Enemies to Lovers',  'trope'),
-  ('unreliable-narrator','Unreliable Narrator','trope'),
-  ('slow-burn',          'Slow Burn',          'trope'),
-  ('epistolary',         'Told in Letters',    'trope'),
-  ('obsession',          'Obsession',          'trope'),
-  ('fast-paced',         'Fast-paced',         'pace'),
-  ('medium-paced',       'Medium-paced',       'pace'),
-  ('slow-paced',         'Slow-paced',         'pace');
+-- Tags (genres, moods, tropes, pace) are reference data: see migration 20261115000000_tags.sql.
 
 insert into public.authors (id, name, birth_date, death_date, bio) values
   ('00000000-0000-4000-a000-000000000001', 'Jane Austen', '1775-12-16', '1817-07-18',

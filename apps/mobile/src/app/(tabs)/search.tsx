@@ -222,7 +222,8 @@ export default function SearchScreen() {
               {!results ? (
                 <ActivityIndicator color={theme.accent} style={{ marginTop: spacing[6] }} />
               ) : results.books.length + results.authors.length + results.readers.length === 0 ? (
-                <EmptyDrawer
+                // Plain text searches go straight to the wider stacks, which show the empty card if they come up dry.
+                stacksWanted && !results.error ? null : <EmptyDrawer
                   term={term}
                   error={results.error}
                   onClear={() => (tags.length ? setTags([]) : setQ(''))}
@@ -275,6 +276,11 @@ export default function SearchScreen() {
                   stacks={stacksNow}
                   onFile={results.books.map((b) => bookIdentity(b.title, leadAuthor(b)?.name))}
                   headline={results.books.length === 0}
+                  empty={
+                    results.authors.length + results.readers.length === 0 ? (
+                      <EmptyDrawer term={term} stacksChecked hasTags={false} onClear={() => setQ('')} />
+                    ) : null
+                  }
                 />
               ) : null}
             </View>
@@ -294,15 +300,18 @@ function WiderStacks({
   stacks,
   onFile,
   headline,
+  empty,
 }: {
   stacks: { books: OpenLibraryBook[] | null } | null;
   onFile: string[];
   headline: boolean;
+  /** Shown instead when nothing turned up here or in the stacks. */
+  empty: React.ReactNode;
 }) {
   const theme = useTheme();
   const held = new Set(onFile);
   const books = (stacks?.books ?? []).filter((b) => !held.has(bookIdentity(b.title, b.authors[0]?.name))).slice(0, 6);
-  if (stacks?.books && books.length === 0) return null;
+  if (stacks?.books && books.length === 0) return headline ? empty : null;
   return (
     <View style={[{ gap: spacing[4] }, !headline && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border, paddingTop: spacing[6] }]}>
       <View style={{ gap: spacing[1] }}>
@@ -499,7 +508,19 @@ function ReaderPlate({ reader }: { reader: Found['readers'][number] }) {
   );
 }
 
-function EmptyDrawer({ term, error, hasTags, onClear }: { term: string; error?: boolean; hasTags: boolean; onClear: () => void }) {
+function EmptyDrawer({
+  term,
+  error,
+  hasTags,
+  stacksChecked = false,
+  onClear,
+}: {
+  term: string;
+  error?: boolean;
+  hasTags: boolean;
+  stacksChecked?: boolean;
+  onClear: () => void;
+}) {
   const theme = useTheme();
   const c = useCardColors();
   return (
@@ -509,7 +530,7 @@ function EmptyDrawer({ term, error, hasTags, onClear }: { term: string; error?: 
       <Text style={[styles.mono, { color: c.ink, lineHeight: 22 }]}>
         {error
           ? 'We couldn’t reach the catalogue. Check your connection and try again.'
-          : `${term ? `Nothing answers to “${term}”. ` : ''}${hasTags ? 'Try lifting a filter or two.' : 'Try a shorter word, a surname, or the ISBN on the back.'}`}
+          : `${term ? `Nothing ${stacksChecked ? 'here or in the wider stacks' : ''} answers to “${term}”. `.replace('  ', ' ') : ''}${hasTags ? 'Try lifting a filter or two.' : 'Try a shorter word, a surname, or the ISBN on the back.'}`}
       </Text>
       <Pressable onPress={onClear} style={[styles.emptyButton, { borderColor: theme.border }]}>
         <Text style={{ color: c.ink, fontWeight: '600' }}>{hasTags ? 'Clear the filters' : 'Browse the drawers'}</Text>

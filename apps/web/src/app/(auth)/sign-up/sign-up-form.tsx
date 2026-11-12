@@ -6,7 +6,7 @@ import { useActionState, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { type AuthFormState, signUp } from "../actions";
 import { CheckYourInbox, Field, FormError, PasswordField, SubmitButton } from "../fields";
-import { setDraft } from "./draft-card";
+import { setDraft } from "./draft-bookplate";
 
 /** "Margot Okafor" → "margot_okafor" (fits the username rules). */
 function suggestUsername(name: string) {
@@ -29,7 +29,7 @@ export function SignUpForm() {
   const [usernameEdited, setUsernameEdited] = useState(Boolean(state.values?.username));
   const [availability, setAvailability] = useState<Availability | null>(null);
 
-  // Keep the library card preview in step with the form.
+  // Keep the bookplate preview in step with the form.
   useEffect(() => setDraft({ displayName, username }), [displayName, username]);
 
   // Check the username a moment after the reader stops typing.
@@ -49,7 +49,7 @@ export function SignUpForm() {
   }, [username]);
 
   if (state.sentTo) {
-    return <CheckYourInbox email={state.sentTo}>Click it to confirm your email and your library card is ready.</CheckYourInbox>;
+    return <CheckYourInbox email={state.sentTo}>Click it to confirm your email and your shelf is ready.</CheckYourInbox>;
   }
 
   const formatOk = !username || usernameSchema.safeParse(username).success;
@@ -114,7 +114,7 @@ export function SignUpForm() {
         error={state.fieldErrors?.password}
         hint="At least 8 characters."
       />
-      <SubmitButton pendingLabel="Stamping your card…">Get my library card</SubmitButton>
+      <SubmitButton pendingLabel="Pasting in your bookplate…">Start my shelf</SubmitButton>
       <p className="text-center text-xs text-muted">Free forever. No ads, no selling your reading history.</p>
     </form>
   );

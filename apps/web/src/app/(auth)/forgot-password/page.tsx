@@ -23,8 +23,8 @@ export default function ForgotPasswordPage() {
       switchPrompt={{ text: "Remembered it?", label: "Sign in", href: "/sign-in" }}
     >
       {state.sentTo ? (
-        <CheckYourInbox email={state.sentTo}>
-          If there&rsquo;s a library card with that email, the link inside lets you choose a new password.
+        <CheckYourInbox email={state.sentTo} onlyIfMember>
+          The link inside lets you choose a new password.
         </CheckYourInbox>
       ) : (
         <>

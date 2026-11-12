@@ -97,7 +97,8 @@ async function Results({ searchParams }: { searchParams: Promise<Params> }) {
       </div>
 
       {nothing ? (
-        <NoCards q={q} tags={tags} />
+        // A plain text search goes straight to the wider stacks below; they show the empty card if they come up dry too.
+        q && tags.length === 0 ? null : <NoCards q={q} tags={tags} />
       ) : (
         <div className={`mt-10 grid gap-12 ${authors.length || readers.length ? "lg:grid-cols-[1fr_18rem]" : ""}`}>
           <section aria-label="Books">
@@ -143,7 +144,7 @@ function leadAuthor(book: CatalogBook) {
 
 function StacksSkeleton() {
   return (
-    <div className="mt-20 grid gap-5 md:grid-cols-3">
+    <div className="mt-10 grid gap-5 md:grid-cols-3">
       {[0, 1, 2].map((i) => (
         <div key={i} className="h-44 animate-pulse rounded-sm bg-border/40" />
       ))}
@@ -156,10 +157,10 @@ async function WiderStacks({ q, onFile, headline }: { q: string; onFile: string[
   const found = await searchWiderStacks(q);
   const held = new Set(onFile);
   const books = (found ?? []).filter((b) => !held.has(bookIdentity(b.title, b.authors[0]?.name))).slice(0, 6);
-  if (found && books.length === 0) return null;
+  if (found && books.length === 0) return headline ? <NoCards q={q} tags={[]} stacksChecked /> : null;
 
   return (
-    <section aria-labelledby="wider-stacks" className={headline ? "mt-14" : "mt-20 border-t border-border pt-12"}>
+    <section aria-labelledby="wider-stacks" className={headline ? "mt-10" : "mt-20 border-t border-border pt-12"}>
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">Not on file yet</p>
@@ -230,17 +231,17 @@ function Narrow({ q, tags, drawers }: { q: string; tags: string[]; drawers: Draw
   );
 }
 
-function NoCards({ q, tags }: { q: string; tags: string[] }) {
+function NoCards({ q, tags, stacksChecked = false }: { q: string; tags: string[]; stacksChecked?: boolean }) {
   return (
     <div className="mx-auto mt-14 max-w-lg">
       <div className="index-card relative rotate-[-0.6deg] rounded-sm px-8 pb-12 pt-7 shadow-[0_18px_40px_-24px_rgba(31,27,22,0.55)]">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">Not on file</p>
         <p className="mt-3 font-display text-3xl leading-tight">This drawer is empty.</p>
         <p className="ruled mt-3 font-mono text-sm">
-          {q ? <>Nothing in our drawers answers to “{q}” yet. </> : null}
+          {q ? <>Nothing {stacksChecked ? "here or in the wider stacks" : "in our drawers"} answers to “{q}”. </> : null}
           {tags.length
             ? "Try lifting a filter or two — or browse the drawers instead."
-            : "If it’s in print, it’s probably in the wider stacks below."}
+            : "Try a shorter word, an author’s surname, or the ISBN on the back."}
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm font-semibold">
           {tags.length && q ? (

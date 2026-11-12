@@ -120,7 +120,7 @@ export function ShelfButton({ workId }: { workId: string }) {
               </Link>{" "}
               or{" "}
               <Link href={`/sign-up?next=${encodeURIComponent(pathname)}`} className="font-semibold text-accent hover:underline">
-                get a library card
+                start your shelf
               </Link>{" "}
               to keep track of your books.
             </>

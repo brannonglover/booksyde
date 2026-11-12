@@ -27,7 +27,7 @@ import { supabase } from '@/lib/supabase';
 
 /*
  * A book screen laid out like a book: a title page, then chapters — the
- * vibe, the marginalia (reviews), the library card (details) — and an
+ * vibe, the marginalia (reviews), the catalogue card (details) — and an
  * epilogue of books shelved nearby. Mirrors apps/web/src/app/books/[id].
  */
 
@@ -290,9 +290,9 @@ function BookDetail({ data }: { data: BookData }) {
           <IndexCard key={r.id} review={r} tilt={i % 2 ? '0.6deg' : '-0.6deg'} />
         ))}
 
-        {/* Chapter three: the library card */}
-        <ChapterHeading kicker="CHAPTER THREE" title="The library card" />
-        <LibraryCard
+        {/* Chapter three: the catalogue card */}
+        <ChapterHeading kicker="CHAPTER THREE" title="The catalogue card" />
+        <CatalogueCard
           rows={[
             ['AUTHOR', catalogueName(authorNames)],
             ['TITLE', work.title],
@@ -477,7 +477,7 @@ function IndexCard({ review, tilt }: { review: BookData['reviews'][number]; tilt
   );
 }
 
-function LibraryCard({
+function CatalogueCard({
   rows,
   number,
   readers,
@@ -494,7 +494,7 @@ function LibraryCard({
   return (
     <View style={[styles.libraryCard, { backgroundColor: dark ? '#3A3124' : '#F6EBD3', borderColor: dark ? '#5A4C35' : '#D8C7A3' }]}>
       <View style={[styles.libraryHeader, { borderBottomColor: stamp }]}>
-        <Text style={[styles.libraryLabel, { color: ink }]}>BOOKSYDE LENDING LIBRARY</Text>
+        <Text style={[styles.libraryLabel, { color: ink }]}>BOOKSYDE CARD CATALOGUE</Text>
         <Text style={[styles.mono, { color: ink, opacity: 0.7, fontSize: 11 }]}>No. {number}</Text>
       </View>
       {rows
@@ -507,12 +507,12 @@ function LibraryCard({
           </View>
         ))}
       <View style={[styles.stamp, { borderColor: stamp }]}>
-        <Text style={[styles.mono, styles.stampText, { color: stamp }]}>IN CIRCULATION</Text>
+        <Text style={[styles.mono, styles.stampText, { color: stamp }]}>ON THE SHELVES OF</Text>
         <Text style={[styles.mono, styles.stampText, { color: stamp }]}>{plural(readers, 'reader').toUpperCase()}</Text>
       </View>
       {editions.length > 0 ? (
         <View style={{ gap: spacing[2] }}>
-          <Text style={[styles.libraryLabel, { color: ink }]}>ON THE SHELVES</Text>
+          <Text style={[styles.libraryLabel, { color: ink }]}>EDITIONS</Text>
           {editions.map((e) => (
             <Text key={e} style={[styles.mono, { color: ink, fontSize: 11 }]}>
               {e}

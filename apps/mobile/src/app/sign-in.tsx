@@ -76,7 +76,7 @@ export default function SignInScreen() {
         <View style={styles.switchRow}>
           <Text style={{ color: theme.textSecondary }}>New here?</Text>
           <Link href="/sign-up" replace style={{ color: theme.accent, fontWeight: '700' }}>
-            Get a library card
+            Start your shelf
           </Link>
         </View>
       </ScrollView>

@@ -13,7 +13,7 @@ import { getBook, getBookCommunity, getSimilarBooks } from "@/lib/catalog";
 
 /*
  * A book page laid out like a book: a title page, then chapters —
- * the vibe, the marginalia (reviews), the library card (details) — and an
+ * the vibe, the marginalia (reviews), the catalogue card (details) — and an
  * epilogue of books shelved nearby.
  */
 
@@ -282,11 +282,11 @@ async function BookDetail({ params }: { params: Params }) {
           </Suspense>
         </section>
 
-        {/* Chapter three: the library card */}
+        {/* Chapter three: the catalogue card */}
         <section className="flex flex-col gap-10">
-          <ChapterHeading kicker="Chapter three" title="The library card" />
+          <ChapterHeading kicker="Chapter three" title="The catalogue card" />
           <div className="grid items-start gap-8 lg:grid-cols-[1.5fr_1fr]">
-            <LibraryCard book={book} authorNames={authorNames} main={main} editions={editions} />
+            <CatalogueCard book={book} authorNames={authorNames} main={main} editions={editions} />
             {authors.map((a) => (
               <figure
                 key={a.id}
@@ -397,7 +397,7 @@ async function MarginNote({ id }: { id: string }) {
   );
 }
 
-function LibraryCard({
+function CatalogueCard({
   book,
   authorNames,
   main,
@@ -419,7 +419,7 @@ function LibraryCard({
   return (
     <div className="relative overflow-hidden rounded-md border border-[#D8C7A3] bg-[#F6EBD3] p-6 text-ink shadow-[0_18px_40px_-24px_rgba(31,27,22,0.6)] sm:p-8 dark:border-[#5A4C35] dark:bg-[#3A3124] dark:text-paper">
       <div className="flex items-baseline justify-between border-b-2 border-oxblood/40 pb-3 dark:border-[#E6957C]/40">
-        <p className="text-xs font-bold uppercase tracking-[0.3em]">Booksyde Lending Library</p>
+        <p className="text-xs font-bold uppercase tracking-[0.3em]">Booksyde Card Catalogue</p>
         <p className="font-mono text-xs opacity-70">No. {book.id.slice(-4).toUpperCase()}</p>
       </div>
 
@@ -440,7 +440,7 @@ function LibraryCard({
           aria-hidden
           className="mx-auto w-fit rotate-[-10deg] rounded-md border-[3px] border-oxblood/70 px-3 py-2 text-center font-mono text-xs font-bold uppercase leading-tight tracking-widest text-oxblood/85 dark:border-[#E6957C]/70 dark:text-[#E6957C]/85"
         >
-          In circulation
+          On the shelves of
           <br />
           {plural(book.shelved_count, "reader")}
         </div>
@@ -448,7 +448,7 @@ function LibraryCard({
 
       {editions.length > 0 ? (
         <div className="mt-7">
-          <p className="text-xs font-bold uppercase tracking-[0.3em]">On the shelves</p>
+          <p className="text-xs font-bold uppercase tracking-[0.3em]">Editions</p>
           <ul className="mt-3 divide-y divide-current/15 border-y border-current/15 font-mono text-xs">
             {editions.map((e) => (
               <li key={e.id} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-2">

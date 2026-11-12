@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AuthHeading, FormError, FormField, PrimaryButton } from '@/components/auth-form';
-import { DisplayFonts, Fonts, MaxContentWidth } from '@/constants/theme';
+import { DisplayFonts, MaxContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
@@ -92,7 +92,7 @@ export default function SignUpScreen() {
         <Text style={{ fontSize: 44 }}>✉️</Text>
         <Text style={[styles.inboxTitle, { color: theme.text }]}>Check your inbox</Text>
         <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 16 }}>
-          We sent a link to {sentTo}. Tap it to confirm your email and your library card is ready.
+          We sent a link to {sentTo}. Tap it to confirm your email and your shelf is ready.
         </Text>
       </View>
     );
@@ -115,28 +115,26 @@ export default function SignUpScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <AuthHeading
           kicker="Join Booksyde"
-          title="Get your"
-          accent="library card"
+          title="Start your"
+          accent="shelf"
           body="Track what you read, find your next favorite by mood, and swap notes with readers like you."
         />
 
-        {/* The card fills itself in as the reader types. */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>BOOKSYDE LENDING LIBRARY</Text>
-          </View>
-          {[
-            ['NAME', displayName || 'Your name here'],
-            ['CARD NO.', username ? `@${username}` : '@your_username'],
-            ['MEMBER SINCE', 'Today'],
-          ].map(([label, value]) => (
-            <View key={label} style={styles.cardRow}>
-              <Text style={[styles.mono, { fontSize: 10, opacity: 0.7, letterSpacing: 1.2 }]}>{label}</Text>
-              <Text numberOfLines={1} style={[styles.mono, { fontSize: 13, flexShrink: 1 }]}>
-                {value}
-              </Text>
+        {/* Their Ex Libris bookplate fills itself in as they type, as their profile will show it. */}
+        <View style={styles.plateOuter}>
+          <View style={styles.plateInner}>
+            <Text style={styles.exLibris}>EX LIBRIS</Text>
+            <View style={styles.monogram}>
+              <Text style={styles.monogramText}>{(displayName.trim() || '?').charAt(0).toUpperCase()}</Text>
             </View>
-          ))}
+            <Text numberOfLines={1} style={[styles.plateName, !displayName && styles.placeholder]}>
+              {displayName || 'Your name here'}
+            </Text>
+            <Text numberOfLines={1} style={[styles.plateHandle, !username && styles.placeholder]}>
+              @{username || 'your_username'}
+            </Text>
+            <Text style={styles.since}>A MEMBER SINCE TODAY</Text>
+          </View>
         </View>
 
         <FormError message={error} />
@@ -187,7 +185,7 @@ export default function SignUpScreen() {
           error={errors.password}
           hint="At least 8 characters."
         />
-        <PrimaryButton label="Get my library card" busy={busy} onPress={submit} />
+        <PrimaryButton label="Start my shelf" busy={busy} onPress={submit} />
         <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 12 }}>
           Free forever. No ads, no selling your reading history.
         </Text>
@@ -202,23 +200,33 @@ export default function SignUpScreen() {
   );
 }
 
+/** The default bookplate ink ("Library green") until the reader picks their own. */
+const PlateInk = '#2D4A3E';
+
 const styles = StyleSheet.create({
   scroll: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', padding: spacing[5], paddingTop: spacing[6], gap: spacing[4] },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[3], padding: spacing[6] },
   inboxTitle: { fontFamily: DisplayFonts.regular, fontSize: 36 },
   switchRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing[2], marginTop: spacing[2] },
-  card: {
-    backgroundColor: '#F6EBD3',
-    borderColor: '#D8C7A3',
-    borderWidth: 1,
-    borderRadius: 6,
-    padding: spacing[4],
-    gap: spacing[2],
-    transform: [{ rotate: '-1.5deg' }],
+  // Mirrors the bookplate on app/u/[username].tsx, in the default Library green ink.
+  plateOuter: {
+    backgroundColor: '#FBF5E8',
+    borderRadius: 3,
+    padding: 6,
     marginVertical: spacing[2],
+    transform: [{ rotate: '-1.5deg' }],
+    shadowColor: '#1F1B16',
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 5,
   },
-  cardHeader: { borderBottomWidth: 2, borderBottomColor: 'rgba(139,58,43,0.4)', paddingBottom: spacing[2] },
-  cardLabel: { color: palette.ink, fontSize: 10, fontWeight: '800', letterSpacing: 2.4 },
-  cardRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3] },
-  mono: { fontFamily: Fonts?.mono, color: palette.ink },
+  plateInner: { borderWidth: 3, borderRadius: 2, borderColor: PlateInk, alignItems: 'center', gap: spacing[1], paddingHorizontal: spacing[4], paddingVertical: spacing[4] },
+  exLibris: { color: PlateInk, fontSize: 10, fontWeight: '800', letterSpacing: 5 },
+  monogram: { width: 52, height: 52, borderRadius: 26, borderWidth: 3, borderColor: palette.gilt, backgroundColor: PlateInk, alignItems: 'center', justifyContent: 'center', marginVertical: spacing[1] },
+  monogramText: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 26 },
+  plateName: { color: palette.ink, fontFamily: DisplayFonts.regular, fontSize: 30, lineHeight: 34, textAlign: 'center' },
+  plateHandle: { color: palette.ink, opacity: 0.7, fontSize: 13 },
+  placeholder: { opacity: 0.4 },
+  since: { color: palette.ink, opacity: 0.6, fontSize: 9, fontWeight: '700', letterSpacing: 2, marginTop: spacing[1] },
 });

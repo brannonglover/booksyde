@@ -85,8 +85,21 @@ export function FormError({ message }: { message?: string }) {
   );
 }
 
-/** Shown after we email the reader a link instead of signing them in. */
-export function CheckYourInbox({ email, children }: { email: string; children: React.ReactNode }) {
+/**
+ * Shown after we email the reader a link instead of signing them in.
+ * `onlyIfMember`: we only email existing members but reply the same way either way (so the
+ * form can't be used to probe emails), so say so rather than promise an email that may not exist.
+ */
+export function CheckYourInbox({
+  email,
+  onlyIfMember = false,
+  children,
+}: {
+  email: string;
+  onlyIfMember?: boolean;
+  children: React.ReactNode;
+}) {
+  const address = <span className="font-semibold text-text">{email}</span>;
   return (
     <div className="flex flex-col items-start gap-4">
       <p className="text-5xl" aria-hidden>
@@ -94,7 +107,12 @@ export function CheckYourInbox({ email, children }: { email: string; children: R
       </p>
       <h2 className="font-display text-4xl">Check your inbox</h2>
       <p className="text-lg text-muted">
-        We sent a link to <span className="font-semibold text-text">{email}</span>. {children}
+        {onlyIfMember ? (
+          <>If there&rsquo;s an account for {address}, we&rsquo;ve sent a link to it.</>
+        ) : (
+          <>We sent a link to {address}.</>
+        )}{" "}
+        {children}
       </p>
       <p className="text-sm text-muted">Can&rsquo;t find it? Look in your spam folder, or try again in a minute.</p>
     </div>

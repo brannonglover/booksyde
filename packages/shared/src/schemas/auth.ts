@@ -40,7 +40,7 @@ export function authErrorMessage(error: { message?: string; code?: string } | nu
   }
   if (code === "email_not_confirmed") return "Check your inbox first: we sent you a link to confirm your email.";
   if (code === "user_already_exists" || message.includes("already registered")) {
-    return "There’s already a library card with that email. Try signing in instead.";
+    return "There’s already an account with that email. Try signing in instead.";
   }
   if (code === "weak_password") return "Choose a stronger password: at least 8 characters, not easy to guess.";
   if (code === "over_email_send_rate_limit" || code === "over_request_rate_limit" || message.includes("rate limit")) {
