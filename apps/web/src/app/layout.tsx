@@ -1,20 +1,28 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
+import { Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google";
 import { toCssVariables } from "@booksyde/theme";
+import { themeInitScript } from "@/lib/theme-script";
 import "./globals.css";
 
-const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
+// Instrument Serif: old-book letterforms with modern, editorial proportions.
+const display = Instrument_Serif({
+  variable: "--font-instrument",
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+});
 const body = Plus_Jakarta_Sans({ variable: "--font-jakarta", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "Booksyde — find your next favourite book", template: "%s · Booksyde" },
-  description: "Track what you read, discover books by mood and trope, and read along with friends.",
+  title: { default: "Booksyde — settle in with your next favorite book", template: "%s · Booksyde" },
+  description: "Track what you read, find books by mood and trope, and read along with friends.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} h-full antialiased`}>
+    <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable} h-full antialiased`}>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <style dangerouslySetInnerHTML={{ __html: toCssVariables() }} />
       </head>
       <body className="min-h-full flex flex-col font-sans">{children}</body>

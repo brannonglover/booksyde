@@ -1,41 +1,55 @@
 import { formatRating, starParts } from '@booksyde/shared';
-import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
-import { LinearGradient } from 'expo-linear-gradient';
+import { coverUrl, genreColor, palette, radii, spacing } from '@booksyde/theme';
+import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppearancePicker, ThemeToggleButton } from '@/components/appearance-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth } from '@/constants/theme';
+import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 
-// Placeholder shelf until the catalog is wired up (matches supabase/seed.sql).
-const trending = [
-  { title: 'Pride and Prejudice', author: 'Jane Austen', color: '#C2416B', rating: 4.5 },
-  { title: 'Frankenstein', author: 'Mary Shelley', color: '#2F6B5E', rating: 4 },
-  { title: 'Dracula', author: 'Bram Stoker', color: '#7A1F2B', rating: 4 },
-  { title: 'Moby-Dick', author: 'Herman Melville', color: '#2457A6', rating: 3.5 },
-  { title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', color: '#C9A227', rating: 4 },
+// On web the tab bar floats over the top of the screen; start the masthead below it.
+const WebTabBarHeight = 72;
+
+// Placeholder shelf until the catalog is wired up. Cover ids are Open Library's.
+const nightstand = [
+  { title: 'Pride and Prejudice', author: 'Jane Austen', coverId: 14348537, rating: 4.5 },
+  { title: 'Wuthering Heights', author: 'Emily Brontë', coverId: 12818862, rating: 4 },
+  { title: 'Jane Eyre', author: 'Charlotte Brontë', coverId: 8235363, rating: 4.5 },
+  { title: 'Frankenstein', author: 'Mary Shelley', coverId: 12356249, rating: 4 },
+  { title: 'Moby-Dick', author: 'Herman Melville', coverId: 10544254, rating: 3.5 },
 ];
 
-const genres = [
+const moods = [
   ['fantasy', 'Fantasy'],
   ['romance', 'Romance'],
+  ['mystery', 'Mystery'],
   ['thriller', 'Thriller'],
   ['science-fiction', 'Sci-fi'],
-  ['horror', 'Horror'],
-  ['young-adult', 'Young adult'],
+  ['horror', 'Gothic'],
+  ['literary-fiction', 'Literary'],
+  ['poetry', 'Poetry'],
 ] as const;
 
+const features = [
+  { numeral: 'i', title: 'Read by mood', body: 'Cozy, dark, hopeful, tense: find the book that suits tonight.' },
+  { numeral: 'ii', title: 'Half-stars, finally', body: 'Because some books are a 3.5, and that’s all right.' },
+  { numeral: 'iii', title: 'Buddy reads', body: 'Read alongside friends, with no spoilers past your page.' },
+];
+
 function Stars({ rating }: { rating: number }) {
+  const theme = useTheme();
   const { full, half, empty } = starParts(rating);
   const star = (key: string, fill: 'full' | 'half' | 'empty') => (
     <View key={key} style={styles.star}>
-      <Text style={[styles.starGlyph, { color: palette.sunshine, opacity: fill === 'full' ? 1 : 0.25 }]}>★</Text>
+      <Text style={[styles.starGlyph, { color: theme.highlight, opacity: fill === 'full' ? 1 : 0.25 }]}>★</Text>
       {fill === 'half' ? (
         <View style={styles.starHalf}>
-          <Text style={[styles.starGlyph, { color: palette.sunshine }]}>★</Text>
+          <Text style={[styles.starGlyph, { color: theme.highlight }]}>★</Text>
         </View>
       ) : null}
     </View>
@@ -49,81 +63,133 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
+/** A book cover in a clean frame: real cover art from Open Library. */
+function BookCover({ title, author, coverId, width }: { title: string; author: string; coverId: number; width: number }) {
+  return (
+    <View style={[styles.coverFrame, { width }]}>
+      <Image
+        source={coverUrl(coverId, 'M')}
+        style={styles.coverImage}
+        contentFit="cover"
+        transition={200}
+        accessibilityLabel={`Cover of ${title} by ${author}`}
+      />
+    </View>
+  );
+}
+
+function Ornament({ center = false }: { center?: boolean }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.ornament, center && { alignSelf: 'center' }]}>
+      <View style={[styles.ornamentRule, { backgroundColor: theme.highlight }]} />
+      <Text style={{ color: theme.highlight, fontSize: 16 }}>❦</Text>
+      <View style={[styles.ornamentRule, { backgroundColor: theme.highlight }]} />
+    </View>
+  );
+}
+
+function SectionHeading({ numeral, children }: { numeral: string; children: string }) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.sectionHeading, { borderBottomColor: theme.border }]}>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
+        <Text style={[styles.sectionNumeral, { color: theme.highlight }]}>{numeral}. </Text>
+        {children}
+      </Text>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const theme = useTheme();
+  const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   return (
     <ThemedView style={styles.container}>
-      <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Edge-to-edge hero that fades into the page background instead of a floating card. */}
-        <View style={[styles.hero, { paddingTop: insets.top + spacing[3] }]}>
-          <LinearGradient
-            style={StyleSheet.absoluteFill}
-            colors={[palette.grape, palette.grape, mixHex(palette.grape, theme.background, 0.65), theme.background]}
-            locations={[0, 0.45, 0.78, 1]}
-          />
-          {/* Soft colour washes (React Native has no cross-platform blur, so no hard-edged blobs). */}
-          <LinearGradient
-            style={StyleSheet.absoluteFill}
-            colors={[`${palette.coral}99`, `${palette.bubblegum}33`, `${palette.grape}00`]}
-            locations={[0, 0.35, 0.7]}
-            start={{ x: 1, y: 0 }}
-            end={{ x: 0.2, y: 0.8 }}
-          />
-          <LinearGradient
-            style={StyleSheet.absoluteFill}
-            colors={[`${palette.sky}00`, `${palette.sky}55`, `${palette.sky}00`]}
-            locations={[0.1, 0.45, 0.85]}
-            start={{ x: 0, y: 0.2 }}
-            end={{ x: 0.6, y: 1 }}
-          />
-
-          {/* Last layer: fade everything into the page so the hero has no bottom edge. */}
-          <LinearGradient
-            style={StyleSheet.absoluteFill}
-            colors={[`${theme.background}00`, theme.background]}
-            locations={[0.72, 1]}
-          />
-
-          <View style={styles.heroInner}>
-            <Text style={styles.wordmark}>
-              booksyde<Text style={{ color: palette.sunshine }}>.</Text>
-            </Text>
-            <Text style={styles.heroKicker}>📚 Your reading life, but fun</Text>
-            <Text style={styles.heroTitle}>
-              Find your next <Text style={{ color: palette.sunshine }}>obsession.</Text>
-            </Text>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingTop: Platform.OS === 'web' ? WebTabBarHeight : insets.top }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.masthead, { borderBottomColor: theme.border }]}>
+          <Text style={[styles.wordmark, { color: theme.text }]}>
+            Booksyde<Text style={{ color: theme.highlight }}>.</Text>
+          </Text>
+          <View style={styles.mastheadActions}>
+            <ThemeToggleButton />
+            <Pressable style={[styles.joinButton, { backgroundColor: theme.primary }]}>
+              <Text style={[styles.buttonLabel, { color: theme.primaryText }]}>Join free</Text>
+            </Pressable>
           </View>
         </View>
 
         <View style={styles.content}>
-          <ThemedText type="subtitle" style={styles.heading}>
-            Pick a vibe
-          </ThemedText>
-          <View style={styles.chips}>
-            {genres.map(([slug, label]) => {
-              const c = genreColor(slug);
-              return (
-                <Text key={slug} style={[styles.chip, { backgroundColor: c.bg, color: c.fg }]}>
-                  {label}
-                </Text>
-              );
-            })}
+          {/* Hero */}
+          <View style={styles.hero}>
+            <Text style={[styles.kicker, { color: theme.accent }]}>EST. 2026 · A READING ROOM FOR EVERYONE</Text>
+            <Text style={[styles.heroTitle, { color: theme.text }]}>
+              Settle in with your next <Text style={[styles.italic, { color: theme.accent }]}>favorite</Text> book.
+            </Text>
+            <Ornament />
+            <ThemedText themeColor="textSecondary" style={styles.lede}>
+              Keep track of what you read, find books that suit your mood, and trade recommendations with friends.
+            </ThemedText>
+            <View style={[styles.search, { backgroundColor: theme.backgroundSelected, borderColor: theme.border }]}>
+              <TextInput
+                placeholder="Search titles, authors, ISBNs…"
+                placeholderTextColor={theme.textSecondary}
+                style={[styles.searchInput, { color: theme.text }]}
+              />
+              <Pressable style={[styles.searchButton, { backgroundColor: theme.primary }]}>
+                <Text style={[styles.buttonLabel, { color: theme.primaryText }]}>Search</Text>
+              </Pressable>
+            </View>
           </View>
 
-          <ThemedText type="subtitle" style={styles.heading}>
-            Trending this week
-          </ThemedText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
-            {trending.map((book) => (
+          {/* Tonight's pick, framed in a library-window arch */}
+          <View>
+            <View style={styles.arch}>
+              <View style={styles.archInner} />
+              <View style={styles.archBook}>
+                <BookCover title="Pride and Prejudice" author="Jane Austen" coverId={14348537} width={132} />
+              </View>
+            </View>
+            <View style={[styles.caption, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>TONIGHT’S PICK</Text>
+              <Text style={{ color: theme.text }}>
+                <Text style={styles.captionTitle}>Pride and Prejudice</Text>
+                <Text style={{ color: theme.textSecondary }}> · 1813</Text>
+              </Text>
+            </View>
+          </View>
+
+          <SectionHeading numeral="I">What are you in the mood for?</SectionHeading>
+          <View style={styles.chips}>
+            {moods.map(([slug, label]) => (
+              <View
+                key={slug}
+                style={[styles.chip, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}
+              >
+                <View style={[styles.chipDot, { backgroundColor: genreColor(slug).dot }]} />
+                <Text style={[styles.chipLabel, { color: theme.text }]}>{label}</Text>
+              </View>
+            ))}
+          </View>
+
+          <SectionHeading numeral="II">On everyone’s nightstand</SectionHeading>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.shelf}
+            style={styles.shelfScroll}
+          >
+            {nightstand.map((book) => (
               <View key={book.title} style={styles.book}>
-                <View style={[styles.cover, { backgroundColor: book.color }]}>
-                  <Text style={styles.coverTitle}>{book.title}</Text>
-                </View>
-                <ThemedText type="smallBold" numberOfLines={1}>
+                <BookCover title={book.title} author={book.author} coverId={book.coverId} width={128} />
+                <Text style={[styles.bookTitle, { color: theme.text }]} numberOfLines={1}>
                   {book.title}
-                </ThemedText>
+                </Text>
                 <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
                   {book.author}
                 </ThemedText>
@@ -136,6 +202,40 @@ export default function HomeScreen() {
               </View>
             ))}
           </ScrollView>
+
+          <View style={styles.quote}>
+            <Ornament center />
+            <Text style={[styles.quoteText, { color: theme.text }]}>
+              “I declare after all there is no enjoyment like reading!”
+            </Text>
+            <Text style={[styles.label, { color: theme.textSecondary, textAlign: 'center' }]}>
+              JANE AUSTEN, <Text style={styles.italicSmall}>Pride and Prejudice</Text>
+            </Text>
+          </View>
+
+          <SectionHeading numeral="III">A better place to keep your books</SectionHeading>
+          <View style={[styles.features, { borderColor: theme.border, backgroundColor: theme.border }]}>
+            {features.map((f) => (
+              <View key={f.title} style={[styles.feature, { backgroundColor: theme.backgroundElement }]}>
+                <Text style={[styles.featureNumeral, { color: theme.highlight }]}>{f.numeral}.</Text>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.featureTitle, { color: theme.text }]}>{f.title}</Text>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {f.body}
+                  </ThemedText>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={[styles.colophon, { borderTopColor: theme.border }]}>
+            <Text style={[styles.wordmark, { color: theme.text, fontSize: 24 }]}>
+              Booksyde<Text style={{ color: theme.highlight }}>.</Text>
+            </Text>
+            <Text style={[styles.colophonText, { color: theme.textSecondary }]}>Made for readers.</Text>
+            <Text style={[styles.label, { color: theme.textSecondary, marginTop: spacing[3] }]}>APPEARANCE</Text>
+            <AppearancePicker />
+          </View>
         </View>
       </ScrollView>
     </ThemedView>
@@ -144,47 +244,122 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
-  scroll: { paddingBottom: BottomTabInset + spacing[6] },
-  hero: { overflow: 'hidden', paddingBottom: spacing[8] + spacing[6] },
-  heroInner: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
+  scroll: { paddingBottom: BottomTabInset + spacing[7] },
+  masthead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing[4],
-    gap: spacing[3],
+    paddingVertical: spacing[3],
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  wordmark: { fontFamily: DisplayFonts.regular, fontSize: 30 },
+  mastheadActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  colophon: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing[5], gap: spacing[2] },
+  colophonText: { fontFamily: DisplayFonts.italic, fontSize: 16 },
+  joinButton: { borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
+  buttonLabel: { fontWeight: '700', fontSize: 14 },
   content: {
     width: '100%',
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
     paddingHorizontal: spacing[4],
-    gap: spacing[4],
+    gap: spacing[6],
   },
-  wordmark: { color: 'white', fontSize: 28, fontWeight: '800', letterSpacing: -0.5, marginBottom: spacing[6] },
-  heroKicker: { color: 'white', fontWeight: '600', opacity: 0.9 },
-  heroTitle: { color: 'white', fontSize: 40, lineHeight: 44, fontWeight: '800', letterSpacing: -1 },
-  heading: { fontSize: 24, lineHeight: 30, marginTop: spacing[2] },
+  hero: { paddingTop: spacing[6], gap: spacing[4] },
+  kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 2 },
+  heroTitle: { fontFamily: DisplayFonts.regular, fontSize: 54, lineHeight: 54, letterSpacing: -0.5 },
+  italic: { fontFamily: DisplayFonts.italic },
+  italicSmall: { fontFamily: DisplayFonts.italic, letterSpacing: 0, fontSize: 13 },
+  ornament: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  ornamentRule: { height: StyleSheet.hairlineWidth * 2, width: 36, opacity: 0.6 },
+  lede: { fontSize: 17, lineHeight: 25 },
+  search: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    borderWidth: 1,
+    borderRadius: radii.pill,
+    padding: 6,
+    paddingLeft: spacing[4],
+  },
+  searchInput: { flex: 1, minWidth: 0, fontSize: 16, paddingVertical: spacing[2] },
+  searchButton: { borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] + 2 },
+  arch: {
+    aspectRatio: 4 / 5,
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: palette.green,
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
+  },
+  archInner: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
+    bottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(184,137,58,0.45)',
+    borderTopLeftRadius: 999,
+    borderTopRightRadius: 999,
+  },
+  archBook: { marginTop: spacing[7], transform: [{ rotate: '-2deg' }] },
+  caption: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    maxWidth: 360,
+    width: '100%',
+    alignSelf: 'center',
+    paddingVertical: spacing[3],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  captionTitle: { fontFamily: DisplayFonts.italic, fontSize: 18 },
+  label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.8 },
+  sectionHeading: { paddingBottom: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: -spacing[2] },
+  sectionTitle: { fontFamily: DisplayFonts.regular, fontSize: 34, lineHeight: 38 },
+  sectionNumeral: { fontFamily: DisplayFonts.italic, fontSize: 24 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   chip: {
-    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    borderWidth: 1,
     borderRadius: radii.pill,
-    paddingHorizontal: spacing[4],
+    paddingHorizontal: spacing[3] + 2,
     paddingVertical: spacing[2],
-    fontWeight: '700',
   },
-  shelf: { gap: spacing[4] },
-  book: { width: 130, gap: 2 },
-  cover: {
+  chipDot: { width: 8, height: 8, borderRadius: 4 },
+  chipLabel: { fontWeight: '600', fontSize: 15 },
+  shelfScroll: { marginHorizontal: -spacing[4] },
+  shelf: { gap: spacing[4], paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
+  book: { width: 128, gap: 2 },
+  bookTitle: { fontFamily: DisplayFonts.regular, fontSize: 19, lineHeight: 22, marginTop: spacing[3] },
+  coverFrame: {
     aspectRatio: 2 / 3,
-    borderRadius: radii.md,
-    padding: spacing[3],
-    justifyContent: 'flex-end',
-    marginBottom: spacing[2],
+    borderRadius: 3,
+    backgroundColor: '#E4DACA',
+    shadowColor: '#1F1B16',
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
   },
-  coverTitle: { color: 'white', fontWeight: '800', fontSize: 16 },
+  coverImage: { flex: 1, borderRadius: 3 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   stars: { flexDirection: 'row' },
   star: { width: 14, height: 18 },
   starGlyph: { fontSize: 14, lineHeight: 18 },
   starHalf: { position: 'absolute', top: 0, left: 0, width: 7, height: 18, overflow: 'hidden' },
+  quote: { gap: spacing[4], paddingVertical: spacing[4] },
+  quoteText: { fontFamily: DisplayFonts.italic, fontSize: 30, lineHeight: 36, textAlign: 'center' },
+  features: { borderWidth: 1, borderRadius: radii.md, overflow: 'hidden', gap: 1 },
+  feature: { flexDirection: 'row', gap: spacing[4], padding: spacing[4] },
+  featureNumeral: { fontFamily: DisplayFonts.italic, fontSize: 26, width: 32 },
+  featureTitle: { fontFamily: DisplayFonts.regular, fontSize: 22, lineHeight: 26 },
 });

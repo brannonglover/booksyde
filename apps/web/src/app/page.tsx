@@ -1,126 +1,197 @@
 import { formatRating } from "@booksyde/shared";
 import { genreColor } from "@booksyde/theme";
+import { BookCover } from "@/components/book-cover";
+import { FeatureBento } from "@/components/feature-bento";
 import { Stars } from "@/components/stars";
+import { ThemePicker, ThemeToggleButton } from "@/components/theme-toggle";
 
-// Placeholder shelf until the catalog is wired up (matches supabase/seed.sql).
-const trending = [
-  { title: "Pride and Prejudice", author: "Jane Austen", color: "#C2416B", rating: 4.5 },
-  { title: "Frankenstein", author: "Mary Shelley", color: "#2F6B5E", rating: 4 },
-  { title: "Dracula", author: "Bram Stoker", color: "#7A1F2B", rating: 4 },
-  { title: "Moby-Dick", author: "Herman Melville", color: "#2457A6", rating: 3.5 },
-  { title: "The Great Gatsby", author: "F. Scott Fitzgerald", color: "#C9A227", rating: 4 },
+// Placeholder shelf until the catalog is wired up. Cover ids are Open Library's.
+const nightstand = [
+  { title: "Pride and Prejudice", author: "Jane Austen", coverId: 14348537, rating: 4.5 },
+  { title: "Wuthering Heights", author: "Emily Brontë", coverId: 12818862, rating: 4 },
+  { title: "Jane Eyre", author: "Charlotte Brontë", coverId: 8235363, rating: 4.5 },
+  { title: "Frankenstein", author: "Mary Shelley", coverId: 12356249, rating: 4 },
+  { title: "Moby-Dick", author: "Herman Melville", coverId: 10544254, rating: 3.5 },
 ];
 
-const genres = [
+const moods = [
   ["fantasy", "Fantasy"],
   ["romance", "Romance"],
+  ["mystery", "Mystery"],
   ["thriller", "Thriller"],
-  ["science-fiction", "Sci-fi"],
-  ["horror", "Horror"],
+  ["science-fiction", "Science fiction"],
+  ["horror", "Gothic & horror"],
   ["literary-fiction", "Literary"],
-  ["young-adult", "Young adult"],
+  ["historical-fiction", "Historical"],
   ["non-fiction", "Non-fiction"],
   ["poetry", "Poetry"],
 ] as const;
 
-const features = [
-  { emoji: "🌈", title: "Shop by mood", body: "Cozy, dark, hopeful, tense — find books that match how you want to feel.", tint: "bg-grape/15" },
-  { emoji: "⭐", title: "Half-stars, finally", body: "Because some books are a 3.5 and that's okay.", tint: "bg-sunshine/25" },
-  { emoji: "👯", title: "Buddy reads", body: "Read with friends and chat without spoilers past your page.", tint: "bg-coral/15" },
-  { emoji: "🎉", title: "Your year in books", body: "A shareable recap of everything you read, built for bragging.", tint: "bg-mint/20" },
-];
+function Ornament({ className = "" }: { className?: string }) {
+  return (
+    <div aria-hidden className={`flex items-center gap-3 text-highlight ${className}`}>
+      <span className="h-px w-10 bg-current opacity-60" />
+      <span className="text-lg leading-none">❦</span>
+      <span className="h-px w-10 bg-current opacity-60" />
+    </div>
+  );
+}
+
+function SectionHeading({ numeral, children, aside }: { numeral: string; children: React.ReactNode; aside?: React.ReactNode }) {
+  return (
+    <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
+      <h2 className="font-display text-4xl leading-none sm:text-5xl">
+        <span className="mr-3 text-2xl italic text-highlight sm:text-3xl">{numeral}.</span>
+        {children}
+      </h2>
+      {aside}
+    </div>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="relative isolate flex flex-1 flex-col overflow-x-clip">
-      {/* Full-bleed hero backdrop: grape at the top, fading into the page
-          background so the hero belongs to the page instead of floating on it. */}
-      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-[52rem] sm:h-[48rem]">
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to bottom, var(--bk-grape) 0%, var(--bk-grape) 45%, color-mix(in oklab, var(--bk-grape) 35%, var(--bk-background)) 75%, var(--bk-background) 100%)",
-          }}
-        />
-        <div className="absolute -right-24 -top-24 size-[28rem] rounded-full bg-coral/60 blur-3xl" />
-        <div className="absolute right-[18%] top-64 size-80 rounded-full bg-bubblegum/35 blur-3xl" />
-        <div className="absolute -left-32 top-40 size-96 rounded-full bg-sky/40 blur-3xl" />
-        <div className="absolute left-1/3 top-[30rem] size-72 rounded-full bg-sky/20 blur-3xl" />
-      </div>
-      {/* Faint glow further down so the colour carries through the page. */}
-      <div aria-hidden className="absolute -left-40 top-[70rem] -z-10 size-[30rem] rounded-full bg-grape/10 blur-3xl" />
-      <div aria-hidden className="absolute -right-40 top-[95rem] -z-10 size-[26rem] rounded-full bg-coral/10 blur-3xl" />
-
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 text-white sm:px-6">
-        <span className="font-display text-2xl font-extrabold tracking-tight">
-          booksyde<span className="text-sunshine">.</span>
-        </span>
-        <nav className="flex items-center gap-2 text-sm font-semibold">
-          <a className="rounded-full px-4 py-2 hover:bg-white/15" href="#discover">Discover</a>
-          <a className="rounded-full bg-white px-4 py-2 text-grape shadow-sm hover:bg-white/90" href="#join">
-            Join free
-          </a>
-        </nav>
+    <div className="flex flex-1 flex-col">
+      <header className="border-b border-border">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+          <span className="font-display text-3xl leading-none">
+            Booksyde<span className="text-highlight">.</span>
+          </span>
+          <nav className="flex items-center gap-1 text-sm font-semibold sm:gap-2">
+            <a className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="#discover">
+              Discover
+            </a>
+            <a className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="#join">
+              Clubs
+            </a>
+            <ThemeToggleButton />
+            <a className="rounded-full px-3 py-2 hover:bg-surface sm:px-4" href="#join">
+              Sign in
+            </a>
+            <a className="rounded-full bg-primary px-4 py-2 text-primary-text hover:opacity-90" href="#join">
+              Join free
+            </a>
+          </nav>
+        </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-20 px-4 pb-24 sm:px-6">
-        <section className="pb-24 pt-14 text-white sm:pb-36 sm:pt-20">
-          <div className="max-w-2xl">
-            <p className="mb-4 inline-block rounded-full bg-white/15 px-3 py-1 text-sm font-semibold backdrop-blur">
-              📚 Your reading life, but fun
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-24 px-4 pb-24 sm:px-6">
+        {/* Hero */}
+        <section className="grid items-center gap-14 pt-14 sm:pt-20 lg:grid-cols-[1.25fr_1fr]">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+              Est. 2026 &middot; A reading room for everyone
             </p>
-            <h1 className="font-display text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-7xl">
-              Find your next <span className="text-sunshine">obsession.</span>
+            <h1 className="mt-5 font-display text-6xl leading-[0.95] tracking-tight sm:text-8xl">
+              Settle in with your next <em className="text-accent">favorite</em> book.
             </h1>
-            <p className="mt-6 max-w-lg text-lg text-white/85">
-              Track what you read, discover books by mood and trope, and see what your friends can&rsquo;t put down.
+            <Ornament className="mt-7" />
+            <p className="mt-6 max-w-md text-lg text-muted">
+              Keep track of what you read, find books that suit your mood, and trade recommendations with friends who
+              read like you do.
             </p>
-            <form className="mt-8 flex max-w-lg gap-2 rounded-full bg-white p-1.5 shadow-xl shadow-grape/30" action="#discover">
+            <form
+              action="#discover"
+              className="mt-8 flex max-w-lg items-center gap-2 rounded-full border border-text/20 bg-surface-raised p-1.5 pl-5 shadow-[0_10px_30px_-18px_rgba(31,27,22,0.5)] focus-within:border-text/40"
+            >
+              <svg aria-hidden viewBox="0 0 24 24" className="size-5 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+              </svg>
               <input
                 name="q"
+                aria-label="Search books"
                 placeholder="Search titles, authors, ISBNs…"
-                className="min-w-0 flex-1 rounded-full bg-transparent px-4 outline-none placeholder:text-zinc-400"
-                style={{ color: "#1A1033" }}
+                className="min-w-0 flex-1 bg-transparent py-2.5 text-text outline-none placeholder:text-muted"
               />
-              <button className="rounded-full bg-coral px-5 py-3 font-semibold text-white hover:opacity-90">Search</button>
+              <button className="rounded-full bg-primary px-5 py-2.5 font-semibold text-primary-text hover:opacity-90">
+                Search
+              </button>
             </form>
+            <p className="mt-4 text-sm text-muted">
+              Try{" "}
+              <a href="#discover" className="underline decoration-border underline-offset-4 hover:text-text">
+                Jane Austen
+              </a>
+              ,{" "}
+              <a href="#discover" className="underline decoration-border underline-offset-4 hover:text-text">
+                gothic
+              </a>{" "}
+              or{" "}
+              <a href="#discover" className="underline decoration-border underline-offset-4 hover:text-text">
+                rainy-day mysteries
+              </a>
+            </p>
           </div>
+
+          {/* Tonight's pick, framed in a library-window arch */}
+          <figure className="mx-auto w-full max-w-sm">
+            <div className="relative grid aspect-[4/5] place-items-center overflow-hidden rounded-t-full bg-green">
+              <div aria-hidden className="absolute inset-3 rounded-t-full border border-gilt/45" />
+              <div
+                aria-hidden
+                className="absolute inset-x-0 bottom-0 h-1/2"
+                style={{ background: "radial-gradient(60% 60% at 50% 100%, rgba(216,176,104,0.28), transparent)" }}
+              />
+              <BookCover
+                title="Pride and Prejudice"
+                author="Jane Austen"
+                coverId={14348537}
+                sizes="200px"
+                priority
+                className="mt-10 w-[48%] -rotate-2"
+              />
+            </div>
+            <figcaption className="flex items-baseline justify-between gap-4 border-b border-border py-3 text-sm">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Tonight&rsquo;s pick</span>
+              <span>
+                <span className="font-display text-lg italic">Pride and Prejudice</span>
+                <span className="text-muted"> &middot; 1813</span>
+              </span>
+            </figcaption>
+          </figure>
         </section>
 
         <section id="discover" className="flex flex-col gap-6">
-          <h2 className="font-display text-3xl font-bold tracking-tight">Pick a vibe</h2>
-          <div className="flex flex-wrap gap-3">
-            {genres.map(([slug, label]) => {
-              const c = genreColor(slug);
-              return (
-                <span
-                  key={slug}
-                  className="rounded-full px-5 py-2.5 font-semibold transition hover:-translate-y-0.5"
-                  style={{ background: c.bg, color: c.fg }}
-                >
-                  {label}
-                </span>
-              );
-            })}
+          <SectionHeading numeral="I">What are you in the mood for?</SectionHeading>
+          <div className="flex flex-wrap gap-2.5">
+            {moods.map(([slug, label]) => (
+              <a
+                key={slug}
+                href="#discover"
+                className="inline-flex items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2 font-medium transition hover:border-text/40 hover:bg-surface-raised"
+              >
+                <span aria-hidden className="size-2 rounded-full" style={{ background: genreColor(slug).dot }} />
+                {label}
+              </a>
+            ))}
           </div>
         </section>
 
-        <section className="flex flex-col gap-6">
-          <h2 className="font-display text-3xl font-bold tracking-tight">Trending this week</h2>
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
-            {trending.map((book) => (
-              <article key={book.title} className="group flex flex-col gap-3">
-                <div
-                  className="flex aspect-[2/3] items-end rounded-2xl p-4 shadow-md transition group-hover:-translate-y-1 group-hover:rotate-[-1deg] group-hover:shadow-xl"
-                  style={{ background: `linear-gradient(160deg, ${book.color}, ${book.color}cc 60%, #1A1033)` }}
-                >
-                  <span className="font-display text-lg font-bold leading-tight text-white">{book.title}</span>
-                </div>
+        <section className="flex flex-col gap-8">
+          <SectionHeading
+            numeral="II"
+            aside={
+              <a href="#discover" className="shrink-0 text-sm font-semibold text-accent hover:underline">
+                See all →
+              </a>
+            }
+          >
+            On everyone&rsquo;s nightstand
+          </SectionHeading>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
+            {nightstand.map((book) => (
+              <article key={book.title} className="group flex flex-col gap-4">
+                <BookCover
+                  title={book.title}
+                  author={book.author}
+                  coverId={book.coverId}
+                  className="transition duration-300 group-hover:-translate-y-1"
+                />
                 <div>
-                  <p className="font-semibold leading-tight">{book.title}</p>
+                  <h3 className="font-display text-xl leading-tight">{book.title}</h3>
                   <p className="text-sm text-muted">{book.author}</p>
-                  <p className="mt-1 text-sm">
+                  <p className="mt-1.5 text-sm">
                     <Stars rating={book.rating} /> <span className="text-muted">{formatRating(book.rating)}</span>
                   </p>
                 </div>
@@ -129,16 +200,33 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="join" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((f) => (
-            <div key={f.title} className={`rounded-3xl border border-border p-6 ${f.tint}`}>
-              <div className="text-3xl">{f.emoji}</div>
-              <h3 className="mt-4 font-display text-xl font-bold">{f.title}</h3>
-              <p className="mt-2 text-muted">{f.body}</p>
-            </div>
-          ))}
+        <figure className="mx-auto max-w-2xl text-center">
+          <Ornament className="justify-center" />
+          <blockquote className="mt-6 font-display text-3xl italic leading-snug sm:text-4xl">
+            &ldquo;I declare after all there is no enjoyment like reading!&rdquo;
+          </blockquote>
+          <figcaption className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+            Jane Austen, <span className="normal-case italic tracking-normal">Pride and Prejudice</span>
+          </figcaption>
+        </figure>
+
+        <section id="join" className="flex flex-col gap-8">
+          <SectionHeading numeral="III">A few things you&rsquo;ll love</SectionHeading>
+          <FeatureBento />
         </section>
       </main>
+
+      <footer className="border-t border-border">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-1">
+            <span className="font-display text-2xl text-text">
+              Booksyde<span className="text-highlight">.</span>
+            </span>
+            <span className="italic">Set in Instrument Serif &amp; Plus Jakarta Sans. Made for readers.</span>
+          </div>
+          <ThemePicker />
+        </div>
+      </footer>
     </div>
   );
 }

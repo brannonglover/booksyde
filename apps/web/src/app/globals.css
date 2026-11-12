@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* `dark:` follows the device unless the reader picked a theme (<html data-theme>). */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where([data-theme="dark"] *) {
+    @slot;
+  }
+}
+
 /* Colour tokens come from @booksyde/theme and are injected in layout.tsx as
    --bk-* custom properties; these map them onto Tailwind utilities. */
 @theme inline {
@@ -14,17 +26,54 @@
   --color-accent: var(--bk-accent);
   --color-highlight: var(--bk-highlight);
   --color-success: var(--bk-success);
-  --color-grape: var(--bk-grape);
-  --color-coral: var(--bk-coral);
-  --color-sunshine: var(--bk-sunshine);
-  --color-mint: var(--bk-mint);
-  --color-sky: var(--bk-sky);
-  --color-bubblegum: var(--bk-bubblegum);
-  --font-display: var(--font-bricolage);
+  /* Fixed palette colours (same in light and dark). */
+  --color-vellum: var(--bk-vellum);
+  --color-paper: var(--bk-paper);
+  --color-ink: var(--bk-ink);
+  --color-green: var(--bk-green);
+  --color-oxblood: var(--bk-oxblood);
+  --color-gilt: var(--bk-gilt);
+  --color-cream: var(--bk-cream);
+  --font-display: var(--font-instrument);
   --font-sans: var(--font-jakarta);
 }
 
 body {
   background: var(--bk-background);
   color: var(--bk-text);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--bk-highlight) 35%, transparent);
+}
+
+/* A faint vellum texture over everything, so the page feels like paper. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.3 0 0 0 0 0.25 0 0 0 0 0.18 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body::after {
+    opacity: 0.04;
+    mix-blend-mode: screen;
+  }
+}
+:root[data-theme="dark"] body::after {
+  opacity: 0.04;
+  mix-blend-mode: screen;
+}
+
+/* Switching light/dark crossfades the page like a lamp turning up or down
+   (document.startViewTransition in lib/theme.ts). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }

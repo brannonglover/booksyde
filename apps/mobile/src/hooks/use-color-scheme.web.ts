@@ -1,11 +1,15 @@
 import { useSyncExternalStore } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 
+import { useThemePreference } from '@/lib/appearance';
+
 const noopSubscribe = () => () => {};
 
 /**
- * To support static rendering, this value needs to be re-calculated on the client side for web.
- * useSyncExternalStore returns the server snapshot (false) during SSR and hydration, then true.
+ * The scheme to render with: the reader's choice, or the browser's setting
+ * when they chose "system". To support static rendering this is 'light'
+ * during SSR and hydration (useSyncExternalStore's server snapshot), then the
+ * real value.
  */
 export function useColorScheme() {
   const hasHydrated = useSyncExternalStore(
@@ -13,7 +17,8 @@ export function useColorScheme() {
     () => true,
     () => false,
   );
-  const colorScheme = useRNColorScheme();
-
-  return hasHydrated ? colorScheme : 'light';
+  const system = useRNColorScheme();
+  const preference = useThemePreference();
+  if (!hasHydrated) return 'light';
+  return preference === 'system' ? system : preference;
 }

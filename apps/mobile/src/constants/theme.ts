@@ -17,6 +17,7 @@ export const Colors = {
     backgroundSelected: brand.light.surfaceRaised,
     textSecondary: brand.light.textMuted,
     primary: brand.light.primary,
+    primaryText: brand.light.primaryText,
     accent: brand.light.accent,
     highlight: brand.light.highlight,
     border: brand.light.border,
@@ -28,6 +29,7 @@ export const Colors = {
     backgroundSelected: brand.dark.surfaceRaised,
     textSecondary: brand.dark.textMuted,
     primary: brand.dark.primary,
+    primaryText: brand.dark.primaryText,
     accent: brand.dark.accent,
     highlight: brand.dark.highlight,
     border: brand.dark.border,
@@ -60,6 +62,12 @@ export const Fonts = Platform.select({
     mono: 'var(--font-mono)',
   },
 });
+
+/** Display serif (loaded in app/_layout.tsx) for headings and the wordmark. */
+export const DisplayFonts = {
+  regular: 'InstrumentSerif_400Regular',
+  italic: 'InstrumentSerif_400Regular_Italic',
+} as const;
 
 export const Spacing = {
   half: 2,
