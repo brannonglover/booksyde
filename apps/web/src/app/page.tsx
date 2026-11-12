@@ -49,7 +49,7 @@ export default function Home() {
               read like you do.
             </p>
             <form
-              action="#discover"
+              action="/search"
               className="mt-8 flex max-w-lg items-center gap-2 rounded-full border border-text/20 bg-surface-raised p-1.5 pl-5 shadow-[0_10px_30px_-18px_rgba(31,27,22,0.5)] focus-within:border-text/40"
             >
               <svg aria-hidden viewBox="0 0 24 24" className="size-5 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -68,17 +68,17 @@ export default function Home() {
             </form>
             <p className="mt-4 text-sm text-muted">
               Try{" "}
-              <a href="#discover" className="underline decoration-border underline-offset-4 hover:text-text">
+              <Link href="/search?q=Jane+Austen" className="underline decoration-border underline-offset-4 hover:text-text">
                 Jane Austen
-              </a>
+              </Link>
               ,{" "}
-              <a href="#discover" className="underline decoration-border underline-offset-4 hover:text-text">
+              <Link href="/search?tags=gothic" className="underline decoration-border underline-offset-4 hover:text-text">
                 gothic
-              </a>{" "}
+              </Link>{" "}
               or{" "}
-              <a href="#discover" className="underline decoration-border underline-offset-4 hover:text-text">
+              <Link href="/search?tags=mysterious" className="underline decoration-border underline-offset-4 hover:text-text">
                 rainy-day mysteries
-              </a>
+              </Link>
             </p>
           </div>
 

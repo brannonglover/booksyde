@@ -202,7 +202,9 @@ async function BookDetail({ params }: { params: Params }) {
                   <ul className="mt-6 space-y-4">
                     {vibe.moods.map((m) => (
                       <li key={m.slug} className="grid grid-cols-[6.5rem_1fr] items-center gap-4">
-                        <span className="font-medium">{m.name}</span>
+                        <Link href={`/search?tags=${m.slug}`} className="font-medium hover:text-accent">
+                          {m.name}
+                        </Link>
                         <span className="h-3 overflow-hidden rounded-full bg-border/60">
                           <span
                             className="block h-full rounded-full"
@@ -249,8 +251,9 @@ async function BookDetail({ params }: { params: Params }) {
                     <h3 className="font-display text-3xl">You&rsquo;ll find</h3>
                     <div className="mt-5 flex flex-wrap gap-3">
                       {vibe.tropes.map((t, i) => (
-                        <span
+                        <Link
                           key={t.slug}
+                          href={`/search?tags=${t.slug}`}
                           className={`rounded-full px-4 py-2 font-semibold shadow-[0_3px_0_rgba(31,27,22,0.15)] transition hover:rotate-0 ${
                             [
                               "-rotate-2 bg-oxblood text-paper",
@@ -261,7 +264,7 @@ async function BookDetail({ params }: { params: Params }) {
                           }`}
                         >
                           {t.name}
-                        </span>
+                        </Link>
                       ))}
                     </div>
                   </div>

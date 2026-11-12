@@ -629,6 +629,37 @@ isOneToOne: false
 "profile_stats":
 { Args: { "p_user_id": string }; Returns: Json
                            },
+"search_authors":
+{ Args: { "max_results"?: number,"q": string }; Returns: {
+              "birth_date": string,"death_date": string,"id": string,"name": string,"works": number
+            }[]
+                           },
+"search_catalog":
+{ Args: { "max_results"?: number,"q"?: string,"tag_slugs"?: (string)[] }; Returns: {
+              "avg_rating": number,
+"cover_color": string | null,
+"cover_url": string | null,
+"created_at": string,
+"description": string | null,
+"embedding": string | null,
+"first_published_year": number | null,
+"id": string,
+"open_library_id": string | null,
+"original_language": string | null,
+"ratings_count": number,
+"reviews_count": number,
+"search": unknown,
+"shelved_count": number,
+"subtitle": string | null,
+"title": string,
+"updated_at": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "works"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "search_works":
 { Args: { "max_results"?: number,"q": string }; Returns: {
               "avg_rating": number,
@@ -681,6 +712,11 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"tag_drawer_counts":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "kind": Database["public"]['Enums']["tag_kind"],"name": string,"slug": string,"works": number
+            }[]
+                           },
 "work_rating_distribution":
 { Args: { "p_work_id": string }; Returns: {
               "ratings": number,"stars": number

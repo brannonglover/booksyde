@@ -1,7 +1,8 @@
 import { formatRating } from '@booksyde/shared';
 import { genreColor, palette, radii, spacing } from '@booksyde/theme';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -34,7 +35,7 @@ const moods = [
   ['mystery', 'Mystery'],
   ['thriller', 'Thriller'],
   ['science-fiction', 'Sci-fi'],
-  ['horror', 'Gothic'],
+  ['gothic', 'Gothic'],
   ['literary-fiction', 'Literary'],
   ['poetry', 'Poetry'],
 ] as const;
@@ -73,6 +74,9 @@ export default function HomeScreen() {
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { profile } = useSession();
+  const router = useRouter();
+  const [query, setQuery] = useState('');
+  const search = () => router.navigate({ pathname: '/search', params: query.trim() ? { q: query.trim() } : {} });
   return (
     <ThemedView style={styles.container}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
@@ -118,11 +122,16 @@ export default function HomeScreen() {
             </ThemedText>
             <View style={[styles.search, { backgroundColor: theme.backgroundSelected, borderColor: theme.border }]}>
               <TextInput
+                value={query}
+                onChangeText={setQuery}
+                onSubmitEditing={search}
+                returnKeyType="search"
+                autoCapitalize="none"
                 placeholder="Search titles, authors, ISBNs…"
                 placeholderTextColor={theme.textSecondary}
                 style={[styles.searchInput, { color: theme.text }]}
               />
-              <Pressable style={[styles.searchButton, { backgroundColor: theme.primary }]}>
+              <Pressable onPress={search} style={[styles.searchButton, { backgroundColor: theme.primary }]}>
                 <Text style={[styles.buttonLabel, { color: theme.primaryText }]}>Search</Text>
               </Pressable>
             </View>
@@ -148,13 +157,14 @@ export default function HomeScreen() {
           <SectionHeading numeral="I">What are you in the mood for?</SectionHeading>
           <View style={styles.chips}>
             {moods.map(([slug, label]) => (
-              <View
-                key={slug}
-                style={[styles.chip, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}
-              >
-                <View style={[styles.chipDot, { backgroundColor: genreColor(slug).dot }]} />
-                <Text style={[styles.chipLabel, { color: theme.text }]}>{label}</Text>
-              </View>
+              <Link key={slug} href={{ pathname: '/search', params: { tags: slug } }} asChild>
+                <Pressable
+                  style={StyleSheet.flatten([styles.chip, { backgroundColor: theme.backgroundElement, borderColor: theme.border }])}
+                >
+                  <View style={[styles.chipDot, { backgroundColor: genreColor(slug).dot }]} />
+                  <Text style={[styles.chipLabel, { color: theme.text }]}>{label}</Text>
+                </Pressable>
+              </Link>
             ))}
           </View>
 

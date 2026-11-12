@@ -10,3 +10,4 @@ export * from "./utils/vibe";
 export * from "./queries/auth";
 export * from "./schemas/auth";
 export * from "./queries/profile";
+export * from "./queries/search";

@@ -7,6 +7,10 @@ import {
   getShelfCounts,
   getWork,
   getWorkReviews,
+  getTagDrawers,
+  searchAuthors,
+  searchCatalog,
+  searchReaders,
 } from "@booksyde/shared";
 import { cacheLife, cacheTag } from "next/cache";
 import { supabaseKey, supabaseUrl } from "./supabase/env";
@@ -51,4 +55,43 @@ export async function getSimilarBooks(id: string) {
   cacheLife("hours");
   cacheTag(`work:${id}`);
   return getMoreLikeThis(publicClient(), id, 6);
+}
+
+const TAG = /^[a-z0-9-]{1,40}$/;
+
+/** Read `?q=…&tags=a,b` into a clean query (at most 5 well-formed tag slugs). */
+export function parseSearch(params: Record<string, string | string[] | undefined>) {
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const q = first(params.q).trim().slice(0, 120);
+  const tags = [
+    ...new Set(
+      first(params.tags)
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter((t) => TAG.test(t)),
+    ),
+  ].slice(0, 5);
+  return { q, tags };
+}
+
+/** Books, authors and readers for a catalogue search. */
+export async function searchEverything(q: string, tags: string[]) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("catalog-search");
+  const client = publicClient();
+  const [books, authors, readers] = await Promise.all([
+    searchCatalog(client, { q, tags, limit: 40 }),
+    q ? searchAuthors(client, q) : [],
+    q ? searchReaders(client, q) : [],
+  ]);
+  return { books, authors, readers };
+}
+
+/** The subject drawers (moods, genres, tropes…) and how full each one is. */
+export async function getDrawers() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("catalog-drawers");
+  return getTagDrawers(publicClient());
 }

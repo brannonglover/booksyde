@@ -15,10 +15,10 @@ async function AccountArea() {
   if (profile) return <AccountMenu profile={profile} />;
   return (
     <>
-      <Link className="rounded-full px-3 py-2 hover:bg-surface sm:px-4" href="/sign-in">
+      <Link className="whitespace-nowrap rounded-full px-2.5 py-2 hover:bg-surface sm:px-4" href="/sign-in">
         Sign in
       </Link>
-      <Link className="rounded-full bg-primary px-4 py-2 text-primary-text hover:opacity-90" href="/sign-up">
+      <Link className="whitespace-nowrap rounded-full bg-primary px-3.5 py-2 text-primary-text hover:opacity-90 sm:px-4" href="/sign-up">
         Join free
       </Link>
     </>
@@ -29,15 +29,26 @@ export function SiteHeader() {
   return (
     <header className="border-b border-border">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="font-display text-3xl leading-none">
+        <Link href="/" className="font-display text-[1.7rem] leading-none sm:text-3xl">
           Booksyde<span className="text-highlight">.</span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm font-semibold sm:gap-2">
+        <nav className="flex items-center gap-0.5 text-sm font-semibold sm:gap-2">
           <Link className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="/#discover">
             Discover
           </Link>
           <Link className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="/#join">
             Clubs
+          </Link>
+          <Link
+            href="/search"
+            aria-label="Search the catalogue"
+            title="Search the catalogue"
+            className="grid size-9 place-items-center rounded-full text-muted hover:bg-surface hover:text-text"
+          >
+            <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+            </svg>
           </Link>
           <ThemeToggleButton />
           <Suspense fallback={<span aria-hidden className="ml-1 h-9 w-24 animate-pulse rounded-full bg-border/50" />}>
