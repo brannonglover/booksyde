@@ -106,7 +106,7 @@ async function BookDetail({ params }: { params: Params }) {
     <main className="flex flex-1 flex-col">
       {/* Title page */}
       <section
-        className="relative overflow-hidden border-b border-border"
+        className="relative overflow-x-clip border-b border-border"
         style={{
           background: `radial-gradient(60% 55% at 50% 22%, color-mix(in oklab, ${tint} 22%, transparent), transparent 70%), linear-gradient(to bottom, color-mix(in oklab, ${tint} 9%, var(--bk-background)), var(--bk-background))`,
         }}
