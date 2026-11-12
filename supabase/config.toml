@@ -453,7 +453,7 @@ enabled = true
 project_id = "xlfmttohfxtcjywgjwyi"
 
 [remotes.production.auth]
-site_url = "http://www.booksyde.co/?from=app"
+site_url = "https://www.booksyde.co/auth/callback?flow=signup&next=/"
 additional_redirect_urls = ["http://www.booksyde.co/?from=app", "https://www.booksyde.co/**"]
 minimum_password_length = 6
 
