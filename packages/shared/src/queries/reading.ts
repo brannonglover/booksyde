@@ -65,11 +65,40 @@ export async function upsertReview(client: BooksydeClient, input: ReviewInput) {
 export async function getWorkReviews(client: BooksydeClient, workId: string, limit = 20) {
   const { data, error } = await client
     .from("reviews")
-    .select("*, profiles ( username, display_name, avatar_url, theme_color )")
+    .select("*, profiles!reviews_user_id_fkey ( username, display_name, avatar_url, theme_color )")
     .eq("work_id", workId)
     .not("body", "is", null)
     .order("likes_count", { ascending: false })
     .limit(limit);
   if (error) throw error;
   return data ?? [];
+}
+
+/** How many (visible) readers are reading a work now, and how many want to. */
+export async function getShelfCounts(client: BooksydeClient, workId: string) {
+  const count = async (status: ReadingStatus) => {
+    const { count, error } = await client
+      .from("user_books")
+      .select("*", { count: "exact", head: true })
+      .eq("work_id", workId)
+      .eq("status", status);
+    if (error) throw error;
+    return count ?? 0;
+  };
+  const [reading, wantToRead] = await Promise.all([count("reading"), count("want_to_read")]);
+  return { reading, wantToRead };
+}
+
+/** The signed-in reader's shelf status for a work, or null (also when signed out). */
+export async function getMyReadingStatus(client: BooksydeClient, workId: string): Promise<ReadingStatus | null> {
+  const { data: auth } = await client.auth.getUser();
+  if (!auth.user) return null;
+  const { data, error } = await client
+    .from("user_books")
+    .select("status")
+    .eq("user_id", auth.user.id)
+    .eq("work_id", workId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.status ?? null;
 }

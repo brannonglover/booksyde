@@ -1,11 +1,13 @@
-import { formatRating, starParts } from '@booksyde/shared';
-import { coverUrl, genreColor, palette, radii, spacing } from '@booksyde/theme';
-import { Image } from 'expo-image';
+import { formatRating } from '@booksyde/shared';
+import { genreColor, palette, radii, spacing } from '@booksyde/theme';
+import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppearancePicker, ThemeToggleButton } from '@/components/appearance-picker';
+import { BookCover } from '@/components/book-cover';
+import { Stars } from '@/components/stars';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
@@ -17,11 +19,11 @@ const WebTabBarHeight = 72;
 
 // Placeholder shelf until the catalog is wired up. Cover ids are Open Library's.
 const nightstand = [
-  { title: 'Pride and Prejudice', author: 'Jane Austen', coverId: 14348537, rating: 4.5 },
-  { title: 'Wuthering Heights', author: 'Emily Brontë', coverId: 12818862, rating: 4 },
-  { title: 'Jane Eyre', author: 'Charlotte Brontë', coverId: 8235363, rating: 4.5 },
-  { title: 'Frankenstein', author: 'Mary Shelley', coverId: 12356249, rating: 4 },
-  { title: 'Moby-Dick', author: 'Herman Melville', coverId: 10544254, rating: 3.5 },
+  { id: '00000000-0000-4000-b000-000000000001', title: 'Pride and Prejudice', author: 'Jane Austen', coverId: 14348537, rating: 4.5 },
+  { id: '00000000-0000-4000-b000-000000000007', title: 'Wuthering Heights', author: 'Emily Brontë', coverId: 12818862, rating: 4 },
+  { id: '00000000-0000-4000-b000-000000000006', title: 'Jane Eyre', author: 'Charlotte Brontë', coverId: 8235363, rating: 4.5 },
+  { id: '00000000-0000-4000-b000-000000000002', title: 'Frankenstein', author: 'Mary Shelley', coverId: 12356249, rating: 4 },
+  { id: '00000000-0000-4000-b000-000000000003', title: 'Moby-Dick', author: 'Herman Melville', coverId: 10544254, rating: 3.5 },
 ];
 
 const moods = [
@@ -40,43 +42,6 @@ const features = [
   { numeral: 'ii', title: 'Half-stars, finally', body: 'Because some books are a 3.5, and that’s all right.' },
   { numeral: 'iii', title: 'Buddy reads', body: 'Read alongside friends, with no spoilers past your page.' },
 ];
-
-function Stars({ rating }: { rating: number }) {
-  const theme = useTheme();
-  const { full, half, empty } = starParts(rating);
-  const star = (key: string, fill: 'full' | 'half' | 'empty') => (
-    <View key={key} style={styles.star}>
-      <Text style={[styles.starGlyph, { color: theme.highlight, opacity: fill === 'full' ? 1 : 0.25 }]}>★</Text>
-      {fill === 'half' ? (
-        <View style={styles.starHalf}>
-          <Text style={[styles.starGlyph, { color: theme.highlight }]}>★</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-  return (
-    <View style={styles.stars} accessibilityLabel={`${rating} out of 5 stars`}>
-      {Array.from({ length: full }, (_, i) => star(`f${i}`, 'full'))}
-      {half ? star('h', 'half') : null}
-      {Array.from({ length: empty }, (_, i) => star(`e${i}`, 'empty'))}
-    </View>
-  );
-}
-
-/** A book cover in a clean frame: real cover art from Open Library. */
-function BookCover({ title, author, coverId, width }: { title: string; author: string; coverId: number; width: number }) {
-  return (
-    <View style={[styles.coverFrame, { width }]}>
-      <Image
-        source={coverUrl(coverId, 'M')}
-        style={styles.coverImage}
-        contentFit="cover"
-        transition={200}
-        accessibilityLabel={`Cover of ${title} by ${author}`}
-      />
-    </View>
-  );
-}
 
 function Ornament({ center = false }: { center?: boolean }) {
   const theme = useTheme();
@@ -185,7 +150,8 @@ export default function HomeScreen() {
             style={styles.shelfScroll}
           >
             {nightstand.map((book) => (
-              <View key={book.title} style={styles.book}>
+              <Link key={book.title} href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
+              <Pressable style={styles.book}>
                 <BookCover title={book.title} author={book.author} coverId={book.coverId} width={128} />
                 <Text style={[styles.bookTitle, { color: theme.text }]} numberOfLines={1}>
                   {book.title}
@@ -199,7 +165,8 @@ export default function HomeScreen() {
                     {formatRating(book.rating)}
                   </ThemedText>
                 </View>
-              </View>
+              </Pressable>
+              </Link>
             ))}
           </ScrollView>
 
@@ -340,22 +307,7 @@ const styles = StyleSheet.create({
   shelf: { gap: spacing[4], paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
   book: { width: 128, gap: 2 },
   bookTitle: { fontFamily: DisplayFonts.regular, fontSize: 19, lineHeight: 22, marginTop: spacing[3] },
-  coverFrame: {
-    aspectRatio: 2 / 3,
-    borderRadius: 3,
-    backgroundColor: '#E4DACA',
-    shadowColor: '#1F1B16',
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 5,
-  },
-  coverImage: { flex: 1, borderRadius: 3 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
-  stars: { flexDirection: 'row' },
-  star: { width: 14, height: 18 },
-  starGlyph: { fontSize: 14, lineHeight: 18 },
-  starHalf: { position: 'absolute', top: 0, left: 0, width: 7, height: 18, overflow: 'hidden' },
   quote: { gap: spacing[4], paddingVertical: spacing[4] },
   quoteText: { fontFamily: DisplayFonts.italic, fontSize: 30, lineHeight: 36, textAlign: 'center' },
   features: { borderWidth: 1, borderRadius: radii.md, overflow: 'hidden', gap: 1 },

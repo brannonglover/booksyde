@@ -77,3 +77,40 @@ body::after {
   animation-duration: 500ms;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Reviews on book pages look like ruled library index cards. The ruling sits
+   on the text block (.ruled, 28px line height) so each line rests on a rule. */
+.index-card {
+  background-color: #fffdf6;
+  color: var(--bk-ink);
+  --bk-text-muted: #6f655a;
+  --rule: rgba(47, 74, 102, 0.18);
+}
+.index-card .ruled {
+  line-height: 28px;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 24px, var(--rule) 24px 25px, transparent 25px 28px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .index-card {
+    background-color: var(--bk-surface-raised);
+    color: var(--bk-text);
+    --bk-text-muted: #bdaf9c;
+    --rule: rgba(238, 229, 212, 0.1);
+  }
+}
+:root[data-theme="dark"] .index-card {
+  background-color: var(--bk-surface-raised);
+  color: var(--bk-text);
+  --bk-text-muted: #bdaf9c;
+  --rule: rgba(238, 229, 212, 0.1);
+}
+
+/* Ticket stub: semicircle notches punched out of both sides. */
+.ticket {
+  -webkit-mask:
+    radial-gradient(circle 9px at 0 62%, transparent 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 9px at 100% 62%, transparent 98%, #000) right / 51% 100% no-repeat;
+  mask:
+    radial-gradient(circle 9px at 0 62%, transparent 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 9px at 100% 62%, transparent 98%, #000) right / 51% 100% no-repeat;
+}

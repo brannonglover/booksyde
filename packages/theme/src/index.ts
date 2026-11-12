@@ -74,8 +74,8 @@ export const colors: { light: SchemeColors; dark: SchemeColors } = {
 };
 
 /**
- * Each genre gets an antique ink colour, used as a dot or rule beside the
- * genre name. `bg`/`fg` are light tints for filled tags.
+ * Each genre and mood gets its own ink colour, used as a dot, rule or bar
+ * beside its name. `bg`/`fg` are light tints for filled tags.
  */
 export const genreColors = {
   fantasy: { dot: "#5B3A5E", bg: "#ECE2EC", fg: "#4A2E4D" },
@@ -90,6 +90,18 @@ export const genreColors = {
   biography: { dot: "#7D7A3E", bg: "#E9E8D6", fg: "#5A5829" },
   "young-adult": { dot: "#C27A55", bg: "#F5E4DA", fg: "#8A4E30" },
   poetry: { dot: "#2D4A3E", bg: "#DCE5DE", fg: "#2D4A3E" },
+  classics: { dot: "#7A5534", bg: "#EEE3D6", fg: "#5E4026" },
+  gothic: { dot: "#4A2E4D", bg: "#E5DEE1", fg: "#3D2A33" },
+  // Moods: warm, readable on both the light and the dark background.
+  cozy: { dot: "#C9874E", bg: "#F5E4DA", fg: "#8A4E30" },
+  funny: { dot: "#D9A93F", bg: "#F6EBCF", fg: "#7A5A20" },
+  dark: { dot: "#7B5A86", bg: "#E8E0EC", fg: "#4A2E4D" },
+  tense: { dot: "#B5523F", bg: "#F1DDD6", fg: "#6E2B1F" },
+  emotional: { dot: "#C46B78", bg: "#F4E0E3", fg: "#86393D" },
+  hopeful: { dot: "#7FA06C", bg: "#E3EADD", fg: "#4A6040" },
+  adventurous: { dot: "#4F7FA8", bg: "#DFE6EE", fg: "#243A52" },
+  reflective: { dot: "#8A86B0", bg: "#E6E5EF", fg: "#4B4870" },
+  mysterious: { dot: "#5E7C82", bg: "#DFE8E9", fg: "#33494D" },
   default: { dot: "#8A7F72", bg: "#ECE6DC", fg: "#5C534A" },
 } as const;
 

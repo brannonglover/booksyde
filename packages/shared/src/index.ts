@@ -6,3 +6,4 @@ export * from "./schemas/review";
 export * from "./schemas/profile";
 export * from "./utils/isbn";
 export * from "./utils/format";
+export * from "./utils/vibe";

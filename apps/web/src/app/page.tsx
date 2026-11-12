@@ -1,17 +1,18 @@
 import { formatRating } from "@booksyde/shared";
+import Link from "next/link";
 import { genreColor } from "@booksyde/theme";
 import { BookCover } from "@/components/book-cover";
 import { FeatureBento } from "@/components/feature-bento";
 import { Stars } from "@/components/stars";
-import { ThemePicker, ThemeToggleButton } from "@/components/theme-toggle";
+import { Ornament, SectionHeading, SiteFooter, SiteHeader } from "@/components/site-chrome";
 
-// Placeholder shelf until the catalog is wired up. Cover ids are Open Library's.
+// Placeholder shelf until the catalog is wired up. Ids match supabase/seed.sql; cover ids are Open Library's.
 const nightstand = [
-  { title: "Pride and Prejudice", author: "Jane Austen", coverId: 14348537, rating: 4.5 },
-  { title: "Wuthering Heights", author: "Emily Brontë", coverId: 12818862, rating: 4 },
-  { title: "Jane Eyre", author: "Charlotte Brontë", coverId: 8235363, rating: 4.5 },
-  { title: "Frankenstein", author: "Mary Shelley", coverId: 12356249, rating: 4 },
-  { title: "Moby-Dick", author: "Herman Melville", coverId: 10544254, rating: 3.5 },
+  { id: "00000000-0000-4000-b000-000000000001", title: "Pride and Prejudice", author: "Jane Austen", coverId: 14348537, rating: 4.5 },
+  { id: "00000000-0000-4000-b000-000000000007", title: "Wuthering Heights", author: "Emily Brontë", coverId: 12818862, rating: 4 },
+  { id: "00000000-0000-4000-b000-000000000006", title: "Jane Eyre", author: "Charlotte Brontë", coverId: 8235363, rating: 4.5 },
+  { id: "00000000-0000-4000-b000-000000000002", title: "Frankenstein", author: "Mary Shelley", coverId: 12356249, rating: 4 },
+  { id: "00000000-0000-4000-b000-000000000003", title: "Moby-Dick", author: "Herman Melville", coverId: 10544254, rating: 3.5 },
 ];
 
 const moods = [
@@ -27,53 +28,10 @@ const moods = [
   ["poetry", "Poetry"],
 ] as const;
 
-function Ornament({ className = "" }: { className?: string }) {
-  return (
-    <div aria-hidden className={`flex items-center gap-3 text-highlight ${className}`}>
-      <span className="h-px w-10 bg-current opacity-60" />
-      <span className="text-lg leading-none">❦</span>
-      <span className="h-px w-10 bg-current opacity-60" />
-    </div>
-  );
-}
-
-function SectionHeading({ numeral, children, aside }: { numeral: string; children: React.ReactNode; aside?: React.ReactNode }) {
-  return (
-    <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
-      <h2 className="font-display text-4xl leading-none sm:text-5xl">
-        <span className="mr-3 text-2xl italic text-highlight sm:text-3xl">{numeral}.</span>
-        {children}
-      </h2>
-      {aside}
-    </div>
-  );
-}
-
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <span className="font-display text-3xl leading-none">
-            Booksyde<span className="text-highlight">.</span>
-          </span>
-          <nav className="flex items-center gap-1 text-sm font-semibold sm:gap-2">
-            <a className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="#discover">
-              Discover
-            </a>
-            <a className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="#join">
-              Clubs
-            </a>
-            <ThemeToggleButton />
-            <a className="rounded-full px-3 py-2 hover:bg-surface sm:px-4" href="#join">
-              Sign in
-            </a>
-            <a className="rounded-full bg-primary px-4 py-2 text-primary-text hover:opacity-90" href="#join">
-              Join free
-            </a>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-24 px-4 pb-24 sm:px-6">
         {/* Hero */}
@@ -181,7 +139,7 @@ export default function Home() {
           </SectionHeading>
           <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
             {nightstand.map((book) => (
-              <article key={book.title} className="group flex flex-col gap-4">
+              <Link key={book.title} href={`/books/${book.id}`} className="group flex flex-col gap-4">
                 <BookCover
                   title={book.title}
                   author={book.author}
@@ -195,7 +153,7 @@ export default function Home() {
                     <Stars rating={book.rating} /> <span className="text-muted">{formatRating(book.rating)}</span>
                   </p>
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         </section>
@@ -216,17 +174,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div className="flex flex-col gap-1">
-            <span className="font-display text-2xl text-text">
-              Booksyde<span className="text-highlight">.</span>
-            </span>
-            <span className="italic">Set in Instrument Serif &amp; Plus Jakarta Sans. Made for readers.</span>
-          </div>
-          <ThemePicker />
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
