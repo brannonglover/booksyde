@@ -1,27 +1,25 @@
-import { genreColors } from "@booksyde/theme";
+import { getYearInBooks, type YearInBooks } from "@booksyde/shared";
+import { genreColor } from "@booksyde/theme";
+import Link from "next/link";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
 
 /*
- * Placeholder "what you get" section: four colourful tiles, each with a tiny
- * illustration of the feature. Likely temporary until real product shots exist.
+ * "What you get" section: four colourful tiles, each with a tiny illustration
+ * of the feature. The mood stickers open the catalogue on that mood, and the
+ * year tile shows the reader's real year (or everyone's, when signed out).
  */
 
 const moods = [
-  { label: "☕ Cozy", rotate: "-rotate-3", tone: "bg-paper text-ink" },
-  { label: "🌧️ Rainy day", rotate: "rotate-2", tone: "bg-gilt text-ink" },
-  { label: "🕯️ Dark academia", rotate: "-rotate-1", tone: "bg-ink text-paper" },
-  { label: "✨ Hopeful", rotate: "rotate-3", tone: "bg-[#F4E0DF] text-ink" },
-  { label: "🔪 Can’t sleep", rotate: "-rotate-2", tone: "bg-oxblood text-paper" },
-  { label: "💌 Swoony", rotate: "rotate-1", tone: "bg-paper text-ink" },
+  { label: "☕ Cozy", tags: "cozy", rotate: "-rotate-3", tone: "bg-paper text-ink" },
+  { label: "🌧️ Rainy day", tags: "mysterious", rotate: "rotate-2", tone: "bg-gilt text-ink" },
+  { label: "🕯️ Dark academia", tags: "dark", rotate: "-rotate-1", tone: "bg-ink text-paper" },
+  { label: "✨ Hopeful", tags: "hopeful", rotate: "rotate-3", tone: "bg-[#F4E0DF] text-ink" },
+  { label: "🔪 Can’t sleep", tags: "tense", rotate: "-rotate-2", tone: "bg-oxblood text-paper" },
+  { label: "💌 Swoony", tags: "romance", rotate: "rotate-1", tone: "bg-paper text-ink" },
 ];
-
-// A year of reading as a shelf of spines (fixed so server and client render the same).
-const spineColors = Object.values(genreColors).map((g) => g.dot);
-const spines = Array.from({ length: 47 }, (_, i) => ({
-  color: spineColors[(i * 7) % spineColors.length],
-  height: 54 + ((i * 37) % 44),
-  width: 12 + ((i * 5) % 9),
-  band: i % 3 === 0,
-}));
 
 function Tile({ className = "", children }: { className?: string; children: React.ReactNode }) {
   return (
@@ -54,12 +52,13 @@ export function FeatureBento() {
         />
         <div className="mt-auto flex flex-wrap gap-3 pt-8">
           {moods.map((m) => (
-            <span
+            <Link
               key={m.label}
-              className={`rounded-full px-4 py-2 font-semibold shadow-[0_4px_0_rgba(0,0,0,0.18)] transition duration-300 hover:rotate-0 hover:scale-110 ${m.rotate} ${m.tone}`}
+              href={`/search?tags=${m.tags}`}
+              className={`rounded-full px-4 py-2 font-semibold shadow-[0_4px_0_rgba(0,0,0,0.18)] transition duration-300 hover:rotate-0 hover:scale-110 focus-visible:rotate-0 focus-visible:scale-110 ${m.rotate} ${m.tone}`}
             >
               {m.label}
-            </span>
+            </Link>
           ))}
         </div>
       </Tile>
@@ -115,43 +114,105 @@ export function FeatureBento() {
         </div>
       </Tile>
 
-      {/* Year in books: your year as a shelf of spines */}
+      {/* Year in books: the year as a shelf of spines */}
       <Tile className="bg-surface ring-1 ring-border lg:col-span-4">
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <TileText
-            title="Your year in books"
-            body="Every book you finished, lined up on one shelf. A keepsake made for sharing."
-            muted="text-muted"
-          />
-          <dl className="flex gap-6 text-right">
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Books</dt>
-              <dd className="font-display text-4xl leading-none">47</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Pages</dt>
-              <dd className="font-display text-4xl leading-none">12,840</dd>
-            </div>
-          </dl>
-        </div>
-        <div aria-hidden className="mt-8">
-          <div className="flex h-28 items-end gap-[3px] px-2">
-            {spines.map((s, i) => (
-              <span
-                key={i}
-                className={`relative min-w-0 rounded-t-[2px] transition-transform duration-300 hover:-translate-y-3 ${
-                  i >= 32 ? "hidden lg:block" : i >= 20 ? "hidden sm:block" : ""
-                }`}
-                // Grow in proportion to each spine's width so the row always fills the shelf.
-                style={{ background: s.color, height: s.height, flex: `${s.width} 1 0` }}
-              >
-                {s.band ? <span className="absolute inset-x-0 top-3 h-1 bg-gilt/70" /> : null}
-              </span>
-            ))}
-          </div>
-          <div className="h-2.5 rounded-sm bg-[#8A6A4A] shadow-[0_6px_10px_-4px_rgba(31,27,22,0.5)] dark:bg-[#6E543B]" />
-        </div>
+        <Suspense fallback={<YearSkeleton />}>
+          <YearShelf />
+        </Suspense>
       </Tile>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------ Year in books */
+
+/** Reads the session cookie, so it renders per request behind Suspense. */
+async function YearShelf() {
+  await connection();
+  if (!hasSupabaseEnv) return <YearView year={null} />;
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  const year = await getYearInBooks(supabase, { userId: data.user?.id }).catch(() => null);
+  return <YearView year={year} />;
+}
+
+const numberFormat = new Intl.NumberFormat("en");
+
+// Spines between 100 and 900 pages scale from short and slim to tall and thick.
+function spineSize(pages: number | null) {
+  const t = pages == null ? 0.4 : Math.min(Math.max((pages - 100) / 800, 0), 1);
+  return { height: Math.round(54 + t * 44), width: Math.round(12 + t * 8) };
+}
+
+function YearView({ year }: { year: YearInBooks | null }) {
+  const mine = year?.scope === "mine";
+  const label = year?.year ?? new Date().getUTCFullYear();
+  const empty = !year || year.books === 0;
+  const body = mine
+    ? empty
+      ? `Nothing finished yet in ${label}. Mark a book as read and its spine lands here.`
+      : `Every book you finished in ${label}, lined up on one shelf. A keepsake made for sharing.`
+    : empty
+      ? `Every book our readers finish in ${label} lines up here. Join and add yours.`
+      : `Every book our readers finished in ${label}, lined up on one shelf. Join and add yours.`;
+
+  return (
+    <>
+      <div className="relative flex flex-wrap items-start justify-between gap-4">
+        <TileText title={mine ? "Your year in books" : "Booksyde’s year in books"} body={body} muted="text-muted" />
+        <dl className="flex gap-6 text-right">
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Books</dt>
+            <dd className="font-display text-4xl leading-none">{year ? numberFormat.format(year.books) : "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Pages</dt>
+            <dd className="font-display text-4xl leading-none">{year ? numberFormat.format(year.pages) : "—"}</dd>
+          </div>
+        </dl>
+      </div>
+      <div className="mt-8">
+        <div className="relative flex h-28 items-end gap-[3px] overflow-hidden px-2">
+          {year?.spines.map((s, i) => {
+            const { height, width } = spineSize(s.pages);
+            return (
+              <Link
+                key={`${s.workId}-${i}`}
+                href={`/books/${s.workId}`}
+                title={s.pages ? `${s.title} · ${numberFormat.format(s.pages)} pages` : s.title}
+                aria-label={s.title}
+                className={`relative min-w-0 rounded-t-[2px] transition-transform duration-300 hover:-translate-y-3 focus-visible:-translate-y-3 ${
+                  i >= 32 ? "hidden lg:block" : i >= 20 ? "hidden sm:block" : ""
+                }`}
+                style={{ background: genreColor(s.genre ?? "default").dot, height, flex: `0 1 ${width}px` }}
+              >
+                {i % 3 === 0 ? <span className="absolute inset-x-0 top-3 h-1 bg-gilt/70" /> : null}
+              </Link>
+            );
+          })}
+          {empty ? (
+            <span className="mb-3 ml-2 font-display text-lg italic text-muted">
+              {mine ? "Your shelf is waiting." : "The shelf is waiting."}
+            </span>
+          ) : null}
+        </div>
+        <div className="h-2.5 rounded-sm bg-[#8A6A4A] shadow-[0_6px_10px_-4px_rgba(31,27,22,0.5)] dark:bg-[#6E543B]" />
+      </div>
+    </>
+  );
+}
+
+function YearSkeleton() {
+  return (
+    <>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="h-20 w-72 animate-pulse rounded-lg bg-border/50" />
+        <div className="h-12 w-40 animate-pulse rounded-lg bg-border/50" />
+      </div>
+      <div className="mt-8">
+        <div className="h-28" />
+        <div className="h-2.5 rounded-sm bg-[#8A6A4A] dark:bg-[#6E543B]" />
+      </div>
+    </>
   );
 }

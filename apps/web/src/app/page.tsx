@@ -114,14 +114,14 @@ export default function Home() {
           <SectionHeading numeral="I">What are you in the mood for?</SectionHeading>
           <div className="flex flex-wrap gap-2.5">
             {moods.map(([slug, label]) => (
-              <a
+              <Link
                 key={slug}
-                href="#discover"
+                href={`/search?tags=${slug}`}
                 className="inline-flex items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2 font-medium transition hover:border-text/40 hover:bg-surface-raised"
               >
                 <span aria-hidden className="size-2 rounded-full" style={{ background: genreColor(slug).dot }} />
                 {label}
-              </a>
+              </Link>
             ))}
           </div>
         </section>
@@ -130,9 +130,9 @@ export default function Home() {
           <SectionHeading
             numeral="II"
             aside={
-              <a href="#discover" className="shrink-0 text-sm font-semibold text-accent hover:underline">
+              <Link href="/search" className="shrink-0 text-sm font-semibold text-accent hover:underline">
                 See all →
-              </a>
+              </Link>
             }
           >
             On everyone&rsquo;s nightstand
