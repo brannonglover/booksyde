@@ -48,5 +48,7 @@ export function authErrorMessage(error: { message?: string; code?: string } | nu
   }
   if (code === "otp_expired") return "That link has expired. Ask for a new one.";
   if (code === "signup_disabled") return "New sign-ups are paused right now.";
+  // Supabase couldn't hand the email to our SMTP provider (e.g. "Error sending confirmation email").
+  if (message.startsWith("error sending")) return "We couldn’t send you an email just now. Please try again in a few minutes.";
   return "Something went wrong on our side. Please try again.";
 }

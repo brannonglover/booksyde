@@ -1,0 +1,35 @@
+<!doctype html>
+<!-- Booksyde: invitation. Sent by Supabase Auth (Go template); wired up in supabase/config.toml. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>You’re invited to Booksyde</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#F3ECDF;-webkit-text-size-adjust:100%;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">You’ve been invited to join Booksyde.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F3ECDF;">
+<tr><td align="center" style="padding:40px 16px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+    <tr><td style="padding:0 8px 20px;font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-size:32px;line-height:1;color:#1F1B16;">Booksyde<span style="color:#B8893A;">.</span></td></tr>
+    <tr><td style="background:#FAF6EE;border:1px solid #DCD1BE;border-top:4px solid #2D4A3E;border-radius:8px;padding:40px 32px;font-family:'Plus Jakarta Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#1F1B16;">
+      <p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#8B3A2B;">You’re invited</p>
+      <h1 style="margin:0 0 20px;font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-weight:400;font-size:40px;line-height:1.05;color:#1F1B16;">A seat in the <em style="color:#8B3A2B;">reading room</em>.</h1>
+      <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hello,</p>
+      <p style="margin:0 0 28px;font-size:16px;line-height:1.6;">You’ve been invited to join Booksyde, a home for readers: track what you read, find your next book by mood and trope, and read along with friends. Accept the invitation to set up your account.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-radius:999px;background:#2D4A3E;">
+        <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:600;color:#FAF6EE;text-decoration:none;border-radius:999px;">Accept the invitation</a>
+      </td></tr></table>
+      <p style="margin:28px 0 0;font-size:14px;line-height:1.6;color:#6F655A;">This link works for one hour and only once. If the button doesn’t work, paste this into your browser:<br><a href="{{ .ConfirmationURL }}" style="color:#2F4A66;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+      <hr style="border:0;border-top:1px solid #DCD1BE;margin:32px 0 20px;">
+      <p style="margin:0;font-size:13px;line-height:1.6;color:#6F655A;">Not expecting an invitation? You can ignore this email.</p>
+    </td></tr>
+    <tr><td align="center" style="padding:24px 8px 0;font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-style:italic;font-size:16px;line-height:1.4;color:#6F655A;">Happy reading from all of us at Booksyde.</td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>

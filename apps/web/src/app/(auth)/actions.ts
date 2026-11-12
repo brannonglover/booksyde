@@ -33,6 +33,17 @@ async function siteOrigin() {
   return h.get("origin") ?? `http://${h.get("host") ?? "localhost:3000"}`;
 }
 
+/**
+ * The reader sees a friendly message; the server log keeps what Supabase actually said
+ * (one string, so the dev log file doesn't flatten it). In development the form shows it too.
+ */
+function reportAuthError(action: string, error: { status?: number; code?: string; message: string }) {
+  const detail = `${error.status ?? "?"} ${error.code ?? "no_code"}: ${error.message}`;
+  console.error(`[auth] ${action} failed: ${detail}`);
+  const friendly = authErrorMessage(error);
+  return process.env.NODE_ENV === "development" ? `${friendly} (Supabase: ${detail})` : friendly;
+}
+
 const text = (form: FormData, key: string) => String(form.get(key) ?? "");
 
 export async function signIn(_prev: AuthFormState, form: FormData): Promise<AuthFormState> {
@@ -42,7 +53,7 @@ export async function signIn(_prev: AuthFormState, form: FormData): Promise<Auth
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { error: authErrorMessage(error), values };
+  if (error) return { error: reportAuthError("signIn", error), values };
   redirect(safeNext(form.get("next")));
 }
 
@@ -58,7 +69,7 @@ export async function sendSignInLink(_prev: AuthFormState, form: FormData): Prom
     email: email.data,
     options: { shouldCreateUser: false, emailRedirectTo: `${await siteOrigin()}/auth/callback?next=${encodeURIComponent(next)}` },
   });
-  if (error && /rate limit/i.test(error.message)) return { error: authErrorMessage(error), values };
+  if (error && /rate limit/i.test(error.message)) return { error: reportAuthError("sendSignInLink", error), values };
   // Otherwise reply the same way whether or not the account exists, so this can't be used to probe emails.
   return { sentTo: email.data };
 }
@@ -84,7 +95,7 @@ export async function signUp(_prev: AuthFormState, form: FormData): Promise<Auth
       emailRedirectTo: `${await siteOrigin()}/auth/callback?flow=signup&next=${encodeURIComponent(next)}`,
     },
   });
-  if (error) return { error: authErrorMessage(error), values };
+  if (error) return { error: reportAuthError("signUp", error), values };
   // With email confirmation on, there's no session until they click the link.
   if (!data.session) return { sentTo: parsed.data.email };
   redirect(next);
@@ -99,7 +110,7 @@ export async function requestPasswordReset(_prev: AuthFormState, form: FormData)
   const { error } = await supabase.auth.resetPasswordForEmail(email.data, {
     redirectTo: `${await siteOrigin()}/auth/callback?next=/update-password`,
   });
-  if (error && /rate limit/i.test(error.message)) return { error: authErrorMessage(error), values };
+  if (error && /rate limit/i.test(error.message)) return { error: reportAuthError("requestPasswordReset", error), values };
   return { sentTo: email.data };
 }
 
@@ -112,7 +123,7 @@ export async function updatePassword(_prev: AuthFormState, form: FormData): Prom
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { error: "That reset link has expired. Ask for a new one." };
   const { error } = await supabase.auth.updateUser({ password: password.data });
-  if (error) return { error: authErrorMessage(error) };
+  if (error) return { error: reportAuthError("updatePassword", error) };
   redirect("/");
 }
 
