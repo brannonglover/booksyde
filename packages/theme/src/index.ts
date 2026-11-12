@@ -130,6 +130,18 @@ export const radii = {
   pill: 999,
 } as const;
 
+/** Blend two #RRGGBB colours; amount 0 → a, 1 → b. Handy for gradients that fade into the page. */
+export function mixHex(a: string, b: string, amount: number): string {
+  const parse = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const [ar, ag, ab] = parse(a);
+  const [br, bg, bb] = parse(b);
+  const channel = (x: number, y: number) =>
+    Math.round(x + (y - x) * amount)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(ar, br)}${channel(ag, bg)}${channel(ab, bb)}`;
+}
+
 /**
  * Serialises the colour tokens as CSS custom properties for the web app.
  * Light values go on :root, dark values inside a prefers-color-scheme block.

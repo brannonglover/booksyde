@@ -1,7 +1,9 @@
 import { formatRating, starParts } from '@booksyde/shared';
-import { genreColor, palette, radii, spacing } from '@booksyde/theme';
+import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -28,34 +30,74 @@ const genres = [
 
 function Stars({ rating }: { rating: number }) {
   const { full, half, empty } = starParts(rating);
+  const star = (key: string, fill: 'full' | 'half' | 'empty') => (
+    <View key={key} style={styles.star}>
+      <Text style={[styles.starGlyph, { color: palette.sunshine, opacity: fill === 'full' ? 1 : 0.25 }]}>★</Text>
+      {fill === 'half' ? (
+        <View style={styles.starHalf}>
+          <Text style={[styles.starGlyph, { color: palette.sunshine }]}>★</Text>
+        </View>
+      ) : null}
+    </View>
+  );
   return (
-    <Text style={{ color: palette.sunshine }}>
-      {'★'.repeat(full)}
-      {half ? '⯪' : ''}
-      <Text style={{ opacity: 0.25 }}>{'★'.repeat(empty)}</Text>
-    </Text>
+    <View style={styles.stars} accessibilityLabel={`${rating} out of 5 stars`}>
+      {Array.from({ length: full }, (_, i) => star(`f${i}`, 'full'))}
+      {half ? star('h', 'half') : null}
+      {Array.from({ length: empty }, (_, i) => star(`e${i}`, 'empty'))}
+    </View>
   );
 }
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={[styles.wordmark, { color: theme.text }]}>
-            booksyde<Text style={{ color: palette.coral }}>.</Text>
-          </Text>
+      <StatusBar style="light" />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Edge-to-edge hero that fades into the page background instead of a floating card. */}
+        <View style={[styles.hero, { paddingTop: insets.top + spacing[3] }]}>
+          <LinearGradient
+            style={StyleSheet.absoluteFill}
+            colors={[palette.grape, palette.grape, mixHex(palette.grape, theme.background, 0.65), theme.background]}
+            locations={[0, 0.45, 0.78, 1]}
+          />
+          {/* Soft colour washes (React Native has no cross-platform blur, so no hard-edged blobs). */}
+          <LinearGradient
+            style={StyleSheet.absoluteFill}
+            colors={[`${palette.coral}99`, `${palette.bubblegum}33`, `${palette.grape}00`]}
+            locations={[0, 0.35, 0.7]}
+            start={{ x: 1, y: 0 }}
+            end={{ x: 0.2, y: 0.8 }}
+          />
+          <LinearGradient
+            style={StyleSheet.absoluteFill}
+            colors={[`${palette.sky}00`, `${palette.sky}55`, `${palette.sky}00`]}
+            locations={[0.1, 0.45, 0.85]}
+            start={{ x: 0, y: 0.2 }}
+            end={{ x: 0.6, y: 1 }}
+          />
 
-          <View style={styles.hero}>
-            <View style={[styles.blob, { backgroundColor: palette.coral, top: -40, right: -30 }]} />
-            <View style={[styles.blob, { backgroundColor: palette.sunshine, bottom: -60, left: 60 }]} />
+          {/* Last layer: fade everything into the page so the hero has no bottom edge. */}
+          <LinearGradient
+            style={StyleSheet.absoluteFill}
+            colors={[`${theme.background}00`, theme.background]}
+            locations={[0.72, 1]}
+          />
+
+          <View style={styles.heroInner}>
+            <Text style={styles.wordmark}>
+              booksyde<Text style={{ color: palette.sunshine }}>.</Text>
+            </Text>
             <Text style={styles.heroKicker}>📚 Your reading life, but fun</Text>
             <Text style={styles.heroTitle}>
               Find your next <Text style={{ color: palette.sunshine }}>obsession.</Text>
             </Text>
           </View>
+        </View>
 
+        <View style={styles.content}>
           <ThemedText type="subtitle" style={styles.heading}>
             Pick a vibe
           </ThemedText>
@@ -85,35 +127,43 @@ export default function HomeScreen() {
                 <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
                   {book.author}
                 </ThemedText>
-                <ThemedText type="small">
-                  <Stars rating={book.rating} /> {formatRating(book.rating)}
-                </ThemedText>
+                <View style={styles.ratingRow}>
+                  <Stars rating={book.rating} />
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {formatRating(book.rating)}
+                  </ThemedText>
+                </View>
               </View>
             ))}
           </ScrollView>
-        </ScrollView>
-      </SafeAreaView>
+        </View>
+      </ScrollView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
-  safeArea: { flex: 1, maxWidth: MaxContentWidth },
-  scroll: { padding: spacing[4], paddingBottom: BottomTabInset + spacing[6], gap: spacing[4] },
-  wordmark: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  hero: {
-    overflow: 'hidden',
-    borderRadius: radii.xl,
-    backgroundColor: palette.grape,
-    padding: spacing[5],
-    paddingVertical: spacing[7],
+  scroll: { paddingBottom: BottomTabInset + spacing[6] },
+  hero: { overflow: 'hidden', paddingBottom: spacing[8] + spacing[6] },
+  heroInner: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    paddingHorizontal: spacing[4],
     gap: spacing[3],
   },
-  blob: { position: 'absolute', width: 160, height: 160, borderRadius: 80, opacity: 0.6 },
+  content: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    paddingHorizontal: spacing[4],
+    gap: spacing[4],
+  },
+  wordmark: { color: 'white', fontSize: 28, fontWeight: '800', letterSpacing: -0.5, marginBottom: spacing[6] },
   heroKicker: { color: 'white', fontWeight: '600', opacity: 0.9 },
   heroTitle: { color: 'white', fontSize: 40, lineHeight: 44, fontWeight: '800', letterSpacing: -1 },
-  heading: { fontSize: 24, lineHeight: 30, marginTop: spacing[3] },
+  heading: { fontSize: 24, lineHeight: 30, marginTop: spacing[2] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   chip: {
     overflow: 'hidden',
@@ -132,4 +182,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   coverTitle: { color: 'white', fontWeight: '800', fontSize: 16 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
+  stars: { flexDirection: 'row' },
+  star: { width: 14, height: 18 },
+  starGlyph: { fontSize: 14, lineHeight: 18 },
+  starHalf: { position: 'absolute', top: 0, left: 0, width: 7, height: 18, overflow: 'hidden' },
 });
