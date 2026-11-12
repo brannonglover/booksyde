@@ -1,4 +1,4 @@
-import { type CatalogBook, callNumber, catalogName, compactCount, lifeYears } from "@booksyde/shared";
+import { bookIdentity, type CatalogBook, callNumber, catalogName, compactCount, lifeYears } from "@booksyde/shared";
 import { genreColor } from "@booksyde/theme";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -6,7 +6,8 @@ import { Suspense } from "react";
 import { BookCover } from "@/components/book-cover";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { Stars } from "@/components/stars";
-import { getDrawers, parseSearch, searchEverything } from "@/lib/catalog";
+import { getDrawers, parseSearch, searchEverything, searchWiderStacks } from "@/lib/catalog";
+import { RequestSlip } from "./request-slip";
 import { SearchBox } from "./search-box";
 
 type Params = Record<string, string | string[] | undefined>;
@@ -122,7 +123,77 @@ async function Results({ searchParams }: { searchParams: Promise<Params> }) {
           ) : null}
         </div>
       )}
+
+      {q && tags.length === 0 ? (
+        <Suspense fallback={<StacksSkeleton />}>
+          <WiderStacks
+            q={q}
+            onFile={books.map((b) => bookIdentity(b.title, leadAuthor(b)?.name))}
+            headline={books.length === 0}
+          />
+        </Suspense>
+      ) : null}
     </div>
+  );
+}
+
+function leadAuthor(book: CatalogBook) {
+  return [...book.work_contributors].filter((c) => c.role === "author").sort((a, b) => a.position - b.position)[0]?.authors;
+}
+
+function StacksSkeleton() {
+  return (
+    <div className="mt-20 grid gap-5 md:grid-cols-3">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-44 animate-pulse rounded-sm bg-border/40" />
+      ))}
+    </div>
+  );
+}
+
+/** Open Library results we don't hold yet, as request slips that add them to the catalogue. */
+async function WiderStacks({ q, onFile, headline }: { q: string; onFile: string[]; headline: boolean }) {
+  const found = await searchWiderStacks(q);
+  const held = new Set(onFile);
+  const books = (found ?? []).filter((b) => !held.has(bookIdentity(b.title, b.authors[0]?.name))).slice(0, 6);
+  if (found && books.length === 0) return null;
+
+  return (
+    <section aria-labelledby="wider-stacks" className={headline ? "mt-14" : "mt-20 border-t border-border pt-12"}>
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">Not on file yet</p>
+          <h2 id="wider-stacks" className="mt-2 font-display text-4xl leading-none sm:text-5xl">
+            From the <em className="text-accent">wider stacks</em>
+          </h2>
+          <p className="mt-3 max-w-xl text-muted">
+            {headline ? "We don’t have it on our shelves yet, but these are out there. " : ""}
+            Fill in a request slip and we’ll add the book to the catalogue, ready to shelve and review.
+          </p>
+        </div>
+        <a
+          href={`https://openlibrary.org/search?q=${encodeURIComponent(q)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm text-muted underline decoration-border underline-offset-4 hover:text-text"
+        >
+          Courtesy of Open Library ↗
+        </a>
+      </div>
+      {found === null ? (
+        <p className="mt-8 rounded-sm border border-dashed border-border p-6 text-center text-muted">
+          The wider stacks aren’t answering right now. Try again in a moment.
+        </p>
+      ) : (
+        <ol className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {books.map((book, i) => (
+            <li key={book.olid}>
+              <RequestSlip book={book} tilt={i % 3 === 1 ? -0.5 : i % 3 === 2 ? 0.4 : 0} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
 
@@ -166,9 +237,10 @@ function NoCards({ q, tags }: { q: string; tags: string[] }) {
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">Not on file</p>
         <p className="mt-3 font-display text-3xl leading-tight">This drawer is empty.</p>
         <p className="ruled mt-3 font-mono text-sm">
-          {q ? <>Nothing in the catalogue answers to “{q}”. </> : null}
-          {tags.length ? "Try lifting a filter or two" : "Try a shorter word, an author’s surname, or the ISBN on the back"}
-          {" — or browse the drawers instead."}
+          {q ? <>Nothing in our drawers answers to “{q}” yet. </> : null}
+          {tags.length
+            ? "Try lifting a filter or two — or browse the drawers instead."
+            : "If it’s in print, it’s probably in the wider stacks below."}
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm font-semibold">
           {tags.length && q ? (
@@ -221,7 +293,7 @@ function CatalogueCard({ book, tilt }: { book: CatalogBook; tilt: number }) {
         <span className="shrink-0 text-xs font-semibold text-accent">{callNumber(book, lead?.name)}</span>
         <span className="truncate text-muted">
           {lead ? catalogName(lead.name) : "Anonymous"}
-          {lead ? `, ${lifeYears(lead.birth_date, lead.death_date)}.` : "."}
+          {lead && lifeYears(lead.birth_date, lead.death_date) ? `, ${lifeYears(lead.birth_date, lead.death_date)}` : ""}.
         </span>
       </div>
       <div className="flex gap-4">

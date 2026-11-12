@@ -1,16 +1,19 @@
 import {
+  bookIdentity,
   type CatalogBook,
   callNumber,
   catalogName,
   compactCount,
   getTagDrawers,
   lifeYears,
+  type OpenLibraryBook,
   searchAuthors,
   searchCatalog,
+  searchOpenLibrary,
   searchReaders,
 } from '@booksyde/shared';
 import { genreColor, palette, radii, spacing } from '@booksyde/theme';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -27,6 +30,7 @@ import { supabase } from '@/lib/supabase';
 // On web the tab bar floats over the top of the screen; start below it.
 const WebTabBarHeight = 72;
 const mono = Fonts.mono;
+const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
 
 type Drawer = Awaited<ReturnType<typeof getTagDrawers>>[number];
 type Found = {
@@ -98,6 +102,24 @@ export default function SearchScreen() {
   }, [key, term, tags]);
 
   const results = found?.key === key ? found : null;
+
+  // The wider stacks (Open Library) for books we don't hold yet: plain text searches only.
+  const [stacks, setStacks] = useState<{ term: string; books: OpenLibraryBook[] | null } | null>(null);
+  const stacksWanted = term.length >= 2 && tags.length === 0;
+  useEffect(() => {
+    if (!stacksWanted) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchOpenLibrary(term, 9)
+        .then((books) => !cancelled && setStacks({ term, books }))
+        .catch(() => !cancelled && setStacks({ term, books: null }));
+    }, 450);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [term, stacksWanted]);
+  const stacksNow = stacksWanted && stacks?.term === term ? stacks : null;
   const tagName = (slug: string) => drawers.find((d) => d.slug === slug)?.name ?? slug;
   const toggleTag = (slug: string) => setTags((t) => (t.includes(slug) ? t.filter((x) => x !== slug) : [...t, slug]));
 
@@ -200,7 +222,12 @@ export default function SearchScreen() {
               {!results ? (
                 <ActivityIndicator color={theme.accent} style={{ marginTop: spacing[6] }} />
               ) : results.books.length + results.authors.length + results.readers.length === 0 ? (
-                <EmptyDrawer term={term} error={results.error} onClear={() => (tags.length ? setTags([]) : setQ(''))} hasTags={tags.length > 0} />
+                <EmptyDrawer
+                  term={term}
+                  error={results.error}
+                  onClear={() => (tags.length ? setTags([]) : setQ(''))}
+                  hasTags={tags.length > 0}
+                />
               ) : (
                 <>
                   {results.books.map((book, i) => (
@@ -242,11 +269,127 @@ export default function SearchScreen() {
                   ) : null}
                 </>
               )}
+
+              {results && stacksWanted ? (
+                <WiderStacks
+                  stacks={stacksNow}
+                  onFile={results.books.map((b) => bookIdentity(b.title, leadAuthor(b)?.name))}
+                  headline={results.books.length === 0}
+                />
+              ) : null}
             </View>
           )}
         </View>
       </ScrollView>
     </ThemedView>
+  );
+}
+
+function leadAuthor(book: CatalogBook) {
+  return [...book.work_contributors].filter((c) => c.role === 'author').sort((a, b) => a.position - b.position)[0]
+    ?.authors;
+}
+
+function WiderStacks({
+  stacks,
+  onFile,
+  headline,
+}: {
+  stacks: { books: OpenLibraryBook[] | null } | null;
+  onFile: string[];
+  headline: boolean;
+}) {
+  const theme = useTheme();
+  const held = new Set(onFile);
+  const books = (stacks?.books ?? []).filter((b) => !held.has(bookIdentity(b.title, b.authors[0]?.name))).slice(0, 6);
+  if (stacks?.books && books.length === 0) return null;
+  return (
+    <View style={[{ gap: spacing[4] }, !headline && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border, paddingTop: spacing[6] }]}>
+      <View style={{ gap: spacing[1] }}>
+        <Text style={[styles.summaryText, { color: theme.textSecondary }]}>NOT ON FILE YET</Text>
+        <Text style={[styles.cabinetTitle, { color: theme.text }]}>
+          From the <Text style={{ fontFamily: DisplayFonts.italic, color: theme.accent }}>wider stacks</Text>
+        </Text>
+        <Text style={{ color: theme.textSecondary, fontSize: 15, lineHeight: 22 }}>
+          {headline ? 'We don’t have it on our shelves yet, but these are out there. ' : ''}
+          Fill in a request slip and we’ll add the book to the catalogue. Courtesy of Open Library.
+        </Text>
+      </View>
+      {!stacks ? (
+        <ActivityIndicator color={theme.accent} />
+      ) : stacks.books === null ? (
+        <Text style={{ color: theme.textSecondary }}>The wider stacks aren’t answering right now. Try again in a moment.</Text>
+      ) : (
+        books.map((b, i) => <RequestSlip key={b.olid} book={b} tilt={i % 2 ? '-0.5deg' : '0.4deg'} />)
+      )}
+    </View>
+  );
+}
+
+function RequestSlip({ book, tilt }: { book: OpenLibraryBook; tilt: string }) {
+  const router = useRouter();
+  const dark = useColorScheme() === 'dark';
+  const [state, setState] = useState<'idle' | 'adding' | 'error'>('idle');
+  const ink = dark ? palette.paper : palette.ink;
+  const label = dark ? '#A9C29A' : '#4A6040';
+  const byline = book.authors.map((a) => a.name).join(', ') || 'Unknown';
+
+  async function add() {
+    if (!webUrl) return setState('error');
+    setState('adding');
+    try {
+      const res = await fetch(`${webUrl}/api/books/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ olid: book.olid }),
+      });
+      const json = (await res.json()) as { id?: string };
+      if (!res.ok || !json.id) throw new Error('Import failed');
+      setState('idle');
+      router.push({ pathname: '/book/[id]', params: { id: json.id } });
+    } catch {
+      setState('error');
+    }
+  }
+
+  const fields: [string, string | number | null][] = [
+    ['Title', book.subtitle ? `${book.title}: ${book.subtitle}` : book.title],
+    ['Author', byline],
+    ['Year', book.year],
+  ];
+  return (
+    <View style={[styles.slipCard, { backgroundColor: dark ? '#2C3529' : '#EEF3E8', transform: [{ rotate: tilt }] }]}>
+      <View style={[styles.slipHeader, { borderBottomColor: 'rgba(126,154,110,0.6)' }]}>
+        <Text style={[styles.slipHeaderText, { color: label }]}>REQUEST SLIP</Text>
+        <Text style={[styles.slipHeaderText, { color: label }]}>NO. {book.olid.replace(/\D/g, '').slice(-5)}</Text>
+      </View>
+      <View style={styles.cardBody}>
+        <View style={{ flex: 1, gap: 6 }}>
+          {fields.map(([name, value]) =>
+            value ? (
+              <View key={name} style={styles.slipField}>
+                <Text style={[styles.mono, { color: label, width: 58 }]}>{name}:</Text>
+                <Text style={[name === 'Title' ? styles.slipTitle : styles.mono, { color: ink, flex: 1 }]}>{value}</Text>
+              </View>
+            ) : null,
+          )}
+        </View>
+        <BookCover title={book.title} author={byline} coverId={book.coverId} width={56} />
+      </View>
+      {state === 'error' ? (
+        <Text style={{ color: palette.oxblood, fontSize: 13 }}>
+          {webUrl ? 'The stacks are stuck right now. Try again in a moment.' : 'Set EXPO_PUBLIC_WEB_URL to add books.'}
+        </Text>
+      ) : null}
+      <Pressable
+        onPress={add}
+        disabled={state === 'adding'}
+        accessibilityRole="button"
+        style={[styles.slipButton, { opacity: state === 'adding' ? 0.7 : 1 }]}
+      >
+        <Text style={styles.slipButtonText}>{state === 'adding' ? 'Fetching it from the stacks…' : 'Add to the catalogue →'}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -298,7 +441,9 @@ function CatalogueCard({ book, tilt }: { book: CatalogBook; tilt: string }) {
         <View style={[styles.cardHeading, { borderBottomColor: c.rule }]}>
           <Text style={[styles.callNumber, { color: theme.accent }]}>{callNumber(book, lead?.name)}</Text>
           <Text numberOfLines={1} style={[styles.mono, { color: c.muted, flex: 1 }]}>
-            {lead ? `${catalogName(lead.name)}, ${lifeYears(lead.birth_date, lead.death_date)}.` : 'Anonymous.'}
+            {lead
+              ? `${[catalogName(lead.name), lifeYears(lead.birth_date, lead.death_date)].filter(Boolean).join(', ')}.`
+              : 'Anonymous.'}
           </Text>
         </View>
         <View style={styles.cardBody}>
@@ -565,5 +710,21 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
+  slipCard: {
+    borderRadius: 3,
+    padding: spacing[4],
+    gap: spacing[3],
+    shadowColor: '#1F1B16',
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  slipHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 6, borderBottomWidth: 1, borderStyle: 'dashed' },
+  slipHeaderText: { fontFamily: mono, fontSize: 10, letterSpacing: 2 },
+  slipField: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[2] },
+  slipTitle: { fontFamily: DisplayFonts.regular, fontSize: 19, lineHeight: 22 },
+  slipButton: { alignSelf: 'flex-start', backgroundColor: palette.green, borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
+  slipButtonText: { color: palette.paper, fontWeight: '600', fontSize: 14 },
   drawerCount: { marginTop: spacing[2], textAlign: 'center', fontSize: 10, letterSpacing: 1.5, color: 'rgba(232,217,191,0.7)' },
 });

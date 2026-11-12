@@ -10,6 +10,7 @@ import {
   getTagDrawers,
   searchAuthors,
   searchCatalog,
+  searchOpenLibrary,
   searchReaders,
 } from "@booksyde/shared";
 import { cacheLife, cacheTag } from "next/cache";
@@ -95,3 +96,27 @@ export async function getDrawers() {
   cacheTag("catalog-drawers");
   return getTagDrawers(publicClient());
 }
+
+/**
+ * Open Library matches for a query ("the wider stacks"), each with its
+ * Booksyde id when we already hold that work.
+ */
+export async function searchWiderStacks(q: string) {
+  "use cache";
+  cacheLife("hours");
+  const books = await searchOpenLibrary(q, 9, { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } }).catch(
+    () => null,
+  );
+  if (!books) return null;
+  const { data } = await publicClient()
+    .from("works")
+    .select("id, open_library_id")
+    .in(
+      "open_library_id",
+      books.map((b) => b.olid),
+    );
+  const onFile = new Map((data ?? []).map((w) => [w.open_library_id, w.id]));
+  return books.map((b) => ({ ...b, workId: onFile.get(b.olid) ?? null }));
+}
+
+export type WiderStacksBook = NonNullable<Awaited<ReturnType<typeof searchWiderStacks>>>[number];
