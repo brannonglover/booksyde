@@ -17,6 +17,8 @@ import { DisplayFonts, MaxContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
+const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
+
 /** "Margot Okafor" → "margot_okafor" (fits the username rules). */
 function suggestUsername(name: string) {
   return name
@@ -75,7 +77,11 @@ export default function SignUpScreen() {
       const { data, error: authError } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
-        options: { data: { username: parsed.data.username, display_name: parsed.data.displayName } },
+        options: {
+          data: { username: parsed.data.username, display_name: parsed.data.displayName },
+          // The link opens in a browser, so land on the website, which says "Email confirmed".
+          emailRedirectTo: webUrl ? `${webUrl}/?from=app` : undefined,
+        },
       });
       if (authError) return setError(authErrorMessage(authError));
       if (!data.session) return setSentTo(parsed.data.email);
@@ -92,8 +98,11 @@ export default function SignUpScreen() {
         <Text style={{ fontSize: 44 }}>✉️</Text>
         <Text style={[styles.inboxTitle, { color: theme.text }]}>Check your inbox</Text>
         <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 16 }}>
-          We sent a link to {sentTo}. Tap it to confirm your email and your shelf is ready.
+          We sent a link to {sentTo}. Tap it to confirm your email, then come back here and sign in.
         </Text>
+        <Link href="/sign-in" replace style={{ color: theme.accent, fontWeight: '700', fontSize: 16, marginTop: spacing[2] }}>
+          I’ve confirmed it. Sign in
+        </Link>
       </View>
     );
   }

@@ -80,7 +80,8 @@ export async function signUp(_prev: AuthFormState, form: FormData): Promise<Auth
     options: {
       // Read by the handle_new_user trigger to create the profile.
       data: { username: parsed.data.username, display_name: parsed.data.displayName },
-      emailRedirectTo: `${await siteOrigin()}/auth/callback?next=${encodeURIComponent(next)}`,
+      // flow=signup: the callback shows an "Email confirmed" toast.
+      emailRedirectTo: `${await siteOrigin()}/auth/callback?flow=signup&next=${encodeURIComponent(next)}`,
     },
   });
   if (error) return { error: authErrorMessage(error), values };

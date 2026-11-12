@@ -47,6 +47,21 @@ body {
   background: color-mix(in oklab, var(--bk-highlight) 35%, transparent);
 }
 
+/* Flash toast (components/flash-toast.tsx) rising into view. */
+@keyframes flash-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes flash-in {
+    from {
+      opacity: 0;
+    }
+  }
+}
+
 /* A faint vellum texture over everything, so the page feels like paper. */
 body::after {
   content: "";
