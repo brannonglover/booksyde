@@ -2,6 +2,8 @@
 
 import { getMyReadingStatus, READING_STATUS_LABELS, removeFromShelves, setReadingStatus } from "@booksyde/shared";
 import type { ReadingStatus } from "@booksyde/types";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,7 +14,8 @@ export function ShelfButton({ workId }: { workId: string }) {
   const [status, setStatus] = useState<ReadingStatus | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<"signed-out" | "error" | null>(null);
+  const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export function ShelfButton({ workId }: { workId: string }) {
       else await removeFromShelves(client, workId);
       setStatus(next);
     } catch (e) {
-      setNote(e instanceof Error && /signed in/i.test(e.message) ? "Sign in to keep track of your books." : "Something went wrong. Try again?");
+      setNote(e instanceof Error && /signed in/i.test(e.message) ? "signed-out" : "error");
     } finally {
       setBusy(false);
     }
@@ -110,7 +113,20 @@ export function ShelfButton({ workId }: { workId: string }) {
 
       {note ? (
         <p role="status" className="mt-2 text-center text-sm text-muted">
-          {note}
+          {note === "signed-out" ? (
+            <>
+              <Link href={`/sign-in?next=${encodeURIComponent(pathname)}`} className="font-semibold text-accent hover:underline">
+                Sign in
+              </Link>{" "}
+              or{" "}
+              <Link href={`/sign-up?next=${encodeURIComponent(pathname)}`} className="font-semibold text-accent hover:underline">
+                get a library card
+              </Link>{" "}
+              to keep track of your books.
+            </>
+          ) : (
+            "Something went wrong. Try again?"
+          )}
         </p>
       ) : null}
     </div>

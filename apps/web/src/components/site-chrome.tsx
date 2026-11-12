@@ -1,5 +1,29 @@
+import { getMyProfile } from "@booksyde/shared";
 import Link from "next/link";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { AccountMenu } from "@/components/account-menu";
 import { ThemePicker, ThemeToggleButton } from "@/components/theme-toggle";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
+
+/** Reads the session cookie, so it streams in behind a Suspense boundary. */
+async function AccountArea() {
+  // Request-time only: the Supabase client reads the clock, which can't happen while prerendering.
+  await connection();
+  const profile = hasSupabaseEnv ? await getMyProfile(await createClient()).catch(() => null) : null;
+  if (profile) return <AccountMenu profile={profile} />;
+  return (
+    <>
+      <Link className="rounded-full px-3 py-2 hover:bg-surface sm:px-4" href="/sign-in">
+        Sign in
+      </Link>
+      <Link className="rounded-full bg-primary px-4 py-2 text-primary-text hover:opacity-90" href="/sign-up">
+        Join free
+      </Link>
+    </>
+  );
+}
 
 export function SiteHeader() {
   return (
@@ -16,12 +40,9 @@ export function SiteHeader() {
             Clubs
           </Link>
           <ThemeToggleButton />
-          <Link className="rounded-full px-3 py-2 hover:bg-surface sm:px-4" href="/#join">
-            Sign in
-          </Link>
-          <Link className="rounded-full bg-primary px-4 py-2 text-primary-text hover:opacity-90" href="/#join">
-            Join free
-          </Link>
+          <Suspense fallback={<span aria-hidden className="ml-1 h-9 w-24 animate-pulse rounded-full bg-border/50" />}>
+            <AccountArea />
+          </Suspense>
         </nav>
       </div>
     </header>

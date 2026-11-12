@@ -7,3 +7,5 @@ export * from "./schemas/profile";
 export * from "./utils/isbn";
 export * from "./utils/format";
 export * from "./utils/vibe";
+export * from "./queries/auth";
+export * from "./schemas/auth";

@@ -5,13 +5,14 @@ import {
   getRatingDistribution,
   getShelfCounts,
   getWork,
+  getMyReadingStatus,
   getWorkReviews,
   ratingVerdict,
   READING_STATUS_LABELS,
   setReadingStatus,
 } from '@booksyde/shared';
 import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
-import { Link, Stack, useLocalSearchParams } from 'expo-router';
+import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -21,6 +22,7 @@ import { Stars } from '@/components/stars';
 import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
+import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
 /*
@@ -388,32 +390,53 @@ function Card({ children, style }: { children: React.ReactNode; style?: object }
 
 function ShelfButton({ workId }: { workId: string }) {
   const theme = useTheme();
+  const router = useRouter();
+  const { session } = useSession();
   const [status, setStatus] = useState<keyof typeof READING_STATUS_LABELS | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  // Show what's already on the reader's shelves once we know who they are.
+  useEffect(() => {
+    if (!supabase || !session) return;
+    let cancelled = false;
+    getMyReadingStatus(supabase, workId)
+      .then((s) => !cancelled && setStatus(s))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [workId, session]);
+
   const onPress = async () => {
     if (!supabase) return;
-    setNote(null);
+    if (!session) return router.push('/sign-in');
+    setFailed(false);
     try {
       await setReadingStatus(supabase, workId, 'want_to_read');
       setStatus('want_to_read');
-    } catch (e) {
-      setNote(e instanceof Error && /signed in/i.test(e.message) ? 'Sign in to keep track of your books.' : 'Something went wrong. Try again?');
+    } catch {
+      setFailed(true);
     }
   };
+  const shelved = session && status;
   return (
     <View style={styles.shelfButtonWrap}>
       <Pressable
         onPress={onPress}
         style={({ pressed }) => [
           styles.shelfButton,
-          { backgroundColor: status ? theme.backgroundElement : theme.primary, borderColor: theme.border, opacity: pressed ? 0.85 : 1 },
+          { backgroundColor: shelved ? theme.backgroundElement : theme.primary, borderColor: theme.border, opacity: pressed ? 0.85 : 1 },
         ]}
       >
-        <Text style={{ color: status ? theme.text : theme.primaryText, fontWeight: '700', fontSize: 16 }}>
-          {status ? `✓ ${READING_STATUS_LABELS[status]}` : 'Want to read'}
+        <Text style={{ color: shelved ? theme.text : theme.primaryText, fontWeight: '700', fontSize: 16 }}>
+          {shelved ? `✓ ${READING_STATUS_LABELS[status]}` : 'Want to read'}
         </Text>
       </Pressable>
-      {note ? <Text style={{ color: theme.textSecondary, textAlign: 'center' }}>{note}</Text> : null}
+      {!session ? (
+        <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 13 }}>Sign in to keep track of your books.</Text>
+      ) : failed ? (
+        <Text style={{ color: theme.textSecondary, textAlign: 'center' }}>Something went wrong. Try again?</Text>
+      ) : null}
     </View>
   );
 }

@@ -13,6 +13,8 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
+import { useSession } from '@/lib/session';
+import { supabase } from '@/lib/supabase';
 
 // On web the tab bar floats over the top of the screen; start the masthead below it.
 const WebTabBarHeight = 72;
@@ -70,6 +72,7 @@ export default function HomeScreen() {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { profile } = useSession();
   return (
     <ThemedView style={styles.container}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
@@ -83,9 +86,20 @@ export default function HomeScreen() {
           </Text>
           <View style={styles.mastheadActions}>
             <ThemeToggleButton />
-            <Pressable style={[styles.joinButton, { backgroundColor: theme.primary }]}>
-              <Text style={[styles.buttonLabel, { color: theme.primaryText }]}>Join free</Text>
-            </Pressable>
+            {profile ? (
+              <View
+                accessibilityLabel={`Signed in as ${profile.display_name || profile.username}`}
+                style={[styles.avatar, { backgroundColor: profile.theme_color ?? theme.primary }]}
+              >
+                <Text style={styles.avatarInitial}>{(profile.display_name || profile.username).charAt(0).toUpperCase()}</Text>
+              </View>
+            ) : (
+              <Link href="/sign-up" asChild>
+                <Pressable style={StyleSheet.flatten([styles.joinButton, { backgroundColor: theme.primary }])}>
+                  <Text style={[styles.buttonLabel, { color: theme.primaryText }]}>Join free</Text>
+                </Pressable>
+              </Link>
+            )}
           </View>
         </View>
 
@@ -202,6 +216,21 @@ export default function HomeScreen() {
             <Text style={[styles.colophonText, { color: theme.textSecondary }]}>Made for readers.</Text>
             <Text style={[styles.label, { color: theme.textSecondary, marginTop: spacing[3] }]}>APPEARANCE</Text>
             <AppearancePicker />
+            {profile ? (
+              <View style={styles.signedInRow}>
+                <Text style={{ color: theme.textSecondary }}>Signed in as @{profile.username}</Text>
+                <Pressable onPress={() => supabase?.auth.signOut()} hitSlop={8}>
+                  <Text style={{ color: theme.accent, fontWeight: '700' }}>Sign out</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.signedInRow}>
+                <Text style={{ color: theme.textSecondary }}>Already a member?</Text>
+                <Link href="/sign-in" style={{ color: theme.accent, fontWeight: '700' }}>
+                  Sign in
+                </Link>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -224,6 +253,9 @@ const styles = StyleSheet.create({
   mastheadActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   colophon: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing[5], gap: spacing[2] },
   colophonText: { fontFamily: DisplayFonts.italic, fontSize: 16 },
+  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 20 },
+  signedInRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[3] },
   joinButton: { borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
   buttonLabel: { fontWeight: '700', fontSize: 14 },
   content: {
