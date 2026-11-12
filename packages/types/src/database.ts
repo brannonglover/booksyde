@@ -626,6 +626,9 @@ isOneToOne: false
 "is_librarian":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"profile_stats":
+{ Args: { "p_user_id": string }; Returns: Json
+                           },
 "search_works":
 { Args: { "max_results"?: number,"q": string }; Returns: {
               "avg_rating": number,

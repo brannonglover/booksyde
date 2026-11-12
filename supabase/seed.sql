@@ -226,3 +226,69 @@ select ('00000000-0000-4000-d000-' || lpad(n::text, 12, '0'))::uuid, w.id,
     where ub.user_id = ('00000000-0000-4000-d000-' || lpad(n::text, 12, '0'))::uuid and ub.work_id = w.id
  )
    and abs(hashtext(w.id::text || 'shelf' || n)) % 2 = 0;
+
+-- ---------------------------------------------------------------------------
+-- Profiles: bios, a private reader, extra shelves and follows, so profile
+-- pages have something to show.
+-- ---------------------------------------------------------------------------
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change
+) values (
+  '00000000-0000-0000-0000-000000000000', '00000000-0000-4000-c000-000000000006', 'authenticated', 'authenticated',
+  'ada@example.test', '', now(), '{"provider":"email","providers":["email"]}',
+  '{"username":"ada_after_dark","display_name":"Ada Finch"}', now(), now(), '', '', '', ''
+);
+
+update public.profiles set bio = v.bio, theme_color = coalesce(v.color, profiles.theme_color), is_private = v.private
+  from (values
+    ('00000000-0000-4000-c000-000000000001'::uuid, 'Rereads Austen every winter. Will talk your ear off about Mrs. Bennet.', null, false),
+    ('00000000-0000-4000-c000-000000000002'::uuid, 'Slowly working through the big ones. Currently losing a fight with Moby-Dick.', null, false),
+    ('00000000-0000-4000-c000-000000000003'::uuid, 'Tea first, then books. Mostly classics, occasionally a good ghost story.', null, false),
+    ('00000000-0000-4000-c000-000000000004'::uuid, 'Reading by lamplight since forever. Horror on weekdays, romance on weekends.', null, false),
+    ('00000000-0000-4000-c000-000000000005'::uuid, 'Margin-scribbler. If my copy is clean, I didn’t like it.', null, false),
+    ('00000000-0000-4000-c000-000000000006'::uuid, 'Gothic novels and very strong coffee. Ask before you borrow.', '#4A2E4D', true)
+  ) as v (id, bio, color, private)
+ where profiles.id = v.id;
+
+insert into public.user_books (user_id, work_id, status)
+values
+  ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000006', 'reading'),
+  ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000007', 'want_to_read'),
+  ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000004', 'want_to_read'),
+  ('00000000-0000-4000-c000-000000000001', '00000000-0000-4000-b000-000000000005', 'read'),
+  ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-b000-000000000002', 'reading'),
+  ('00000000-0000-4000-c000-000000000002', '00000000-0000-4000-b000-000000000005', 'want_to_read'),
+  ('00000000-0000-4000-c000-000000000003', '00000000-0000-4000-b000-000000000004', 'want_to_read'),
+  ('00000000-0000-4000-c000-000000000004', '00000000-0000-4000-b000-000000000003', 'reading'),
+  ('00000000-0000-4000-c000-000000000005', '00000000-0000-4000-b000-000000000002', 'want_to_read'),
+  ('00000000-0000-4000-c000-000000000006', '00000000-0000-4000-b000-000000000004', 'read'),
+  ('00000000-0000-4000-c000-000000000006', '00000000-0000-4000-b000-000000000002', 'read'),
+  ('00000000-0000-4000-c000-000000000006', '00000000-0000-4000-b000-000000000007', 'reading')
+on conflict (user_id, work_id) do nothing;
+
+insert into public.reviews (user_id, work_id, rating) values
+  ('00000000-0000-4000-c000-000000000006', '00000000-0000-4000-b000-000000000004', 5),
+  ('00000000-0000-4000-c000-000000000006', '00000000-0000-4000-b000-000000000002', 4.5);
+
+-- Follows (the trigger makes follows of a private reader "pending"; Margot's is then approved).
+insert into public.follows (follower_id, following_id)
+select f, t from (values
+  ('00000000-0000-4000-c000-000000000001'::uuid, '00000000-0000-4000-c000-000000000002'::uuid),
+  ('00000000-0000-4000-c000-000000000001'::uuid, '00000000-0000-4000-c000-000000000003'::uuid),
+  ('00000000-0000-4000-c000-000000000001'::uuid, '00000000-0000-4000-c000-000000000004'::uuid),
+  ('00000000-0000-4000-c000-000000000001'::uuid, '00000000-0000-4000-c000-000000000006'::uuid),
+  ('00000000-0000-4000-c000-000000000002'::uuid, '00000000-0000-4000-c000-000000000001'::uuid),
+  ('00000000-0000-4000-c000-000000000002'::uuid, '00000000-0000-4000-c000-000000000006'::uuid),
+  ('00000000-0000-4000-c000-000000000003'::uuid, '00000000-0000-4000-c000-000000000001'::uuid),
+  ('00000000-0000-4000-c000-000000000004'::uuid, '00000000-0000-4000-c000-000000000001'::uuid),
+  ('00000000-0000-4000-c000-000000000005'::uuid, '00000000-0000-4000-c000-000000000001'::uuid),
+  ('00000000-0000-4000-c000-000000000005'::uuid, '00000000-0000-4000-c000-000000000003'::uuid)
+) as v (f, t)
+union all
+select ('00000000-0000-4000-d000-' || lpad(n::text, 12, '0'))::uuid, '00000000-0000-4000-c000-000000000001'::uuid
+  from generate_series(1, 14) as n;
+
+update public.follows set status = 'accepted'
+ where follower_id = '00000000-0000-4000-c000-000000000001' and following_id = '00000000-0000-4000-c000-000000000006';

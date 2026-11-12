@@ -36,6 +36,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="book/[id]" options={{ title: '' }} />
+        <Stack.Screen name="u/[username]" options={{ title: '' }} />
         <Stack.Screen name="sign-in" options={{ presentation: 'modal', title: 'Sign in' }} />
         <Stack.Screen name="sign-up" options={{ presentation: 'modal', title: 'Join Booksyde' }} />
       </Stack>

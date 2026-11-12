@@ -455,7 +455,13 @@ function IndexCard({ review, tilt }: { review: BookData['reviews'][number]; tilt
           <Text style={styles.reviewInitial}>{name.charAt(0)}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.reviewName, { color: ink }]}>{name}</Text>
+          {review.profiles?.username ? (
+            <Link href={{ pathname: '/u/[username]', params: { username: review.profiles.username } }} push style={[styles.reviewName, { color: ink }]}>
+              {name}
+            </Link>
+          ) : (
+            <Text style={[styles.reviewName, { color: ink }]}>{name}</Text>
+          )}
           {review.profiles?.username ? <Text style={{ color: muted, fontSize: 12 }}>@{review.profiles.username}</Text> : null}
         </View>
         {review.rating ? <Stars rating={Number(review.rating)} size={12} /> : null}

@@ -566,7 +566,13 @@ async function Marginalia({ id, avg }: { id: string; avg: number }) {
                     {name.charAt(0)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-display text-xl leading-tight">{name}</span>
+                    {r.profiles?.username ? (
+                      <Link href={`/u/${r.profiles.username}`} className="block truncate font-display text-xl leading-tight hover:text-accent">
+                        {name}
+                      </Link>
+                    ) : (
+                      <span className="block truncate font-display text-xl leading-tight">{name}</span>
+                    )}
                     <span className="block text-xs text-muted">
                       {r.profiles?.username ? `@${r.profiles.username} · ` : ""}
                       {dateFormat.format(new Date(r.created_at))}

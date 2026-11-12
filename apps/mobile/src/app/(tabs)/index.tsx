@@ -87,12 +87,14 @@ export default function HomeScreen() {
           <View style={styles.mastheadActions}>
             <ThemeToggleButton />
             {profile ? (
-              <View
-                accessibilityLabel={`Signed in as ${profile.display_name || profile.username}`}
-                style={[styles.avatar, { backgroundColor: profile.theme_color ?? theme.primary }]}
-              >
-                <Text style={styles.avatarInitial}>{(profile.display_name || profile.username).charAt(0).toUpperCase()}</Text>
-              </View>
+              <Link href={{ pathname: '/u/[username]', params: { username: profile.username } }} asChild>
+                <Pressable
+                  accessibilityLabel={`Your profile, ${profile.display_name || profile.username}`}
+                  style={StyleSheet.flatten([styles.avatar, { backgroundColor: profile.theme_color ?? theme.primary }])}
+                >
+                  <Text style={styles.avatarInitial}>{(profile.display_name || profile.username).charAt(0).toUpperCase()}</Text>
+                </Pressable>
+              </Link>
             ) : (
               <Link href="/sign-up" asChild>
                 <Pressable style={StyleSheet.flatten([styles.joinButton, { backgroundColor: theme.primary }])}>

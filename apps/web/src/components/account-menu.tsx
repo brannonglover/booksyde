@@ -50,8 +50,21 @@ export function AccountMenu({ profile }: { profile: Profile }) {
             <p className="truncate text-sm text-muted">@{profile.username}</p>
           </div>
           <div className="my-1 h-px bg-border" />
-          <Link role="menuitem" href="/" className="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-surface" onClick={() => setOpen(false)}>
-            Home
+          <Link
+            role="menuitem"
+            href={`/u/${profile.username}`}
+            className="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-surface"
+            onClick={() => setOpen(false)}
+          >
+            Your bookplate
+          </Link>
+          <Link
+            role="menuitem"
+            href="/settings/profile"
+            className="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-surface"
+            onClick={() => setOpen(false)}
+          >
+            Edit profile
           </Link>
           <form action={signOut}>
             <button role="menuitem" type="submit" className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-accent hover:bg-surface">
