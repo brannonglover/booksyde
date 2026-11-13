@@ -617,11 +617,19 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"import_reading_history":
+{ Args: { "p_items": Json }; Returns: {
+              "outcome": string,"work_id": string
+            }[]
+                           },
 "is_club_admin":
 { Args: { "p_club_id": string }; Returns: boolean
                            },
 "is_club_member":
 { Args: { "p_club_id": string }; Returns: boolean
+                           },
+"is_importing":
+{ Args: Record<PropertyKey, never>; Returns: boolean
                            },
 "is_librarian":
 { Args: Record<PropertyKey, never>; Returns: boolean

@@ -13,3 +13,5 @@ export * from "./queries/profile";
 export * from "./queries/search";
 export * from "./queries/open-library";
 export * from "./queries/year";
+export * from "./utils/csv";
+export * from "./utils/goodreads";

@@ -11,7 +11,23 @@ function adminClient() {
   return createBooksydeClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-const userAgent = { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } };
+export const userAgent = { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } };
+
+/** A work we already hold with the same title and lead author (see `bookIdentity`), or null. */
+export async function findCatalogueMatch(title: string, author?: string | null) {
+  const identity = bookIdentity(title, author);
+  const { data: sameTitle } = await adminClient()
+    .from("works")
+    .select("id, title, open_library_id, work_contributors ( position, authors ( name ) )")
+    .ilike("title", `${title.split(/[:;(]/)[0].trim().replace(/[%_\\]/g, "")}%`)
+    .limit(10);
+  return (
+    (sameTitle ?? []).find((w) => {
+      const lead = [...w.work_contributors].sort((a, b) => a.position - b.position)[0]?.authors.name;
+      return bookIdentity(w.title, lead) === identity;
+    }) ?? null
+  );
+}
 
 /**
  * Brings an Open Library work into the catalogue (title, description, cover,
@@ -31,16 +47,7 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
   if (!book) return null;
 
   // Already on file under another (or no) Open Library id? Same title + lead author counts.
-  const identity = bookIdentity(book.title, book.authors[0]?.name);
-  const { data: sameTitle } = await db
-    .from("works")
-    .select("id, title, open_library_id, work_contributors ( position, authors ( name ) )")
-    .ilike("title", `${book.title.split(/[:;(]/)[0].trim().replace(/[%_\\]/g, "")}%`)
-    .limit(10);
-  const match = (sameTitle ?? []).find((w) => {
-    const lead = [...w.work_contributors].sort((a, b) => a.position - b.position)[0]?.authors.name;
-    return bookIdentity(w.title, lead) === identity;
-  });
+  const match = await findCatalogueMatch(book.title, book.authors[0]?.name);
   if (match) {
     if (!match.open_library_id) await db.from("works").update({ open_library_id: olid }).eq("id", match.id);
     return match.id;

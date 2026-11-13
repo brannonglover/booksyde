@@ -28,3 +28,6 @@ supabase/.temp
 
 # local Claude preview config
 .claude/launch.json
+
+# Open Library dumps (multi-GB downloads)
+supabase/import/dumps/

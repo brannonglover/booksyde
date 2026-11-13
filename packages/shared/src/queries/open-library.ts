@@ -99,11 +99,16 @@ export async function getOpenLibraryBook(olid: string, init?: RequestInit) {
   return { ...found, description };
 }
 
-/** Open Library descriptions often carry source notes and markdown links; keep the prose. */
-function cleanDescription(raw: string) {
+/** Markdown *emphasis*, **bold** or _underscores_ around whole words (not snake_case or 2 * 3). */
+const EMPHASIS = /(?<![\w*])(\*{1,3}|_{1,3})(?![\s*_])([^\n]*?[^\s*_])\1(?![\w*])/g;
+
+/** Open Library descriptions often carry source notes and markdown links and emphasis; keep the prose. */
+export function cleanDescription(raw: string) {
   const text = raw
     .split(/\r?\n-{3,}|\r?\n\*\*\*|\(\[source\]/i)[0]
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(EMPHASIS, "$2")
+    .replace(EMPHASIS, "$2") // again, for emphasis nested inside emphasis
     .replace(/\r/g, "")
     .trim();
   return text ? text.slice(0, 3000) : null;
