@@ -27,19 +27,20 @@ export function BookCover({
   className = "",
 }: BookCoverProps) {
   const url = src ?? (coverId ? coverUrl(coverId) : null);
+  const byline = author ? `${title} by ${author}` : title;
   return (
     <div
       className={`relative aspect-[2/3] overflow-hidden rounded-[3px] bg-surface shadow-[0_1px_2px_rgba(31,27,22,0.12),0_12px_28px_-14px_rgba(31,27,22,0.45)] ring-1 ring-black/5 ${className}`}
     >
       {url ? (
-        <Image src={url} alt={`Cover of ${title} by ${author}`} fill sizes={sizes} priority={priority} className="object-cover" />
+        <Image src={url} alt={`Cover of ${byline}`} fill sizes={sizes} priority={priority} className="object-cover" />
       ) : (
         <div
           className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4 text-center text-paper @container"
           // Deepen the cloth colour so cream lettering always reads.
           style={{ background: color ? mixHex(color, palette.ink, 0.35) : palette.green }}
           role="img"
-          aria-label={`${title} by ${author}`}
+          aria-label={byline}
         >
           <div aria-hidden className="absolute inset-2 border border-gilt/60" />
           <span className="font-display text-[clamp(1rem,14cqw,2.5rem)] leading-tight">{title}</span>

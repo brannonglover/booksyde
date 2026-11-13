@@ -1,13 +1,17 @@
 import "server-only";
 
 import {
+  browseOpenLibrary,
   createBooksydeClient,
   getMoreLikeThis,
   getRatingDistribution,
   getShelfCounts,
   getWork,
   getWorkReviews,
+  openLibrarySubject,
+  type OpenLibraryBook,
   getTagDrawers,
+  getTrendingWorks,
   searchAuthors,
   searchCatalog,
   searchOpenLibrary,
@@ -51,11 +55,40 @@ export async function getBookCommunity(id: string) {
   return { distribution, reviews, shelves };
 }
 
-export async function getSimilarBooks(id: string) {
+export async function getSimilarBooks(id: string, limit = 6) {
   "use cache";
   cacheLife("hours");
   cacheTag(`work:${id}`);
-  return getMoreLikeThis(publicClient(), id, 6);
+  return getMoreLikeThis(publicClient(), id, limit);
+}
+
+/**
+ * The public half of the Discover page: the most-shelved books, and a shelf
+ * for each of the fullest mood (then genre) drawers, with no book on two shelves.
+ */
+export async function getDiscoverShelves() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("catalog-drawers", "discover");
+  const client = publicClient();
+  const [trending, drawers] = await Promise.all([getTrendingWorks(client, 12), getTagDrawers(client)]);
+  const byFullness = (kind: string) =>
+    drawers.filter((d) => d.kind === kind && d.works >= 3).sort((a, b) => b.works - a.works);
+  const candidates = [...byFullness("mood"), ...byFullness("genre")].slice(0, 8);
+  const filled = await Promise.all(
+    candidates.map(async (drawer) => ({ drawer, books: await searchCatalog(client, { tags: [drawer.slug], limit: 18 }) })),
+  );
+  // Neighbouring drawers overlap a lot (fantasy / young adult), so each book appears on one shelf only.
+  const seen = new Set<string>();
+  const moods = [];
+  for (const { drawer, books } of filled) {
+    const fresh = books.filter((b) => !seen.has(b.id)).slice(0, 6);
+    if (fresh.length < 3) continue;
+    for (const b of fresh) seen.add(b.id);
+    moods.push({ drawer, books: fresh });
+    if (moods.length === 4) break;
+  }
+  return { trending, drawers, moods };
 }
 
 const TAG = /^[a-z0-9-]{1,40}$/;
@@ -119,4 +152,36 @@ export async function searchWiderStacks(q: string) {
   return books.map((b) => ({ ...b, workId: onFile.get(b.olid) ?? null }));
 }
 
-export type WiderStacksBook = NonNullable<Awaited<ReturnType<typeof searchWiderStacks>>>[number];
+/**
+ * Open Library books for a reader who has outgrown our shelves: the most-read
+ * books by their favourite authors (within their genres), and the most-read
+ * books in their top genres. Each comes with its Booksyde id when we hold it.
+ */
+export async function getWiderStacksPicks(authors: string[], genres: string[]) {
+  "use cache";
+  cacheLife("hours");
+  // Adding a request slip to the catalogue invalidates this, so the slip turns into a link.
+  cacheTag("catalog-search");
+  const init = { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } };
+  const subjects = genres.flatMap((g) => openLibrarySubject(g) ?? []);
+  // Open Library's subjects are crowd-tagged; keep adult and off-genre books out unless the reader reads them.
+  const notSubjects = ["erotica", ...(genres.includes("romance") ? [] : ["romance"])];
+  const [byAuthor, bySubject] = await Promise.all([
+    Promise.all(
+      authors.map((author) =>
+        // Within their genres, so a fantasy author's contemporary romances don't come up.
+        browseOpenLibrary({ author, anySubjects: subjects, notSubjects: ["erotica"] }, 10, init).catch(() => []),
+      ),
+    ),
+    subjects.length ? browseOpenLibrary({ subjects: subjects.slice(0, 2), notSubjects }, 30, init).catch(() => []) : [],
+  ]);
+
+  const olids = [...new Set([...byAuthor.flat(), ...bySubject].map((b) => b.olid))];
+  if (olids.length === 0) return { byAuthor: [], bySubject: [] };
+  const { data } = await publicClient().from("works").select("id, open_library_id").in("open_library_id", olids);
+  const onFile = new Map((data ?? []).map((w) => [w.open_library_id, w.id]));
+  const withId = (b: OpenLibraryBook) => ({ ...b, workId: onFile.get(b.olid) ?? null });
+  return { byAuthor: byAuthor.flat().map(withId), bySubject: bySubject.map(withId) };
+}
+
+export type WiderStacksBook = OpenLibraryBook & { workId: string | null };

@@ -5,6 +5,7 @@ import { BookCover } from "@/components/book-cover";
 import { FeatureBento } from "@/components/feature-bento";
 import { Stars } from "@/components/stars";
 import { Ornament, SectionHeading, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { YearInBooksSection } from "@/components/year-in-books";
 
 // Placeholder shelf until the catalog is wired up. Ids match supabase/seed.sql; cover ids are Open Library's.
 const nightstand = [
@@ -111,7 +112,16 @@ export default function Home() {
         </section>
 
         <section id="discover" className="flex flex-col gap-6">
-          <SectionHeading numeral="I">What are you in the mood for?</SectionHeading>
+          <SectionHeading
+            numeral="I"
+            aside={
+              <Link href="/discover" className="shrink-0 text-sm font-semibold text-accent hover:underline">
+                Discover more →
+              </Link>
+            }
+          >
+            What are you in the mood for?
+          </SectionHeading>
           <div className="flex flex-wrap gap-2.5">
             {moods.map(([slug, label]) => (
               <Link
@@ -158,6 +168,8 @@ export default function Home() {
           </div>
         </section>
 
+        <YearInBooksSection numeral="III" />
+
         <figure className="mx-auto max-w-2xl text-center">
           <Ornament className="justify-center" />
           <blockquote className="mt-6 font-display text-3xl italic leading-snug sm:text-4xl">
@@ -169,7 +181,7 @@ export default function Home() {
         </figure>
 
         <section id="join" className="flex flex-col gap-8">
-          <SectionHeading numeral="III">A few things you&rsquo;ll love</SectionHeading>
+          <SectionHeading numeral="IV">A few things you&rsquo;ll love</SectionHeading>
           <FeatureBento />
         </section>
       </main>

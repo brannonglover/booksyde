@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { BookCover } from "@/components/book-cover";
+import { Bookshelf } from "@/components/bookshelf";
 import { ReviewBody } from "@/components/review-body";
 import { ShelfButton } from "@/components/shelf-button";
 import { Ornament, SiteFooter, SiteHeader } from "@/components/site-chrome";
@@ -610,38 +611,7 @@ async function ShelvedNearby({ id }: { id: string }) {
   return (
     <section className="flex flex-col gap-10">
       <ChapterHeading kicker="Epilogue" title="Shelved nearby" />
-      <div>
-        <div className="grid grid-cols-3 items-end gap-4 px-3 sm:grid-cols-6 sm:gap-6">
-          {similar.map((w, i) => (
-            <Link
-              key={w.id}
-              href={`/books/${w.id}`}
-              className={`block transition duration-300 hover:-translate-y-2 ${i % 3 === 1 ? "sm:-rotate-2" : i % 3 === 2 ? "sm:rotate-1" : ""}`}
-              title={w.title}
-            >
-              <BookCover
-                title={w.title}
-                author=""
-                src={w.cover_url}
-                color={w.cover_color}
-                sizes="(min-width: 640px) 160px, 30vw"
-              />
-            </Link>
-          ))}
-        </div>
-        <div
-          aria-hidden
-          className="h-3 rounded-sm bg-[#8A6A4A] shadow-[0_8px_14px_-6px_rgba(31,27,22,0.6)] dark:bg-[#6E543B]"
-        />
-        <div className="mt-4 grid grid-cols-3 gap-4 px-3 sm:grid-cols-6 sm:gap-6">
-          {similar.map((w) => (
-            <Link key={w.id} href={`/books/${w.id}`} className="text-center hover:text-accent">
-              <span className="block font-display text-lg leading-tight">{w.title}</span>
-              <span className="text-xs text-muted">★ {formatRating(Number(w.avg_rating))}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
+      <Bookshelf books={similar} />
     </section>
   );
 }

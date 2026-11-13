@@ -33,7 +33,7 @@ export function SiteHeader() {
           Booksyde<span className="text-highlight">.</span>
         </Link>
         <nav className="flex items-center gap-0.5 text-sm font-semibold sm:gap-2">
-          <Link className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="/#discover">
+          <Link className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="/discover">
             Discover
           </Link>
           <Link className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="/#join">

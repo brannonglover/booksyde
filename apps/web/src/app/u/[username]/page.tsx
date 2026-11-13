@@ -292,7 +292,7 @@ function ShelvesSection({ shelves, isOwn }: { shelves: Shelves; isOwn: boolean }
                 {isOwn ? (
                   <>
                     {" "}
-                    <Link href="/#discover" className="font-semibold text-accent hover:underline">
+                    <Link href="/discover" className="font-semibold text-accent hover:underline">
                       Find something to read
                     </Link>
                   </>

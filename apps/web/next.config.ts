@@ -6,7 +6,11 @@ const nextConfig: NextConfig = {
   // Internal workspace packages ship TypeScript source; let Next compile them.
   transpilePackages: ["@booksyde/shared", "@booksyde/theme", "@booksyde/types"],
   images: {
-    remotePatterns: [{ protocol: "https", hostname: "covers.openlibrary.org" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "covers.openlibrary.org" },
+      // Hand-picked covers where Open Library only has a poor photo.
+      { protocol: "https", hostname: "m.media-amazon.com", pathname: "/images/**" },
+    ],
   },
   turbopack: {
     rules: {

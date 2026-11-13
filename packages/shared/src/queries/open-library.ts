@@ -89,14 +89,64 @@ export async function getOpenLibraryBook(olid: string, init?: RequestInit) {
   const [found] = await search({ q: `key:/works/${olid}`, limit: "1" }, init);
   if (!found) return null;
 
+  const [res, edition] = await Promise.all([
+    fetch(`${API}/works/${olid}.json`, init),
+    preferredEdition(olid, found.title, found.coverId, init),
+  ]);
   let description: string | null = null;
-  const res = await fetch(`${API}/works/${olid}.json`, init);
   if (res.ok) {
     const work = (await res.json()) as { description?: string | { value?: string } };
     const raw = typeof work.description === "string" ? work.description : (work.description?.value ?? "");
     description = cleanDescription(raw);
   }
-  return { ...found, description };
+  return {
+    ...found,
+    coverId: edition?.coverId ?? found.coverId,
+    isbn13: edition?.isbn13 ?? found.isbn13,
+    description,
+  };
+}
+
+type EditionDoc = {
+  title?: string;
+  languages?: { key: string }[];
+  covers?: number[];
+  isbn_13?: string[];
+  isbn_10?: string[];
+};
+
+/**
+ * The edition whose cover and ISBN should stand for the work. Open Library's
+ * own pick (the search `cover_i`) can be any translation, so prefer an
+ * English edition, or failing that one titled like the work itself. Null
+ * when nothing beats Open Library's pick (or the editions can't be read).
+ */
+async function preferredEdition(olid: string, workTitle: string, currentCover: number | null, init?: RequestInit) {
+  try {
+    const res = await fetch(`${API}/works/${olid}/editions.json?limit=50`, init);
+    if (!res.ok) return null;
+    const { entries = [] } = (await res.json()) as { entries?: EditionDoc[] };
+    const workIdentity = bookIdentity(workTitle);
+
+    let best: { score: number; coverId: number; isbn13: string | null } | null = null;
+    for (const e of entries) {
+      const coverId = e.covers?.find((c) => c > 0);
+      if (!coverId) continue;
+      const langs = (e.languages ?? []).map((l) => l.key.replace("/languages/", ""));
+      if (langs.length && !langs.includes("eng")) continue;
+      // English by record beats English by title; ties keep Open Library's own pick.
+      const score =
+        (langs.includes("eng") ? 2 : 0) +
+        (e.title && bookIdentity(e.title) === workIdentity ? 1 : 0) +
+        (coverId === currentCover ? 0.5 : 0);
+      if (score >= 1 && (!best || score > best.score)) {
+        best = { score, coverId, isbn13: firstIsbn13([...(e.isbn_13 ?? []), ...(e.isbn_10 ?? [])]) };
+      }
+    }
+    return best;
+  } catch {
+    return null;
+  }
 }
 
 /** Markdown *emphasis*, **bold** or _underscores_ around whole words (not snake_case or 2 * 3). */
@@ -148,4 +198,56 @@ export function bookIdentity(title: string, author?: string | null) {
       .replace(/[^a-z0-9]/g, "");
   const surname = author?.trim().split(/\s+/).pop() ?? "";
   return `${norm(title.split(/[:;(]/)[0])}|${norm(surname)}`;
+}
+
+/** Our genre tags as Open Library subjects (for looking further afield than our own shelves). */
+const tagSubjects: Record<string, string> = {
+  fantasy: "fantasy",
+  romance: "romance",
+  thriller: "thriller",
+  mystery: "mystery",
+  "science-fiction": "science fiction",
+  horror: "horror",
+  "literary-fiction": "literary fiction",
+  "historical-fiction": "historical fiction",
+  biography: "biography",
+  "young-adult": "young adult fiction",
+  poetry: "poetry",
+  classics: "classics",
+  gothic: "gothic",
+};
+
+export function openLibrarySubject(tagSlug: string): string | null {
+  return tagSubjects[tagSlug] ?? null;
+}
+
+const quoted = (s: string) => `"${s.replace(/["\\]/g, " ").trim()}"`;
+
+/** Box sets and omnibus listings ("Books 1-3", "Set of 2 Books") rather than one book. */
+const BUNDLE = /\b(box(ed)?\s*set|collection set|set of \d+|\d+\s*books?\b|books?\s*\d+\s*[-–&]\s*\d+)/i;
+
+/**
+ * The most-read Open Library books matching every one of these (all optional):
+ * by `author`, carrying all of `subjects`, at least one of `anySubjects`, and
+ * none of `notSubjects`. Box sets are left out.
+ */
+export async function browseOpenLibrary(
+  {
+    author,
+    subjects = [],
+    anySubjects = [],
+    notSubjects = [],
+  }: { author?: string; subjects?: string[]; anySubjects?: string[]; notSubjects?: string[] },
+  limit = 12,
+  init?: RequestInit,
+) {
+  if (!author && subjects.length === 0 && anySubjects.length === 0) return [];
+  const terms = [
+    ...(author ? [`author:${quoted(author)}`] : []),
+    ...subjects.map((s) => `subject:${quoted(s)}`),
+    ...(anySubjects.length ? [`(${anySubjects.map((s) => `subject:${quoted(s)}`).join(" OR ")})`] : []),
+    ...notSubjects.map((s) => `-subject:${quoted(s)}`),
+  ];
+  const books = await search({ q: terms.join(" "), sort: "readinglog", limit: String(limit) }, init);
+  return books.filter((b) => !BUNDLE.test(b.title));
 }
