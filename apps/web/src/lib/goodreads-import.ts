@@ -1,12 +1,6 @@
 import "server-only";
 
-import {
-  bookIdentity,
-  createBooksydeClient,
-  type GoodreadsBook,
-  goodreadsSearchTitle,
-  searchOpenLibrary,
-} from "@booksyde/shared";
+import { createBooksydeClient, type GoodreadsBook, goodreadsSearchTitle, sameBook, searchOpenLibrary } from "@booksyde/shared";
 import { findCatalogueMatch, importOpenLibraryWork, userAgent } from "./open-library-import";
 import { supabaseKey, supabaseUrl } from "./supabase/env";
 
@@ -52,16 +46,21 @@ export async function resolveGoodreadsBook(book: GoodreadsBook): Promise<string 
     if (id) return id;
   }
 
-  const held = await findCatalogueMatch(title, book.author);
-  if (held) return held.id;
+  // Title alone is too loose to file a book under, so title matching needs an author.
+  const wanted = book.author ? { title, authors: [book.author] } : null;
+  if (wanted) {
+    const held = await findCatalogueMatch(wanted);
+    if (held) return held.id;
+  }
 
   // Open Library by ISBN first (exact), then by title + author (must match on both).
   if (book.isbn13) {
     const [hit] = await searchOpenLibrary(book.isbn13, 1, userAgent);
     if (hit) return importOpenLibraryWork(hit.olid);
   }
-  const identity = bookIdentity(title, book.author);
-  const hits = await searchOpenLibrary(book.author ? `${title} ${book.author}` : title, 5, userAgent);
-  const hit = hits.find((b) => bookIdentity(b.title, b.authors[0]?.name) === identity);
+  if (!wanted) return null;
+  // Only hits that name an author we can check: an authorless stub would match on title alone.
+  const hits = await searchOpenLibrary(`${title} ${book.author}`, 5, userAgent);
+  const hit = hits.find((b) => b.authors.length > 0 && sameBook(wanted, { title: b.title, authors: b.authors.map((a) => a.name) }));
   return hit ? importOpenLibraryWork(hit.olid) : null;
 }

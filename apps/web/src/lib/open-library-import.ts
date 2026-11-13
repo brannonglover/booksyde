@@ -1,6 +1,14 @@
 import "server-only";
 
-import { bookIdentity, createBooksydeClient, getOpenLibraryBook, OPEN_LIBRARY_WORK_ID, openLibraryTags } from "@booksyde/shared";
+import {
+  type BookLike,
+  createBooksydeClient,
+  getOpenLibraryBook,
+  OPEN_LIBRARY_WORK_ID,
+  openLibraryTags,
+  sameBook,
+  titleKey,
+} from "@booksyde/shared";
 import { supabaseUrl } from "./supabase/env";
 
 const secretKey = process.env.SUPABASE_SECRET_KEY ?? "";
@@ -13,27 +21,53 @@ function adminClient() {
 
 export const userAgent = { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } };
 
-/** A work we already hold with the same title and lead author (see `bookIdentity`), or null. */
-export async function findCatalogueMatch(title: string, author?: string | null) {
-  const identity = bookIdentity(title, author);
-  const { data: sameTitle } = await adminClient()
+type HeldWork = { id: string; title: string; open_library_id: string | null; authors: string[] };
+
+const heldSelect = "id, title, open_library_id, work_contributors ( position, authors ( name ) )";
+
+function toHeld(w: { id: string; title: string; open_library_id: string | null; work_contributors: { position: number; authors: { name: string } }[] }): HeldWork {
+  const authors = [...w.work_contributors].sort((a, b) => a.position - b.position).map((c) => c.authors.name);
+  return { id: w.id, title: w.title, open_library_id: w.open_library_id, authors };
+}
+
+/**
+ * A work we already hold that is this book, or null. An edition with one of
+ * its ISBNs counts (as long as title or an author agrees, in case Open Library
+ * filed a stray ISBN under the wrong work); otherwise `sameBook` on title and
+ * authors. Every way into the catalogue goes through here, so this is what
+ * keeps the same book from being filed twice.
+ */
+export async function findCatalogueMatch(book: BookLike & { isbns?: string[] }): Promise<HeldWork | null> {
+  const db = adminClient();
+  const key = titleKey(book.title);
+
+  if (book.isbns?.length) {
+    const { data } = await db.from("editions").select(`works ( ${heldSelect} )`).in("isbn_13", book.isbns).limit(10);
+    for (const row of data ?? []) {
+      if (!row.works) continue;
+      const held = toHeld(row.works);
+      const sharesAuthor = sameBook({ ...held, title: book.title }, book);
+      if (titleKey(held.title) === key || sharesAuthor) return held;
+    }
+  }
+
+  // Narrow by title in the database (the words before any subtitle), then compare properly.
+  const words = book.title.split(/[:;(]/)[0].trim().replace(/^(the|a|an)\s+/i, "").replace(/[%_\\]/g, "");
+  if (!words) return null;
+  const { data: sameTitle } = await db
     .from("works")
-    .select("id, title, open_library_id, work_contributors ( position, authors ( name ) )")
-    .ilike("title", `${title.split(/[:;(]/)[0].trim().replace(/[%_\\]/g, "")}%`)
-    .limit(10);
-  return (
-    (sameTitle ?? []).find((w) => {
-      const lead = [...w.work_contributors].sort((a, b) => a.position - b.position)[0]?.authors.name;
-      return bookIdentity(w.title, lead) === identity;
-    }) ?? null
-  );
+    .select(heldSelect)
+    .ilike("title", `%${words}%`)
+    .order("shelved_count", { ascending: false })
+    .limit(25);
+  return (sameTitle ?? []).map(toHeld).find((w) => sameBook(w, book)) ?? null;
 }
 
 /**
  * Brings an Open Library work into the catalogue (title, description, cover,
  * authors, one edition, genre tags) and returns its Booksyde id. Idempotent:
- * a work we already hold — by Open Library id, or same title and author —
- * just returns the existing id. Null if Open Library doesn't know the work.
+ * a work we already hold — by Open Library id, a shared ISBN, or same title
+ * and an author in common — just returns the existing id. Null if Open Library doesn't know the work.
  */
 export async function importOpenLibraryWork(olid: string): Promise<string | null> {
   if (!OPEN_LIBRARY_WORK_ID.test(olid)) return null;
@@ -46,8 +80,8 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
   const book = await getOpenLibraryBook(olid, userAgent);
   if (!book) return null;
 
-  // Already on file under another (or no) Open Library id? Same title + lead author counts.
-  const match = await findCatalogueMatch(book.title, book.authors[0]?.name);
+  // Already on file under another (or no) Open Library id? See findCatalogueMatch for what counts.
+  const match = await findCatalogueMatch({ title: book.title, authors: book.authors.map((a) => a.name), isbns: book.isbns });
   if (match) {
     if (!match.open_library_id) await db.from("works").update({ open_library_id: olid }).eq("id", match.id);
     return match.id;
