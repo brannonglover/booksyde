@@ -5,19 +5,8 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { Field, FormError, SubmitButton } from "@/app/(auth)/fields";
 import { createClient } from "@/lib/supabase/client";
+import { inks } from "@/lib/inks";
 import { type ProfileFormState, saveProfile } from "./actions";
-
-/** Ink colours readers can pick for their bookplate and avatar. */
-const inks = [
-  { hex: "#2D4A3E", name: "Library green" },
-  { hex: "#8B3A2B", name: "Oxblood" },
-  { hex: "#2F4A66", name: "Ink blue" },
-  { hex: "#5B3A5E", name: "Aubergine" },
-  { hex: "#B8893A", name: "Gilt" },
-  { hex: "#6F8B5E", name: "Sage" },
-  { hex: "#B0565A", name: "Rosewood" },
-  { hex: "#1F1B16", name: "Iron-gall" },
-];
 
 type Profile = { username: string; display_name: string | null; bio: string | null; theme_color: string | null; is_private: boolean };
 

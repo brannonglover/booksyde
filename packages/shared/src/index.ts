@@ -16,3 +16,5 @@ export * from "./queries/google-books";
 export * from "./queries/year";
 export * from "./utils/csv";
 export * from "./utils/goodreads";
+export * from "./queries/clubs";
+export * from "./schemas/club";

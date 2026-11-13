@@ -600,6 +600,11 @@ isOneToOne: false
             "can_view_user":
 { Args: { "target": string }; Returns: boolean
                            },
+"get_club_posts":
+{ Args: { "before"?: string,"max_results"?: number,"p_club_id": string }; Returns: {
+              "body": string,"club_read_id": string,"created_at": string,"display_name": string,"id": string,"is_hidden": boolean,"spoiler_page": number,"theme_color": string,"updated_at": string,"user_id": string,"username": string,"work_id": string
+            }[]
+                           },
 "get_feed":
 { Args: { "before"?: string,"max_results"?: number }; Returns: {
               "actor_id": string,
@@ -646,6 +651,9 @@ isOneToOne: false
                            },
 "profile_stats":
 { Args: { "p_user_id": string }; Returns: Json
+                           },
+"reader_page":
+{ Args: { "p_work_id": string }; Returns: number
                            },
 "search_authors":
 { Args: { "max_results"?: number,"q": string }; Returns: {
