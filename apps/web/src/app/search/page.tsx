@@ -1,11 +1,10 @@
-import { bookIdentity, type CatalogBook, callNumber, catalogName, compactCount, lifeYears } from "@booksyde/shared";
-import { genreColor } from "@booksyde/theme";
+import { bookIdentity, type CatalogBook, compactCount, formatRating, lifeYears } from "@booksyde/shared";
+import { genreColor, palette } from "@booksyde/theme";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { BookCover } from "@/components/book-cover";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
-import { Stars } from "@/components/stars";
 import { getDrawers, parseSearch, searchEverything, searchWiderStacks } from "@/lib/catalog";
 import { RequestSlip } from "./request-slip";
 import { SearchBox } from "./search-box";
@@ -58,7 +57,7 @@ function ResultsSkeleton() {
   return (
     <div className="mt-16 grid gap-5 md:grid-cols-2">
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="h-56 animate-pulse rounded-sm bg-border/40" />
+        <div key={i} className="h-48 animate-pulse rounded-2xl bg-border/40" />
       ))}
     </div>
   );
@@ -89,9 +88,9 @@ async function Results({ searchParams }: { searchParams: Promise<Params> }) {
     <div className="mt-16">
       {/* Summary + the narrowing chips */}
       <div className="flex flex-col gap-5 border-b border-border pb-6">
-        <p className="font-mono text-sm uppercase tracking-[0.12em] text-muted">
-          {books.length === 0 ? "No cards" : `${books.length} ${books.length === 1 ? "card" : "cards"}`} filed under{" "}
-          <span className="text-text">{filedUnder}</span>
+        <p className="text-muted">
+          <span className="font-display text-3xl text-text">{books.length === 0 ? "No" : books.length}</span>{" "}
+          {books.length === 1 ? "book" : "books"} for <span className="font-semibold text-text">{filedUnder}</span>
         </p>
         <Narrow q={q} tags={tags} drawers={drawers} />
       </div>
@@ -100,13 +99,13 @@ async function Results({ searchParams }: { searchParams: Promise<Params> }) {
         // A plain text search goes straight to the wider stacks below; they show the empty card if they come up dry too.
         q && tags.length === 0 ? null : <NoCards q={q} tags={tags} />
       ) : (
-        <div className={`mt-10 grid gap-12 ${authors.length || readers.length ? "lg:grid-cols-[1fr_18rem]" : ""}`}>
+        <div className={`mt-10 grid grid-cols-1 gap-12 ${authors.length || readers.length ? "lg:grid-cols-[1fr_18rem]" : ""}`}>
           <section aria-label="Books">
             {books.length ? (
-              <ol className={`grid gap-6 md:grid-cols-2 ${authors.length || readers.length ? "" : "xl:grid-cols-3"}`}>
-                {books.map((book, i) => (
+              <ol className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${authors.length || readers.length ? "" : "xl:grid-cols-3"}`}>
+                {books.map((book) => (
                   <li key={book.id}>
-                    <CatalogueCard book={book} tilt={i % 3 === 1 ? 0.5 : i % 3 === 2 ? -0.4 : 0} />
+                    <CatalogueCard book={book} />
                   </li>
                 ))}
               </ol>
@@ -146,7 +145,7 @@ function StacksSkeleton() {
   return (
     <div className="mt-10 grid gap-5 md:grid-cols-3">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-44 animate-pulse rounded-sm bg-border/40" />
+        <div key={i} className="h-44 animate-pulse rounded-2xl bg-border/40" />
       ))}
     </div>
   );
@@ -163,13 +162,13 @@ async function WiderStacks({ q, onFile, headline }: { q: string; onFile: string[
     <section aria-labelledby="wider-stacks" className={headline ? "mt-10" : "mt-20 border-t border-border pt-12"}>
       <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted">Not on file yet</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted">Not on Booksyde yet</p>
           <h2 id="wider-stacks" className="mt-2 font-display text-4xl leading-none sm:text-5xl">
             From the <em className="text-accent">wider stacks</em>
           </h2>
           <p className="mt-3 max-w-xl text-muted">
             {headline ? "We don’t have it on our shelves yet, but these are out there. " : ""}
-            Fill in a request slip and we’ll add the book to the catalogue, ready to shelve and review.
+            Add one and it joins the catalogue, ready to shelve and review.
           </p>
         </div>
         <a
@@ -186,10 +185,10 @@ async function WiderStacks({ q, onFile, headline }: { q: string; onFile: string[
           The wider stacks aren’t answering right now. Try again in a moment.
         </p>
       ) : (
-        <ol className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {books.map((book, i) => (
+        <ol className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {books.map((book) => (
             <li key={book.olid}>
-              <RequestSlip book={book} tilt={i % 3 === 1 ? -0.5 : i % 3 === 2 ? 0.4 : 0} />
+              <RequestSlip book={book} />
             </li>
           ))}
         </ol>
@@ -269,70 +268,74 @@ function Hole() {
   );
 }
 
-/** One book as a typed library catalogue card. */
-function CatalogueCard({ book, tilt }: { book: CatalogBook; tilt: number }) {
+/** One book as a cover-forward result card, washed in the colour of its cover. */
+function CatalogueCard({ book }: { book: CatalogBook }) {
   const authors = [...book.work_contributors]
     .filter((c) => c.role === "author")
     .sort((a, b) => a.position - b.position)
     .map((c) => c.authors);
-  const lead = authors[0];
   const byline = authors.map((a) => a.name).join(" & ") || "Unknown";
   const subjects = [...book.work_tags]
     .filter((t) => t.votes > 0 && (t.tags.kind === "genre" || t.tags.kind === "mood"))
     .sort((a, b) => b.votes - a.votes)
-    .slice(0, 4)
+    .slice(0, 3)
     .map((t) => t.tags);
+  const tint = book.cover_color ?? (subjects[0] ? genreColor(subjects[0].slug).dot : null) ?? palette.gilt;
 
   return (
     <Link
       href={`/books/${book.id}`}
-      className="index-card group relative block h-full rounded-sm px-5 pb-10 pt-4 shadow-[0_1px_2px_rgba(31,27,22,0.1),0_16px_32px_-22px_rgba(31,27,22,0.55)] transition duration-300 hover:-translate-y-1 hover:rotate-0 hover:shadow-[0_1px_2px_rgba(31,27,22,0.1),0_26px_40px_-24px_rgba(31,27,22,0.6)] sm:px-6"
-      style={{ rotate: `${tilt}deg` }}
+      className="group relative isolate flex h-full gap-5 overflow-hidden rounded-2xl border border-border bg-surface p-4 transition duration-300 hover:-translate-y-1 hover:border-text/20 hover:shadow-[0_24px_48px_-28px_rgba(0,0,0,0.55)] sm:p-5"
     >
-      {/* Call number in the margin, heading on the red rule */}
-      <div className="flex items-baseline gap-3 border-b border-oxblood/50 pb-1.5 font-mono text-[0.8rem] dark:border-[#C97B6B]/50">
-        <span className="shrink-0 text-xs font-semibold text-accent">{callNumber(book, lead?.name)}</span>
-        <span className="truncate text-muted">
-          {lead ? catalogName(lead.name) : "Anonymous"}
-          {lead && lifeYears(lead.birth_date, lead.death_date) ? `, ${lifeYears(lead.birth_date, lead.death_date)}` : ""}.
-        </span>
-      </div>
-      <div className="flex gap-4">
-        <div className="min-w-0 flex-1 font-mono text-[0.8rem] leading-[1.55]">
-          <p className="mt-3 font-display text-[1.65rem] leading-[1.05] tracking-tight group-hover:text-accent">{book.title}</p>
-          {book.subtitle ? <p className="mt-1 text-muted">{book.subtitle}</p> : null}
-          <p className="mt-2">
-            / by {byline}.{book.first_published_year ? ` — First published ${book.first_published_year}.` : ""}
-          </p>
+      {/* A soft wash of the cover's own colour, brighter on hover */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -left-16 -top-20 -z-10 size-64 rounded-full opacity-30 blur-3xl transition-opacity duration-500 group-hover:opacity-50"
+        style={{ background: tint }}
+      />
+      <BookCover
+        title={book.title}
+        author={byline}
+        src={book.cover_url}
+        color={book.cover_color}
+        sizes="112px"
+        className="w-24 shrink-0 self-start transition duration-300 group-hover:-rotate-2 group-hover:scale-[1.04] sm:w-28"
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        {book.first_published_year ? (
+          <p className="text-xs font-medium tabular-nums text-muted">{book.first_published_year}</p>
+        ) : null}
+        <h3 className="mt-0.5 line-clamp-2 font-display text-[1.65rem] leading-[1.05] tracking-tight transition-colors group-hover:text-accent">
+          {book.title}
+        </h3>
+        {book.subtitle ? <p className="mt-1 line-clamp-1 text-sm text-muted">{book.subtitle}</p> : null}
+        <p className="mt-1.5 truncate text-sm">
+          <span className="text-muted">by </span>
+          <span className="font-medium">{byline}</span>
+        </p>
+
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-4">
           {book.ratings_count > 0 ? (
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 font-sans text-sm">
-              <Stars rating={Number(book.avg_rating)} />
-              <span className="text-muted">
-                {Number(book.avg_rating).toFixed(1)} · {compactCount(book.ratings_count)} ratings
-              </span>
-            </p>
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-highlight/15 px-2.5 py-1 text-xs font-semibold"
+              aria-label={`Rated ${formatRating(Number(book.avg_rating))} from ${book.ratings_count} ${book.ratings_count === 1 ? "rating" : "ratings"}`}
+            >
+              <span aria-hidden className="text-highlight">★</span>
+              {formatRating(Number(book.avg_rating))}
+              <span className="font-normal text-muted">({compactCount(book.ratings_count)})</span>
+            </span>
           ) : null}
-          {subjects.length ? (
-            <p className="mt-3 text-muted">
-              {subjects.map((t, i) => (
-                <span key={t.slug}>
-                  {i + 1}. {t.name}
-                  {t.kind === "genre" ? " — Fiction" : ""}.{" "}
-                </span>
-              ))}
-            </p>
-          ) : null}
+          {subjects.map((t) => (
+            <span
+              key={t.slug}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted"
+            >
+              <span aria-hidden className="size-1.5 rounded-full" style={{ background: genreColor(t.slug).dot }} />
+              {t.name}
+            </span>
+          ))}
         </div>
-        <BookCover
-          title={book.title}
-          author={byline}
-          src={book.cover_url}
-          color={book.cover_color}
-          sizes="80px"
-          className="mt-4 w-16 shrink-0 self-start sm:w-20"
-        />
       </div>
-      <Hole />
     </Link>
   );
 }

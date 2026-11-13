@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "covers.openlibrary.org" },
+      // Publisher covers from Google Books (see src/lib/covers.ts).
+      { protocol: "https", hostname: "books.google.com", pathname: "/books/**" },
+      { protocol: "https", hostname: "books.googleusercontent.com" },
       // Hand-picked covers where Open Library only has a poor photo.
       { protocol: "https", hostname: "m.media-amazon.com", pathname: "/images/**" },
     ],

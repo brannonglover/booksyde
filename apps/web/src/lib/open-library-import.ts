@@ -1,6 +1,7 @@
 import "server-only";
 
 import { bookIdentity, createBooksydeClient, getOpenLibraryBook, OPEN_LIBRARY_WORK_ID, openLibraryTags } from "@booksyde/shared";
+import { pickCover } from "./covers";
 import { supabaseUrl } from "./supabase/env";
 
 const secretKey = process.env.SUPABASE_SECRET_KEY ?? "";
@@ -53,6 +54,13 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
     return match.id;
   }
 
+  // The chosen edition's cover first, then the other English editions in case it's poor.
+  const editions =
+    book.coverId && !book.editions.some((e) => e.coverId === book.coverId)
+      ? [{ coverId: book.coverId, isbn13: book.isbn13 }, ...book.editions]
+      : book.editions;
+  const cover = await pickCover({ isbns: [book.isbn13], editions, init: userAgent });
+
   const { data: work, error } = await db
     .from("works")
     .insert({
@@ -60,7 +68,8 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
       subtitle: book.subtitle,
       description: book.description,
       first_published_year: book.year,
-      cover_url: book.coverId ? `https://covers.openlibrary.org/b/id/${book.coverId}-L.jpg` : null,
+      cover_url: cover?.url ?? null,
+      cover_source: cover?.source ?? null,
       open_library_id: olid,
     })
     .select("id")

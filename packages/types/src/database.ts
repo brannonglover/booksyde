@@ -579,14 +579,14 @@ isOneToOne: false
                   ]
                 },"works": {
                   Row: {
-                    "avg_rating": number,"cover_color": string | null,"cover_url": string | null,"created_at": string,"description": string | null,"embedding": string | null,"first_published_year": number | null,"id": string,"open_library_id": string | null,"original_language": string | null,"ratings_count": number,"reviews_count": number,"search": unknown,"shelved_count": number,"subtitle": string | null,"title": string,"updated_at": string
+                    "avg_rating": number,"backdrop_style": Database["public"]['Enums']["backdrop_style"] | null,"cover_color": string | null,"cover_source": Database["public"]['Enums']["cover_source"] | null,"cover_url": string | null,"created_at": string,"description": string | null,"embedding": string | null,"first_published_year": number | null,"id": string,"open_library_id": string | null,"original_language": string | null,"ratings_count": number,"reviews_count": number,"search": unknown,"shelved_count": number,"subtitle": string | null,"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "avg_rating"?: number,"cover_color"?: string | null,"cover_url"?: string | null,"created_at"?: string,"description"?: string | null,"embedding"?: string | null,"first_published_year"?: number | null,"id"?: string,"open_library_id"?: string | null,"original_language"?: string | null,"ratings_count"?: number,"reviews_count"?: number,"search"?: never,"shelved_count"?: number,"subtitle"?: string | null,"title": string,"updated_at"?: string
+                    "avg_rating"?: number,"backdrop_style"?: Database["public"]['Enums']["backdrop_style"] | null,"cover_color"?: string | null,"cover_source"?: Database["public"]['Enums']["cover_source"] | null,"cover_url"?: string | null,"created_at"?: string,"description"?: string | null,"embedding"?: string | null,"first_published_year"?: number | null,"id"?: string,"open_library_id"?: string | null,"original_language"?: string | null,"ratings_count"?: number,"reviews_count"?: number,"search"?: never,"shelved_count"?: number,"subtitle"?: string | null,"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "avg_rating"?: number,"cover_color"?: string | null,"cover_url"?: string | null,"created_at"?: string,"description"?: string | null,"embedding"?: string | null,"first_published_year"?: number | null,"id"?: string,"open_library_id"?: string | null,"original_language"?: string | null,"ratings_count"?: number,"reviews_count"?: number,"search"?: never,"shelved_count"?: number,"subtitle"?: string | null,"title"?: string,"updated_at"?: string
+                    "avg_rating"?: number,"backdrop_style"?: Database["public"]['Enums']["backdrop_style"] | null,"cover_color"?: string | null,"cover_source"?: Database["public"]['Enums']["cover_source"] | null,"cover_url"?: string | null,"created_at"?: string,"description"?: string | null,"embedding"?: string | null,"first_published_year"?: number | null,"id"?: string,"open_library_id"?: string | null,"original_language"?: string | null,"ratings_count"?: number,"reviews_count"?: number,"search"?: never,"shelved_count"?: number,"subtitle"?: string | null,"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -634,6 +634,16 @@ isOneToOne: false
 "is_librarian":
 { Args: Record<PropertyKey, never>; Returns: boolean
                            },
+"next_read":
+{ Args: Record<PropertyKey, never>; Returns: {
+              "context": string,"reason": string,"work_id": string
+            }[]
+                           },
+"nightstand_works":
+{ Args: { "max_results"?: number }; Returns: {
+              "readers": number,"work_id": string
+            }[]
+                           },
 "profile_stats":
 { Args: { "p_user_id": string }; Returns: Json
                            },
@@ -645,7 +655,9 @@ isOneToOne: false
 "search_catalog":
 { Args: { "max_results"?: number,"q"?: string,"tag_slugs"?: (string)[] }; Returns: {
               "avg_rating": number,
+"backdrop_style": Database["public"]['Enums']["backdrop_style"] | null,
 "cover_color": string | null,
+"cover_source": Database["public"]['Enums']["cover_source"] | null,
 "cover_url": string | null,
 "created_at": string,
 "description": string | null,
@@ -671,7 +683,9 @@ isOneToOne: false
 "search_works":
 { Args: { "max_results"?: number,"q": string }; Returns: {
               "avg_rating": number,
+"backdrop_style": Database["public"]['Enums']["backdrop_style"] | null,
 "cover_color": string | null,
+"cover_source": Database["public"]['Enums']["cover_source"] | null,
 "cover_url": string | null,
 "created_at": string,
 "description": string | null,
@@ -697,7 +711,9 @@ isOneToOne: false
 "similar_works":
 { Args: { "max_results"?: number,"p_work_id": string }; Returns: {
               "avg_rating": number,
+"backdrop_style": Database["public"]['Enums']["backdrop_style"] | null,
 "cover_color": string | null,
+"cover_source": Database["public"]['Enums']["cover_source"] | null,
 "cover_url": string | null,
 "created_at": string,
 "description": string | null,
@@ -732,7 +748,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "activity_verb": "shelved"|"started"|"finished"|"dnf"|"rated"|"reviewed"|"followed","club_role": "owner"|"moderator"|"member","contributor_role": "author"|"translator"|"illustrator"|"editor"|"narrator","edition_format": "hardcover"|"paperback"|"mass_market"|"ebook"|"audiobook"|"other","follow_status": "pending"|"accepted","reading_status": "want_to_read"|"reading"|"read"|"did_not_finish","tag_kind": "genre"|"mood"|"trope"|"pace"|"content_warning","user_role": "member"|"librarian"|"admin"
+            "activity_verb": "shelved"|"started"|"finished"|"dnf"|"rated"|"reviewed"|"followed","backdrop_style": "cover"|"motif"|"setting"|"generated","club_role": "owner"|"moderator"|"member","contributor_role": "author"|"translator"|"illustrator"|"editor"|"narrator","cover_source": "open_library"|"google_books"|"manual","edition_format": "hardcover"|"paperback"|"mass_market"|"ebook"|"audiobook"|"other","follow_status": "pending"|"accepted","reading_status": "want_to_read"|"reading"|"read"|"did_not_finish","tag_kind": "genre"|"mood"|"trope"|"pace"|"content_warning","user_role": "member"|"librarian"|"admin"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -852,7 +868,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "activity_verb": ["shelved", "started", "finished", "dnf", "rated", "reviewed", "followed"],"club_role": ["owner", "moderator", "member"],"contributor_role": ["author", "translator", "illustrator", "editor", "narrator"],"edition_format": ["hardcover", "paperback", "mass_market", "ebook", "audiobook", "other"],"follow_status": ["pending", "accepted"],"reading_status": ["want_to_read", "reading", "read", "did_not_finish"],"tag_kind": ["genre", "mood", "trope", "pace", "content_warning"],"user_role": ["member", "librarian", "admin"]
+            "activity_verb": ["shelved", "started", "finished", "dnf", "rated", "reviewed", "followed"],"backdrop_style": ["cover", "motif", "setting", "generated"],"club_role": ["owner", "moderator", "member"],"contributor_role": ["author", "translator", "illustrator", "editor", "narrator"],"cover_source": ["open_library", "google_books", "manual"],"edition_format": ["hardcover", "paperback", "mass_market", "ebook", "audiobook", "other"],"follow_status": ["pending", "accepted"],"reading_status": ["want_to_read", "reading", "read", "did_not_finish"],"tag_kind": ["genre", "mood", "trope", "pace", "content_warning"],"user_role": ["member", "librarian", "admin"]
           }
         }
 } as const

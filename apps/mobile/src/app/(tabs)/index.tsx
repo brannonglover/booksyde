@@ -1,9 +1,17 @@
-import { formatRating } from '@booksyde/shared';
+import {
+  compactCount,
+  describeNextRead,
+  formatRating,
+  getNextRead,
+  getNightstand,
+  type NextRead,
+  type NightstandBook,
+} from '@booksyde/shared';
 import { genreColor, palette, radii, spacing } from '@booksyde/theme';
 import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppearancePicker, ThemeToggleButton } from '@/components/appearance-picker';
@@ -20,15 +28,6 @@ import { supabase } from '@/lib/supabase';
 // On web the tab bar floats over the top of the screen; start the masthead below it.
 const WebTabBarHeight = 72;
 
-// Placeholder shelf until the catalog is wired up. Cover ids are Open Library's.
-const nightstand = [
-  { id: '00000000-0000-4000-b000-000000000001', title: 'Pride and Prejudice', author: 'Jane Austen', coverId: 14348537, rating: 4.5 },
-  { id: '00000000-0000-4000-b000-000000000007', title: 'Wuthering Heights', author: 'Emily Brontë', coverId: 12818862, rating: 4 },
-  { id: '00000000-0000-4000-b000-000000000006', title: 'Jane Eyre', author: 'Charlotte Brontë', coverId: 8235363, rating: 4.5 },
-  { id: '00000000-0000-4000-b000-000000000002', title: 'Frankenstein', author: 'Mary Shelley', coverId: 12356249, rating: 4 },
-  { id: '00000000-0000-4000-b000-000000000003', title: 'Moby-Dick', author: 'Herman Melville', coverId: 10544254, rating: 3.5 },
-];
-
 const moods = [
   ['fantasy', 'Fantasy'],
   ['romance', 'Romance'],
@@ -41,7 +40,7 @@ const moods = [
 ] as const;
 
 const features = [
-  { numeral: 'i', title: 'Read by mood', body: 'Cozy, dark, hopeful, tense: find the book that suits tonight.' },
+  { numeral: 'i', title: 'Read by mood', body: 'Cozy, dark, hopeful, tense: find the book that suits your mood.' },
   { numeral: 'ii', title: 'Half-stars, finally', body: 'Because some books are a 3.5, and that’s all right.' },
   { numeral: 'iii', title: 'Buddy reads', body: 'Read alongside friends, with no spoilers past your page.' },
 ];
@@ -66,6 +65,135 @@ function SectionHeading({ numeral, children }: { numeral: string; children: stri
         {children}
       </Text>
     </View>
+  );
+}
+
+/** Shown when signed out, or when the reader's shelves don't suggest anything yet. */
+const fallbackPick = {
+  label: 'Today’s pick',
+  why: null,
+  work: { id: '', title: 'Pride and Prejudice', author: 'Jane Austen', year: 1813, cover_url: null, cover_color: null },
+};
+
+/** The signed-in reader's next read in the arch window; a classic for everyone else. */
+function NextReadWindow() {
+  const theme = useTheme();
+  const { session } = useSession();
+  const userId = session?.user.id;
+  // Keyed by reader, so a pick never outlives a sign-out or account switch.
+  const [loaded, setLoaded] = useState<{ userId: string; pick: NextRead | null } | null>(null);
+  const pick = userId && loaded?.userId === userId ? loaded.pick : null;
+  useEffect(() => {
+    if (!supabase || !userId) return;
+    let live = true;
+    getNextRead(supabase)
+      .then((p) => live && setLoaded({ userId, pick: p }))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [userId]);
+
+  const { label, why, work } = pick ? { ...describeNextRead(pick), work: pick.work } : fallbackPick;
+  const stage = (
+    <View style={styles.arch}>
+      <View style={styles.archInner} />
+      <View style={styles.archBook}>
+        <BookCover
+          title={work.title}
+          author={work.author}
+          src={work.cover_url}
+          coverId={work.id ? null : 14348537}
+          color={work.cover_color}
+          width={132}
+        />
+      </View>
+    </View>
+  );
+  return (
+    <View>
+      {work.id ? (
+        <Link href={{ pathname: '/book/[id]', params: { id: work.id } }} asChild>
+          <Pressable accessibilityLabel={`${work.title} by ${work.author}`}>{stage}</Pressable>
+        </Link>
+      ) : (
+        stage
+      )}
+      <View style={[styles.caption, { borderBottomColor: theme.border }]}>
+        <View style={styles.captionRow}>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>{label.toUpperCase()}</Text>
+          <Text style={[styles.captionText, { color: theme.text }]} numberOfLines={1}>
+            <Text style={styles.captionTitle}>{work.title}</Text>
+            {work.year ? <Text style={{ color: theme.textSecondary }}> · {work.year}</Text> : null}
+          </Text>
+        </View>
+        {why ? (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.captionWhy}>
+            {why}
+          </ThemedText>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** The books the most readers have open right now. */
+function Nightstand() {
+  const theme = useTheme();
+  // undefined while loading; null if it couldn't load.
+  const [books, setBooks] = useState<NightstandBook[] | null | undefined>(supabase ? undefined : null);
+  useEffect(() => {
+    if (!supabase) return;
+    let live = true;
+    getNightstand(supabase, 8)
+      .then((b) => live && setBooks(b))
+      .catch(() => live && setBooks(null));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  if (books === undefined) return <ActivityIndicator color={theme.textSecondary} style={styles.shelfLoading} />;
+  if (!books?.length) {
+    return (
+      <ThemedText themeColor="textSecondary" style={[styles.shelfEmpty, { borderColor: theme.border }]}>
+        {books === null ? 'Couldn’t reach the nightstands just now.' : 'The nightstands are bare for now. Start a book and yours will be the first.'}
+      </ThemedText>
+    );
+  }
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf} style={styles.shelfScroll}>
+      {books.map((book) => (
+        <Link key={book.id} href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
+          <Pressable style={styles.book}>
+            <BookCover title={book.title} author={book.author} src={book.cover_url} color={book.cover_color} width={128} />
+            <Text style={[styles.bookTitle, { color: theme.text }]} numberOfLines={1}>
+              {book.title}
+            </Text>
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+              {book.author}
+            </ThemedText>
+            <View style={styles.ratingRow}>
+              {book.ratings_count > 0 ? (
+                <>
+                  <Stars rating={book.avg_rating} />
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {formatRating(book.avg_rating)}
+                  </ThemedText>
+                </>
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  No ratings yet
+                </ThemedText>
+              )}
+            </View>
+            {book.readers > 0 ? (
+              <Text style={[styles.readers, { color: theme.accent }]}>{compactCount(book.readers)} READING NOW</Text>
+            ) : null}
+          </Pressable>
+        </Link>
+      ))}
+    </ScrollView>
   );
 }
 
@@ -137,22 +265,9 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Tonight's pick, framed in a library-window arch */}
-          <View>
-            <View style={styles.arch}>
-              <View style={styles.archInner} />
-              <View style={styles.archBook}>
-                <BookCover title="Pride and Prejudice" author="Jane Austen" coverId={14348537} width={132} />
-              </View>
-            </View>
-            <View style={[styles.caption, { borderBottomColor: theme.border }]}>
-              <Text style={[styles.label, { color: theme.textSecondary }]}>TONIGHT’S PICK</Text>
-              <Text style={{ color: theme.text }}>
-                <Text style={styles.captionTitle}>Pride and Prejudice</Text>
-                <Text style={{ color: theme.textSecondary }}> · 1813</Text>
-              </Text>
-            </View>
-          </View>
+          {/* Your next read, framed in a library-window arch */}
+          <NextReadWindow />
+
 
           <SectionHeading numeral="I">What are you in the mood for?</SectionHeading>
           <View style={styles.chips}>
@@ -169,32 +284,7 @@ export default function HomeScreen() {
           </View>
 
           <SectionHeading numeral="II">On everyone’s nightstand</SectionHeading>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.shelf}
-            style={styles.shelfScroll}
-          >
-            {nightstand.map((book) => (
-              <Link key={book.title} href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
-              <Pressable style={styles.book}>
-                <BookCover title={book.title} author={book.author} coverId={book.coverId} width={128} />
-                <Text style={[styles.bookTitle, { color: theme.text }]} numberOfLines={1}>
-                  {book.title}
-                </Text>
-                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                  {book.author}
-                </ThemedText>
-                <View style={styles.ratingRow}>
-                  <Stars rating={book.rating} />
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {formatRating(book.rating)}
-                  </ThemedText>
-                </View>
-              </Pressable>
-              </Link>
-            ))}
-          </ScrollView>
+          <Nightstand />
 
           <View style={styles.quote}>
             <Ornament center />
@@ -321,16 +411,16 @@ const styles = StyleSheet.create({
   },
   archBook: { marginTop: spacing[7], transform: [{ rotate: '-2deg' }] },
   caption: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
     maxWidth: 360,
     width: '100%',
     alignSelf: 'center',
     paddingVertical: spacing[3],
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  captionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[4] },
+  captionText: { flexShrink: 1, textAlign: 'right' },
   captionTitle: { fontFamily: DisplayFonts.italic, fontSize: 18 },
+  captionWhy: { marginTop: spacing[1], textAlign: 'right' },
   label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.8 },
   sectionHeading: { paddingBottom: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: -spacing[2] },
   sectionTitle: { fontFamily: DisplayFonts.regular, fontSize: 34, lineHeight: 38 },
@@ -352,6 +442,9 @@ const styles = StyleSheet.create({
   book: { width: 128, gap: 2 },
   bookTitle: { fontFamily: DisplayFonts.regular, fontSize: 19, lineHeight: 22, marginTop: spacing[3] },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
+  readers: { fontSize: 10, fontWeight: '700', letterSpacing: 1.4, marginTop: 2 },
+  shelfLoading: { paddingVertical: spacing[7] },
+  shelfEmpty: { borderWidth: 1, borderStyle: 'dashed', borderRadius: radii.md, padding: spacing[5], textAlign: 'center' },
   quote: { gap: spacing[4], paddingVertical: spacing[4] },
   quoteText: { fontFamily: DisplayFonts.italic, fontSize: 30, lineHeight: 36, textAlign: 'center' },
   features: { borderWidth: 1, borderRadius: radii.md, overflow: 'hidden', gap: 1 },

@@ -16,6 +16,7 @@ import { Suspense } from "react";
 import { BookCover } from "@/components/book-cover";
 import { FollowButton } from "@/components/follow-button";
 import { ReviewBody } from "@/components/review-body";
+import { ShelfBook } from "@/components/shelf-book";
 import { Ornament, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { Stars } from "@/components/stars";
 import { createClient } from "@/lib/supabase/server";
@@ -278,6 +279,7 @@ function ShelvesSection({ shelves, isOwn }: { shelves: Shelves; isOwn: boolean }
   return (
     <section className="flex flex-col gap-10">
       <ChapterHeading kicker="The bookcase" title="On their shelves" />
+      {isOwn ? <p className="-mt-6 text-center text-sm text-muted">Right-click or press and hold a book to move it to another shelf.</p> : null}
       {shelfOrder.map(({ key, title, empty }) => {
         const books = shelves[key];
         return (
@@ -301,16 +303,19 @@ function ShelvesSection({ shelves, isOwn }: { shelves: Shelves; isOwn: boolean }
             ) : (
               <div>
                 <div className="flex items-end gap-4 overflow-x-auto px-3 pt-3 sm:gap-6">
-                  {books.map((w) => (
-                    <Link
-                      key={w.id}
-                      href={`/books/${w.id}`}
-                      title={w.title}
-                      className="w-24 shrink-0 transition duration-300 hover:-translate-y-2 sm:w-28"
-                    >
-                      <BookCover title={w.title} author="" src={w.cover_url} color={w.cover_color} sizes="112px" />
-                    </Link>
-                  ))}
+                  {books.map((w) => {
+                    const cover = <BookCover title={w.title} author="" src={w.cover_url} color={w.cover_color} sizes="112px" />;
+                    const className = "w-24 shrink-0 transition duration-300 hover:-translate-y-2 sm:w-28";
+                    return isOwn ? (
+                      <ShelfBook key={w.id} workId={w.id} title={w.title} status={key} className={className}>
+                        {cover}
+                      </ShelfBook>
+                    ) : (
+                      <Link key={w.id} href={`/books/${w.id}`} title={w.title} className={className}>
+                        {cover}
+                      </Link>
+                    );
+                  })}
                 </div>
                 <div aria-hidden className="h-3 rounded-sm bg-[#8A6A4A] shadow-[0_8px_14px_-6px_rgba(31,27,22,0.6)] dark:bg-[#6E543B]" />
               </div>

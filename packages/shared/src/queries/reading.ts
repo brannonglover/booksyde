@@ -102,3 +102,54 @@ export async function getMyReadingStatus(client: BooksydeClient, workId: string)
   if (error) throw error;
   return data?.status ?? null;
 }
+
+/** Why a book was chosen as the reader's next read (see the next_read() SQL function). */
+export type NextReadReason = "reading" | "series" | "want_to_read" | "taste";
+
+/**
+ * The signed-in reader's next read: the book they have open, the next in a
+ * series they're reading, their newest Want to Read, or a close match for
+ * books they loved. Null when signed out or when nothing fits.
+ */
+export async function getNextRead(client: BooksydeClient) {
+  const { data: auth } = await client.auth.getUser();
+  if (!auth.user) return null;
+  const { data: picks, error: pickError } = await client.rpc("next_read");
+  if (pickError) throw pickError;
+  const pick = picks?.[0];
+  if (!pick) return null;
+
+  const { data: work, error } = await client
+    .from("works")
+    .select("id, title, first_published_year, cover_url, cover_color, work_contributors ( role, position, authors ( name ) )")
+    .eq("id", pick.work_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!work) return null;
+
+  const { work_contributors, first_published_year, ...rest } = work;
+  const author =
+    [...work_contributors].filter((c) => c.role === "author").sort((a, b) => a.position - b.position)[0]?.authors
+      ?.name ?? "";
+  return {
+    reason: pick.reason as NextReadReason,
+    context: pick.context as string | null,
+    work: { ...rest, year: first_published_year, author },
+  };
+}
+
+export type NextRead = NonNullable<Awaited<ReturnType<typeof getNextRead>>>;
+
+/** The caption's label and a short line saying why this book, shared by web and mobile. */
+export function describeNextRead(pick: Pick<NextRead, "reason" | "context">) {
+  switch (pick.reason) {
+    case "reading":
+      return { label: "Keep reading", why: "Pick up where you left off" };
+    case "series":
+      return { label: "Your next read", why: pick.context ? `Next in ${pick.context}` : "Next in the series" };
+    case "want_to_read":
+      return { label: "Your next read", why: "From your Want to Read shelf" };
+    case "taste":
+      return { label: "Your next read", why: pick.context ? `Because you loved ${pick.context}` : "Picked from your reading" };
+  }
+}

@@ -107,7 +107,7 @@ async function BookDetail({ params }: { params: Params }) {
     <main className="flex flex-1 flex-col">
       {/* Title page */}
       <section
-        className="relative overflow-x-clip border-b border-border"
+        className="peer/hero relative overflow-x-clip border-b border-border"
         style={{
           background: `radial-gradient(60% 70% at 50% 45%, color-mix(in oklab, ${tint} 22%, transparent), transparent 70%), linear-gradient(to bottom, color-mix(in oklab, ${tint} 9%, var(--bk-background)), var(--bk-background))`,
         }}
@@ -168,21 +168,24 @@ async function BookDetail({ params }: { params: Params }) {
         </div>
       </section>
 
-      {/* The blurb */}
+      {/* The blurb runs the width of the title page's middle column, narrowing with it
+          when the hero has a margin note. */}
       {paragraphs.length > 0 ? (
-        <section className="mx-auto w-full max-w-2xl space-y-5 px-4 pb-16 pt-10 text-lg leading-relaxed sm:px-6 sm:text-xl">
-          {paragraphs.map((p, i) => (
-            <p
-              key={i}
-              className={
-                i === 0
-                  ? "first-letter:float-left first-letter:mr-3 first-letter:mt-1.5 first-letter:font-display first-letter:text-[5rem] first-letter:leading-[0.75] first-letter:text-accent"
-                  : ""
-              }
-            >
-              {p}
-            </p>
-          ))}
+        <section className="mx-auto w-full max-w-[96rem] px-4 pb-16 pt-10 sm:px-6 xl:[--blurb:56rem] 2xl:[--blurb:64rem] xl:peer-has-[aside_a]/hero:[--blurb:46rem] 2xl:peer-has-[aside_a]/hero:[--blurb:52rem]">
+          <div className="mx-auto w-full space-y-5 text-lg leading-relaxed sm:text-xl xl:max-w-(--blurb)">
+            {paragraphs.map((p, i) => (
+              <p
+                key={i}
+                className={
+                  i === 0
+                    ? "first-letter:float-left first-letter:mr-3 first-letter:mt-1.5 first-letter:font-display first-letter:text-[5rem] first-letter:leading-[0.75] first-letter:text-accent"
+                    : ""
+                }
+              >
+                {p}
+              </p>
+            ))}
+          </div>
         </section>
       ) : null}
 

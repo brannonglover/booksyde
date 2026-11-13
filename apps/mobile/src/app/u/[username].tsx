@@ -7,14 +7,18 @@ import {
   getProfileStats,
   getUserReviews,
   type ProfileStats,
+  removeFromShelves,
+  setReadingStatus,
   unfollow,
 } from '@booksyde/shared';
+import type { ReadingStatus } from '@booksyde/types';
 import { genreColor, palette, radii, spacing } from '@booksyde/theme';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/book-cover';
+import { ShelfStatusSheet } from '@/components/shelf-status-sheet';
 import { Stars } from '@/components/stars';
 import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -100,6 +104,21 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
   const ink = profile.theme_color ?? palette.green;
   const name = profile.display_name || profile.username;
   const first = name.split(' ')[0];
+  const isOwn = followState === 'self';
+  const [moving, setMoving] = useState<{ id: string; title: string; status: ReadingStatus } | null>(null);
+
+  async function moveTo(next: ReadingStatus | null) {
+    const book = moving;
+    setMoving(null);
+    if (!book || !supabase || next === book.status) return;
+    try {
+      if (next) await setReadingStatus(supabase, book.id, next);
+      else await removeFromShelves(supabase, book.id);
+      onChange();
+    } catch {
+      Alert.alert('Couldn’t move that book', 'Something went wrong. Try again?');
+    }
+  }
 
   return (
     <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.scroll}>
@@ -128,8 +147,19 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
                 ['read', 'Read', 'No finished books yet.'],
               ] as const
             ).map(([key, title, empty]) => (
-              <ShelfRow key={key} title={title} empty={empty} books={shelves?.[key] ?? []} />
+              <ShelfRow
+                key={key}
+                title={title}
+                empty={empty}
+                books={shelves?.[key] ?? []}
+                onLongPress={isOwn ? (w) => setMoving({ id: w.id, title: w.title, status: key }) : undefined}
+              />
             ))}
+            {isOwn ? (
+              <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 13 }}>
+                Press and hold a book to move it to another shelf.
+              </Text>
+            ) : null}
 
             <ChapterHeading kicker="IN THE MARGINS" title={`${first}’s notes`} />
             {reviews.length === 0 ? (
@@ -140,6 +170,7 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
           </>
         )}
       </View>
+      <ShelfStatusSheet book={moving} onChoose={moveTo} onClose={() => setMoving(null)} />
     </ScrollView>
   );
 }
@@ -297,7 +328,19 @@ function ReadingPalette({ first, stats }: { first: string; stats: ProfileStats }
   );
 }
 
-function ShelfRow({ title, empty, books }: { title: string; empty: string; books: NonNullable<Shelves>['read'] }) {
+type ShelfWork = NonNullable<Shelves>['read'][number];
+
+function ShelfRow({
+  title,
+  empty,
+  books,
+  onLongPress,
+}: {
+  title: string;
+  empty: string;
+  books: ShelfWork[];
+  onLongPress?: (book: ShelfWork) => void;
+}) {
   const theme = useTheme();
   return (
     <View style={{ gap: spacing[3] }}>
@@ -313,7 +356,12 @@ function ShelfRow({ title, empty, books }: { title: string; empty: string; books
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelfBooks}>
             {books.map((w) => (
               <Link key={w.id} href={{ pathname: '/book/[id]', params: { id: w.id } }} push asChild>
-                <Pressable>
+                <Pressable
+                  onLongPress={onLongPress ? () => onLongPress(w) : undefined}
+                  delayLongPress={400}
+                  accessibilityHint={onLongPress ? 'Press and hold to move it to another shelf' : undefined}
+                  style={({ pressed }) => pressed && onLongPress ? { opacity: 0.7, transform: [{ scale: 0.97 }] } : null}
+                >
                   <BookCover title={w.title} author="" src={w.cover_url} color={w.cover_color} width={88} />
                 </Pressable>
               </Link>

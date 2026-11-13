@@ -4,6 +4,7 @@ import {
   browseOpenLibrary,
   createBooksydeClient,
   getMoreLikeThis,
+  getNightstand,
   getRatingDistribution,
   getShelfCounts,
   getWork,
@@ -53,6 +54,76 @@ export async function getBookCommunity(id: string) {
     getShelfCounts(client, id),
   ]);
   return { distribution, reviews, shelves };
+}
+
+/** What readers have open right now, for the home page. Reading shelves move often. */
+export async function getNightstandBooks(limit = 5) {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("nightstand");
+  return getNightstand(publicClient(), limit);
+}
+
+type Book = NonNullable<Awaited<ReturnType<typeof getWork>>>;
+
+/** A work trimmed to what a featured-book stage needs: cover, byline and backdrop inputs. */
+export function toFeatured(book: Book) {
+  const author =
+    [...book.work_contributors]
+      .filter((c) => c.role === "author" && c.authors)
+      .sort((a, b) => a.position - b.position)[0]?.authors?.name ?? "";
+  return {
+    id: book.id,
+    title: book.title,
+    author,
+    year: book.first_published_year,
+    cover_url: book.cover_url,
+    cover_color: book.cover_color,
+    // `*` select: absent until the backdrop_style migration has run, which reads as auto.
+    backdrop_style: book.backdrop_style ?? null,
+    tags: book.work_tags.flatMap((t) => (t.tags ? [{ slug: t.tags.slug, kind: t.tags.kind, votes: t.votes }] : [])),
+  };
+}
+
+export type FeaturedBook = ReturnType<typeof toFeatured>;
+
+/** How many of the most-shelved books (with covers) the home page hero rotates through. */
+const FEATURED_POOL = 30;
+
+/**
+ * The home page's pick of the day: one of the most-shelved books that has a
+ * cover, a different one each day. Null when the catalogue is empty.
+ */
+export async function getFeaturedBook(): Promise<FeaturedBook | null> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("featured");
+  const client = publicClient();
+  const { data, error } = await client
+    .from("works")
+    .select("id")
+    .not("cover_url", "is", null)
+    .order("shelved_count", { ascending: false })
+    .limit(FEATURED_POOL);
+  if (error) throw error;
+  if (!data?.length) return null;
+  const day = Math.floor(Date.now() / 86_400_000);
+  const book = await getWork(client, data[day % data.length].id);
+  return book ? toFeatured(book) : null;
+}
+
+/** The most-shelved books, as candidates to try in the backdrop preview. */
+export async function getBackdropCandidates(limit = 16) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("featured");
+  return getTrendingWorks(publicClient(), limit);
+}
+
+/** Any book as a featured-book stage, for the backdrop preview. */
+export async function getFeaturedById(id: string): Promise<FeaturedBook | null> {
+  const book = await getBook(id);
+  return book ? toFeatured(book) : null;
 }
 
 export async function getSimilarBooks(id: string, limit = 6) {

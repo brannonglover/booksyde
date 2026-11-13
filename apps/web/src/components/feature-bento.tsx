@@ -41,7 +41,7 @@ export function FeatureBento() {
       <Tile className="bg-green text-paper lg:col-span-6">
         <TileText
           title="Read by mood"
-          body="Tell us how tonight feels and we’ll find the book to match."
+          body="Tell us what you’re in the mood for and we’ll find the book to match."
           muted="text-paper/75"
         />
         <div className="mt-auto flex flex-wrap gap-3 pt-8">

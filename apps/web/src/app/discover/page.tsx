@@ -203,10 +203,10 @@ async function WiderStacksPicks({ shelved, read, headline }: { shelved: string[]
           Not on Booksyde yet: add one to the catalogue and it&rsquo;s ready to shelve.
         </p>
       </div>
-      <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {picks.map((book, i) => (
+      <ol className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {picks.map((book) => (
           <li key={book.olid}>
-            <RequestSlip book={book} tilt={i % 3 === 1 ? -0.5 : i % 3 === 2 ? 0.4 : 0} />
+            <RequestSlip book={book} />
           </li>
         ))}
       </ol>

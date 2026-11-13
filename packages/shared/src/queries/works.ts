@@ -160,3 +160,39 @@ export async function getShelfProfile(client: BooksydeClient, workIds: string[],
     titles: (works.data ?? []).map((w) => ({ title: w.title, author: lead.get(w.id)?.name ?? null })),
   };
 }
+
+/**
+ * "On everyone's nightstand": the books the most readers have on their
+ * Reading shelf right now (private readers counted, never named), topped up
+ * with the most-shelved books when too few are being read.
+ */
+export async function getNightstand(client: BooksydeClient, limit = 5) {
+  const { data: ranked, error: rankError } = await client.rpc("nightstand_works", { max_results: limit });
+  if (rankError) throw rankError;
+  if (!ranked?.length) return [];
+
+  const { data, error } = await client
+    .from("works")
+    .select(
+      `id, title, first_published_year, cover_url, cover_color, avg_rating, ratings_count,
+       work_contributors ( role, position, authors ( name ) )`,
+    )
+    .in(
+      "id",
+      ranked.map((r) => r.work_id),
+    );
+  if (error) throw error;
+
+  const byId = new Map((data ?? []).map((w) => [w.id, w]));
+  return ranked.flatMap(({ work_id, readers }) => {
+    const work = byId.get(work_id);
+    if (!work) return [];
+    const { work_contributors, ...rest } = work;
+    const author =
+      [...work_contributors].filter((c) => c.role === "author").sort((a, b) => a.position - b.position)[0]?.authors
+        .name ?? "";
+    return [{ ...rest, avg_rating: Number(rest.avg_rating), author, readers }];
+  });
+}
+
+export type NightstandBook = Awaited<ReturnType<typeof getNightstand>>[number];

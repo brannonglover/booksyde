@@ -1,20 +1,17 @@
-import { formatRating } from "@booksyde/shared";
+import { compactCount, describeNextRead, formatRating, getNextRead } from "@booksyde/shared";
 import Link from "next/link";
-import { genreColor } from "@booksyde/theme";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { coverUrl, genreColor } from "@booksyde/theme";
+import { BackdropStage } from "@/components/backdrop";
 import { BookCover } from "@/components/book-cover";
 import { FeatureBento } from "@/components/feature-bento";
 import { Stars } from "@/components/stars";
 import { Ornament, SectionHeading, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { YearInBooksSection } from "@/components/year-in-books";
-
-// Placeholder shelf until the catalog is wired up. Ids match supabase/seed.sql; cover ids are Open Library's.
-const nightstand = [
-  { id: "00000000-0000-4000-b000-000000000001", title: "Pride and Prejudice", author: "Jane Austen", coverId: 14348537, rating: 4.5 },
-  { id: "00000000-0000-4000-b000-000000000007", title: "Wuthering Heights", author: "Emily Brontë", coverId: 12818862, rating: 4 },
-  { id: "00000000-0000-4000-b000-000000000006", title: "Jane Eyre", author: "Charlotte Brontë", coverId: 8235363, rating: 4.5 },
-  { id: "00000000-0000-4000-b000-000000000002", title: "Frankenstein", author: "Mary Shelley", coverId: 12356249, rating: 4 },
-  { id: "00000000-0000-4000-b000-000000000003", title: "Moby-Dick", author: "Herman Melville", coverId: 10544254, rating: 3.5 },
-];
+import { type FeaturedBook, getBook, getFeaturedBook, getNightstandBooks, toFeatured } from "@/lib/catalog";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
 
 const moods = [
   ["fantasy", "Fantasy"],
@@ -83,32 +80,10 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Tonight's pick, framed in a library-window arch */}
-          <figure className="mx-auto w-full max-w-sm">
-            <div className="relative grid aspect-[4/5] place-items-center overflow-hidden rounded-t-full bg-green">
-              <div aria-hidden className="absolute inset-3 rounded-t-full border border-gilt/45" />
-              <div
-                aria-hidden
-                className="absolute inset-x-0 bottom-0 h-1/2"
-                style={{ background: "radial-gradient(60% 60% at 50% 100%, rgba(216,176,104,0.28), transparent)" }}
-              />
-              <BookCover
-                title="Pride and Prejudice"
-                author="Jane Austen"
-                coverId={14348537}
-                sizes="200px"
-                priority
-                className="mt-10 w-[48%] -rotate-2"
-              />
-            </div>
-            <figcaption className="flex items-baseline justify-between gap-4 border-b border-border py-3 text-sm">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">Tonight&rsquo;s pick</span>
-              <span>
-                <span className="font-display text-lg italic">Pride and Prejudice</span>
-                <span className="text-muted"> &middot; 1813</span>
-              </span>
-            </figcaption>
-          </figure>
+          {/* Your next read (or today's pick when signed out), staged on a backdrop drawn from the book itself */}
+          <Suspense fallback={<FeaturedSkeleton />}>
+            <FeaturedPick />
+          </Suspense>
         </section>
 
         <section id="discover" className="flex flex-col gap-6">
@@ -147,25 +122,9 @@ export default function Home() {
           >
             On everyone&rsquo;s nightstand
           </SectionHeading>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
-            {nightstand.map((book) => (
-              <Link key={book.title} href={`/books/${book.id}`} className="group flex flex-col gap-4">
-                <BookCover
-                  title={book.title}
-                  author={book.author}
-                  coverId={book.coverId}
-                  className="transition duration-300 group-hover:-translate-y-1"
-                />
-                <div>
-                  <h3 className="font-display text-xl leading-tight">{book.title}</h3>
-                  <p className="text-sm text-muted">{book.author}</p>
-                  <p className="mt-1.5 text-sm">
-                    <Stars rating={book.rating} /> <span className="text-muted">{formatRating(book.rating)}</span>
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <Suspense fallback={<NightstandSkeleton />}>
+            <Nightstand />
+          </Suspense>
         </section>
 
         <YearInBooksSection numeral="III" />
@@ -187,6 +146,151 @@ export default function Home() {
       </main>
 
       <SiteFooter />
+    </div>
+  );
+}
+
+/** Shown when the catalogue is empty (or unreachable), so the hero is never bare. */
+const fallbackPick: FeaturedBook = {
+  id: "",
+  title: "Pride and Prejudice",
+  author: "Jane Austen",
+  year: 1813,
+  cover_url: coverUrl(14348537),
+  cover_color: null,
+  backdrop_style: null,
+  tags: [],
+};
+
+/** The signed-in reader's next read, staged like the featured book; null when signed out or nothing fits. */
+async function getPersonalPick() {
+  // Reads the session cookie, so it can only run at request time.
+  await connection();
+  if (!hasSupabaseEnv) return null;
+  try {
+    const pick = await getNextRead(await createClient());
+    if (!pick) return null;
+    const work = await getBook(pick.work.id);
+    return work ? { book: toFeatured(work), caption: describeNextRead(pick) } : null;
+  } catch {
+    // e.g. the next_read migration hasn't run yet: show today's pick instead.
+    return null;
+  }
+}
+
+/** The reader's next read; for everyone else, one of the most-shelved books, a different one each day. */
+async function FeaturedPick() {
+  const personal = await getPersonalPick();
+  const book = personal?.book ?? (await getFeaturedBook().catch(() => null)) ?? fallbackPick;
+  const caption = personal?.caption ?? { label: "Today’s pick", why: null };
+  const stage = (
+    <BackdropStage
+      work={book}
+      className="transition duration-300 group-hover:-translate-y-1"
+      cover={
+        <BookCover
+          title={book.title}
+          author={book.author}
+          src={book.cover_url}
+          color={book.cover_color}
+          sizes="200px"
+          priority
+          className="w-[48%] -rotate-2"
+        />
+      }
+    />
+  );
+  return (
+    <figure className="mx-auto w-full max-w-sm">
+      {book.id ? (
+        <Link href={`/books/${book.id}`} className="group block" aria-label={`${book.title} by ${book.author}`}>
+          {stage}
+        </Link>
+      ) : (
+        stage
+      )}
+      <figcaption className="border-b border-border py-3 text-sm">
+        <div className="flex items-baseline justify-between gap-4">
+          <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-muted">{caption.label}</span>
+          <span className="truncate text-right">
+            <span className="font-display text-lg italic">{book.title}</span>
+            {book.year ? <span className="text-muted"> &middot; {book.year}</span> : null}
+          </span>
+        </div>
+        {caption.why ? <p className="mt-1 truncate text-right text-muted">{caption.why}</p> : null}
+      </figcaption>
+    </figure>
+  );
+}
+
+function FeaturedSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-sm">
+      <div className="aspect-[4/5] animate-pulse rounded-[28px] bg-border/50" />
+      <div className="mt-3 h-6 animate-pulse rounded bg-border/40" />
+    </div>
+  );
+}
+
+/** The books the most readers have open right now. */
+async function Nightstand() {
+  const books = await getNightstandBooks(5).catch(() => []);
+  if (books.length === 0) {
+    return (
+      <p className="rounded-2xl border border-dashed border-border px-6 py-8 text-center text-muted">
+        The nightstands are bare for now.{" "}
+        <Link href="/search" className="font-semibold text-accent hover:underline">
+          Start a book
+        </Link>{" "}
+        and yours will be the first.
+      </p>
+    );
+  }
+  return (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
+      {books.map((book) => (
+        <Link key={book.id} href={`/books/${book.id}`} className="group flex flex-col gap-4">
+          <BookCover
+            title={book.title}
+            author={book.author}
+            src={book.cover_url}
+            color={book.cover_color}
+            className="transition duration-300 group-hover:-translate-y-1"
+          />
+          <div>
+            <h3 className="font-display text-xl leading-tight">{book.title}</h3>
+            <p className="text-sm text-muted">{book.author}</p>
+            <p className="mt-1.5 text-sm">
+              {book.ratings_count > 0 ? (
+                <>
+                  <Stars rating={book.avg_rating} /> <span className="text-muted">{formatRating(book.avg_rating)}</span>
+                </>
+              ) : (
+                <span className="text-muted">No ratings yet</span>
+              )}
+            </p>
+            {book.readers > 0 ? (
+              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+                {compactCount(book.readers)} reading now
+              </p>
+            ) : null}
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function NightstandSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className={i > 1 ? "hidden sm:block" : ""}>
+          <div className="aspect-[2/3] animate-pulse rounded-[3px] bg-border/50" />
+          <div className="mt-4 h-5 w-3/4 animate-pulse rounded bg-border/50" />
+          <div className="mt-2 h-4 w-1/2 animate-pulse rounded bg-border/40" />
+        </div>
+      ))}
     </div>
   );
 }

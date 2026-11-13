@@ -89,10 +89,11 @@ export async function getOpenLibraryBook(olid: string, init?: RequestInit) {
   const [found] = await search({ q: `key:/works/${olid}`, limit: "1" }, init);
   if (!found) return null;
 
-  const [res, edition] = await Promise.all([
+  const [res, editions] = await Promise.all([
     fetch(`${API}/works/${olid}.json`, init),
-    preferredEdition(olid, found.title, found.coverId, init),
+    getEditionCovers(olid, found.title, found.coverId, init),
   ]);
+  const edition = preferredEdition(editions);
   let description: string | null = null;
   if (res.ok) {
     const work = (await res.json()) as { description?: string | { value?: string } };
@@ -104,6 +105,8 @@ export async function getOpenLibraryBook(olid: string, init?: RequestInit) {
     coverId: edition?.coverId ?? found.coverId,
     isbn13: edition?.isbn13 ?? found.isbn13,
     description,
+    /** Every English edition's cover, best first: fallbacks when the chosen one turns out to be poor. */
+    editions: editions.map(({ coverId, isbn13 }) => ({ coverId, isbn13 })),
   };
 }
 
@@ -115,38 +118,59 @@ type EditionDoc = {
   isbn_10?: string[];
 };
 
+export type EditionCover = { coverId: number; isbn13: string | null };
+
+/**
+ * A work's English editions that have a cover (and their ISBNs), best first:
+ * English by record beats English by title, and ties keep Open Library's own
+ * pick (`currentCover`). Editions in other languages are left out. Empty if
+ * the editions can't be read.
+ */
+export async function getEditionCovers(
+  olid: string,
+  workTitle: string,
+  currentCover: number | null = null,
+  init?: RequestInit,
+): Promise<(EditionCover & { score: number })[]> {
+  if (!OPEN_LIBRARY_WORK_ID.test(olid)) return [];
+  try {
+    const res = await fetch(`${API}/works/${olid}/editions.json?limit=50`, init);
+    if (!res.ok) return [];
+    const { entries = [] } = (await res.json()) as { entries?: EditionDoc[] };
+    const workIdentity = bookIdentity(workTitle);
+    const seen = new Set<number>();
+    const ranked: (EditionCover & { score: number })[] = [];
+    for (const e of entries) {
+      const coverId = e.covers?.find((c) => c > 0);
+      if (!coverId || seen.has(coverId)) continue;
+      const langs = (e.languages ?? []).map((l) => l.key.replace("/languages/", ""));
+      if (langs.length && !langs.includes("eng")) continue;
+      seen.add(coverId);
+      ranked.push({
+        coverId,
+        isbn13: firstIsbn13([...(e.isbn_13 ?? []), ...(e.isbn_10 ?? [])]),
+        score:
+          (langs.includes("eng") ? 2 : 0) +
+          (e.title && bookIdentity(e.title) === workIdentity ? 1 : 0) +
+          (coverId === currentCover ? 0.5 : 0),
+      });
+    }
+    // Stable sort: equal scores keep Open Library's edition order.
+    return ranked.sort((a, b) => b.score - a.score);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * The edition whose cover and ISBN should stand for the work. Open Library's
  * own pick (the search `cover_i`) can be any translation, so prefer an
  * English edition, or failing that one titled like the work itself. Null
  * when nothing beats Open Library's pick (or the editions can't be read).
  */
-async function preferredEdition(olid: string, workTitle: string, currentCover: number | null, init?: RequestInit) {
-  try {
-    const res = await fetch(`${API}/works/${olid}/editions.json?limit=50`, init);
-    if (!res.ok) return null;
-    const { entries = [] } = (await res.json()) as { entries?: EditionDoc[] };
-    const workIdentity = bookIdentity(workTitle);
-
-    let best: { score: number; coverId: number; isbn13: string | null } | null = null;
-    for (const e of entries) {
-      const coverId = e.covers?.find((c) => c > 0);
-      if (!coverId) continue;
-      const langs = (e.languages ?? []).map((l) => l.key.replace("/languages/", ""));
-      if (langs.length && !langs.includes("eng")) continue;
-      // English by record beats English by title; ties keep Open Library's own pick.
-      const score =
-        (langs.includes("eng") ? 2 : 0) +
-        (e.title && bookIdentity(e.title) === workIdentity ? 1 : 0) +
-        (coverId === currentCover ? 0.5 : 0);
-      if (score >= 1 && (!best || score > best.score)) {
-        best = { score, coverId, isbn13: firstIsbn13([...(e.isbn_13 ?? []), ...(e.isbn_10 ?? [])]) };
-      }
-    }
-    return best;
-  } catch {
-    return null;
-  }
+function preferredEdition(editions: (EditionCover & { score: number })[]) {
+  const best = editions[0];
+  return best && best.score >= 1 ? best : null;
 }
 
 /** Markdown *emphasis*, **bold** or _underscores_ around whole words (not snake_case or 2 * 3). */

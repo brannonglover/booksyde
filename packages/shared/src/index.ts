@@ -12,6 +12,7 @@ export * from "./schemas/auth";
 export * from "./queries/profile";
 export * from "./queries/search";
 export * from "./queries/open-library";
+export * from "./queries/google-books";
 export * from "./queries/year";
 export * from "./utils/csv";
 export * from "./utils/goodreads";

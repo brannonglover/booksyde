@@ -84,6 +84,7 @@ export async function importGoodreadsBatch(input: unknown): Promise<BatchResult>
   // New books in the catalogue, and new ratings on book pages.
   revalidateTag("catalog-search", "max");
   revalidateTag("catalog-drawers", "max");
+  revalidateTag("nightstand", "max");
   for (const m of matched) if (m.item.rating || m.item.review) revalidateTag(`work:${m.item.work_id}`, "max");
 
   return { ok: true, rows };
