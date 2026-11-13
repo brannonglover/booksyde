@@ -232,39 +232,35 @@ function Narrow({ q, tags, drawers }: { q: string; tags: string[]; drawers: Draw
 
 function NoCards({ q, tags, stacksChecked = false }: { q: string; tags: string[]; stacksChecked?: boolean }) {
   return (
-    <div className="mx-auto mt-14 max-w-lg">
-      <div className="index-card relative rotate-[-0.6deg] rounded-sm px-8 pb-12 pt-7 shadow-[0_18px_40px_-24px_rgba(31,27,22,0.55)]">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-accent">Not on file</p>
-        <p className="mt-3 font-display text-3xl leading-tight">This drawer is empty.</p>
-        <p className="ruled mt-3 font-mono text-sm">
-          {q ? <>Nothing {stacksChecked ? "here or in the wider stacks" : "in our drawers"} answers to “{q}”. </> : null}
-          {tags.length
-            ? "Try lifting a filter or two — or browse the drawers instead."
-            : "Try a shorter word, an author’s surname, or the ISBN on the back."}
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3 text-sm font-semibold">
-          {tags.length && q ? (
-            <Link href={hrefFor(q, [])} className="rounded-full bg-primary px-4 py-2 text-primary-text hover:opacity-90">
-              Search “{q}” everywhere
-            </Link>
-          ) : null}
-          <Link href="/search" className="rounded-full border border-border px-4 py-2 hover:bg-surface">
-            Browse the drawers
+    <div className="relative isolate mx-auto mt-14 max-w-lg overflow-hidden rounded-2xl border border-dashed border-border px-8 py-10 text-center">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -top-24 left-1/2 -z-10 size-64 -translate-x-1/2 rounded-full bg-accent opacity-15 blur-3xl"
+      />
+      {/* Three blank covers, fanned like books someone just pulled off a shelf */}
+      <div aria-hidden className="mx-auto flex h-20 w-28 items-end justify-center">
+        <span className="h-16 w-11 translate-x-3 -rotate-12 rounded-[3px] bg-oxblood/70 shadow-md" />
+        <span className="z-10 grid h-20 w-14 place-items-center rounded-[3px] bg-green font-display text-2xl text-gilt shadow-[0_14px_24px_-12px_rgba(0,0,0,0.6)]">?</span>
+        <span className="h-16 w-11 -translate-x-3 rotate-12 rounded-[3px] bg-gilt/80 shadow-md" />
+      </div>
+      <p className="mt-6 font-display text-3xl leading-tight">Nothing turned up</p>
+      <p className="mx-auto mt-2 max-w-sm text-muted">
+        {q ? <>We couldn&rsquo;t find &ldquo;{q}&rdquo; {stacksChecked ? "here or on Open Library" : "on Booksyde"}. </> : null}
+        {tags.length
+          ? "Try removing a filter or two, or browse by mood and genre."
+          : "Try a shorter word, an author’s surname, or the ISBN on the back."}
+      </p>
+      <div className="mt-6 flex flex-wrap justify-center gap-3 text-sm font-semibold">
+        {tags.length && q ? (
+          <Link href={hrefFor(q, [])} className="rounded-full bg-primary px-4 py-2 text-primary-text hover:opacity-90">
+            Search &ldquo;{q}&rdquo; without filters
           </Link>
-        </div>
-        <Hole />
+        ) : null}
+        <Link href="/search" className="rounded-full border border-border px-4 py-2 hover:bg-surface">
+          Browse by mood &amp; genre
+        </Link>
       </div>
     </div>
-  );
-}
-
-/** The punched hole at the foot of every catalogue card. */
-function Hole() {
-  return (
-    <span
-      aria-hidden
-      className="absolute bottom-3 left-1/2 size-4 -translate-x-1/2 rounded-full bg-background shadow-[inset_0_1px_3px_rgba(31,27,22,0.45)]"
-    />
   );
 }
 
