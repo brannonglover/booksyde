@@ -12,6 +12,14 @@
   }
 }
 
+/* Tailwind v4 dropped the hand cursor on buttons; bring it back everywhere. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* Colour tokens come from @booksyde/theme and are injected in layout.tsx as
    --bk-* custom properties; these map them onto Tailwind utilities. */
 @theme inline {
