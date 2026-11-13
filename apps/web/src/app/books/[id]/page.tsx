@@ -112,7 +112,7 @@ async function BookDetail({ params }: { params: Params }) {
         }}
       >
         {/* Wide screens: the title page sits between two notes in the margins. */}
-        <div className="mx-auto grid w-full max-w-[96rem] items-center gap-8 px-4 py-10 sm:px-6 sm:py-14 xl:grid-cols-[1fr_minmax(0,46rem)_1fr] 2xl:grid-cols-[1fr_minmax(0,52rem)_1fr]">
+        <div className="mx-auto grid w-full max-w-[96rem] items-center gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:py-20 xl:grid-cols-[1fr_minmax(0,46rem)_1fr] 2xl:grid-cols-[1fr_minmax(0,52rem)_1fr]">
           <aside className="hidden justify-end xl:flex">
             <Suspense fallback={null}>
               <MarginNote id={book.id} />
@@ -120,15 +120,15 @@ async function BookDetail({ params }: { params: Params }) {
           </aside>
 
           {/* The cover sits beside the title; on phones they stack. */}
-          <div className="flex flex-col items-center gap-8 text-center sm:flex-row sm:items-center sm:justify-center sm:gap-10 sm:text-left">
+          <div className="flex flex-col items-center gap-10 text-center sm:flex-row sm:items-center sm:justify-center sm:gap-12 2xl:gap-16 sm:text-left">
             <BookCover
               title={book.title}
               author={authorNames}
               src={book.cover_url}
               color={book.cover_color}
-              sizes="224px"
+              sizes="(min-width: 1536px) 288px, 256px"
               priority
-              className="w-40 shrink-0 -rotate-[1.5deg] sm:w-48 lg:w-56"
+              className="w-52 shrink-0 -rotate-[1.5deg] sm:w-56 lg:w-64 2xl:w-72"
             />
 
             <div className="@container flex w-full min-w-0 flex-col items-center sm:w-auto sm:flex-1 sm:items-start">
@@ -137,11 +137,11 @@ async function BookDetail({ params }: { params: Params }) {
                   {vibe.genres.map((g) => g.name).join(" · ")}
                 </p>
               ) : null}
-              <h1 className="mt-3 text-balance font-display text-5xl leading-[0.95] tracking-tight sm:text-[clamp(2.75rem,14cqi,5.5rem)]">
+              <h1 className="mt-4 text-balance font-display text-5xl leading-[0.95] tracking-tight sm:text-[clamp(2.75rem,14cqi,5.5rem)]">
                 {book.title}
               </h1>
               {book.subtitle ? <p className="mt-2 font-display text-xl italic text-muted">{book.subtitle}</p> : null}
-              <p className="mt-4 font-display text-2xl italic">
+              <p className="mt-5 font-display text-2xl italic">
                 by {authorNames}
                 {book.first_published_year ? (
                   <span className="ml-2 align-middle text-xs font-semibold not-italic uppercase tracking-[0.22em] text-muted">
@@ -150,11 +150,11 @@ async function BookDetail({ params }: { params: Params }) {
                 ) : null}
               </p>
 
-              <Suspense fallback={<div className="mt-4 h-6 w-64 animate-pulse rounded bg-border/60" />}>
+              <Suspense fallback={<div className="mt-6 h-6 w-64 animate-pulse rounded bg-border/60" />}>
                 <TitlePageStats id={book.id} avg={avg} />
               </Suspense>
 
-              <div className="mt-5 w-full max-w-xs">
+              <div className="mt-8 w-full max-w-xs">
                 <ShelfButton workId={book.id} />
               </div>
             </div>
@@ -480,7 +480,7 @@ async function TitlePageStats({ id, avg }: { id: string; avg: number }) {
   const { distribution, shelves } = await getBookCommunity(id);
   const verdict = ratingVerdict(distribution);
   return (
-    <div className="mt-4 flex flex-col items-center gap-1.5 sm:items-start">
+    <div className="mt-6 flex flex-col items-center gap-2 sm:items-start">
       <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
         <span className="text-xl">
           <Stars rating={Math.round(avg * 2) / 2} />
@@ -647,8 +647,8 @@ async function ShelvedNearby({ id }: { id: string }) {
 
 function BookSkeleton() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-8 px-4 py-10 sm:flex-row sm:items-center sm:py-14">
-      <div className="aspect-[2/3] w-40 shrink-0 animate-pulse rounded bg-border/60 sm:w-48 lg:w-56" />
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-10 px-4 py-12 sm:flex-row sm:items-center sm:gap-12 sm:py-16 lg:py-20">
+      <div className="aspect-[2/3] w-52 shrink-0 animate-pulse rounded bg-border/60 sm:w-56 lg:w-64" />
       <div className="flex w-full flex-col items-center gap-4 sm:items-start">
         <div className="h-3 w-40 animate-pulse rounded bg-border/60" />
         <div className="h-16 w-3/4 animate-pulse rounded bg-border/60" />
