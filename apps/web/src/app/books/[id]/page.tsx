@@ -111,8 +111,9 @@ async function BookDetail({ params }: { params: Params }) {
           background: `radial-gradient(60% 70% at 50% 45%, color-mix(in oklab, ${tint} 22%, transparent), transparent 70%), linear-gradient(to bottom, color-mix(in oklab, ${tint} 9%, var(--bk-background)), var(--bk-background))`,
         }}
       >
-        {/* Wide screens: the title page sits between two notes in the margins. */}
-        <div className="mx-auto grid w-full max-w-[96rem] items-center gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:py-20 xl:grid-cols-[1fr_minmax(0,46rem)_1fr] 2xl:grid-cols-[1fr_minmax(0,52rem)_1fr]">
+        {/* Wide screens: the title page sits between two notes in the margins. When a
+            book has neither note, the middle column widens so the title can grow. */}
+        <div className="mx-auto grid w-full max-w-[96rem] items-center gap-8 px-4 py-12 sm:px-6 sm:py-16 lg:py-20 xl:grid-cols-[1fr_minmax(0,56rem)_1fr] 2xl:grid-cols-[1fr_minmax(0,64rem)_1fr] xl:has-[aside_a]:grid-cols-[1fr_minmax(0,46rem)_1fr] 2xl:has-[aside_a]:grid-cols-[1fr_minmax(0,52rem)_1fr]">
           <aside className="hidden justify-end xl:flex">
             <Suspense fallback={null}>
               <MarginNote id={book.id} />
@@ -137,7 +138,7 @@ async function BookDetail({ params }: { params: Params }) {
                   {vibe.genres.map((g) => g.name).join(" · ")}
                 </p>
               ) : null}
-              <h1 className="mt-4 text-balance font-display text-5xl leading-[0.95] tracking-tight sm:text-[clamp(2.75rem,14cqi,5.5rem)]">
+              <h1 className="mt-4 text-balance font-display text-5xl leading-[0.95] tracking-tight sm:text-[clamp(2.75rem,14cqi,6.5rem)]">
                 {book.title}
               </h1>
               {book.subtitle ? <p className="mt-2 font-display text-xl italic text-muted">{book.subtitle}</p> : null}
