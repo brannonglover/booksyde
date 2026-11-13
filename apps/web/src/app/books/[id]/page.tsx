@@ -108,51 +108,55 @@ async function BookDetail({ params }: { params: Params }) {
       <section
         className="relative overflow-x-clip border-b border-border"
         style={{
-          background: `radial-gradient(60% 55% at 50% 22%, color-mix(in oklab, ${tint} 22%, transparent), transparent 70%), linear-gradient(to bottom, color-mix(in oklab, ${tint} 9%, var(--bk-background)), var(--bk-background))`,
+          background: `radial-gradient(60% 70% at 50% 45%, color-mix(in oklab, ${tint} 22%, transparent), transparent 70%), linear-gradient(to bottom, color-mix(in oklab, ${tint} 9%, var(--bk-background)), var(--bk-background))`,
         }}
       >
         {/* Wide screens: the title page sits between two notes in the margins. */}
-        <div className="mx-auto grid w-full max-w-[96rem] items-center gap-8 px-4 pb-16 pt-12 sm:px-6 sm:pt-16 xl:grid-cols-[1fr_minmax(0,44rem)_1fr] 2xl:grid-cols-[1fr_minmax(0,50rem)_1fr]">
+        <div className="mx-auto grid w-full max-w-[96rem] items-center gap-8 px-4 py-10 sm:px-6 sm:py-14 xl:grid-cols-[1fr_minmax(0,46rem)_1fr] 2xl:grid-cols-[1fr_minmax(0,52rem)_1fr]">
           <aside className="hidden justify-end xl:flex">
             <Suspense fallback={null}>
               <MarginNote id={book.id} />
             </Suspense>
           </aside>
 
-          <div className="@container flex flex-col items-center text-center">
+          {/* The cover sits beside the title; on phones they stack. */}
+          <div className="flex flex-col items-center gap-8 text-center sm:flex-row sm:items-center sm:justify-center sm:gap-10 sm:text-left">
             <BookCover
               title={book.title}
               author={authorNames}
               src={book.cover_url}
               color={book.cover_color}
-              sizes="240px"
+              sizes="224px"
               priority
-              className="w-48 -rotate-[1.5deg] sm:w-60"
+              className="w-40 shrink-0 -rotate-[1.5deg] sm:w-48 lg:w-56"
             />
 
-            {vibe.genres.length > 0 ? (
-              <p className="mt-10 text-xs font-semibold uppercase tracking-[0.3em] text-accent">
-                {vibe.genres.map((g) => g.name).join(" · ")}
+            <div className="@container flex w-full min-w-0 flex-col items-center sm:w-auto sm:flex-1 sm:items-start">
+              {vibe.genres.length > 0 ? (
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">
+                  {vibe.genres.map((g) => g.name).join(" · ")}
+                </p>
+              ) : null}
+              <h1 className="mt-3 text-balance font-display text-5xl leading-[0.95] tracking-tight sm:text-[clamp(2.75rem,14cqi,5.5rem)]">
+                {book.title}
+              </h1>
+              {book.subtitle ? <p className="mt-2 font-display text-xl italic text-muted">{book.subtitle}</p> : null}
+              <p className="mt-4 font-display text-2xl italic">
+                by {authorNames}
+                {book.first_published_year ? (
+                  <span className="ml-2 align-middle text-xs font-semibold not-italic uppercase tracking-[0.22em] text-muted">
+                    · {book.first_published_year}
+                  </span>
+                ) : null}
               </p>
-            ) : null}
-            <h1 className="mt-4 text-balance font-display text-6xl leading-[0.95] tracking-tight sm:text-8xl xl:text-[clamp(3.75rem,13.5cqi,6rem)]">
-              {book.title}
-            </h1>
-            {book.subtitle ? <p className="mt-3 font-display text-2xl italic text-muted">{book.subtitle}</p> : null}
-            <Ornament className="mt-7" />
-            <p className="mt-5 font-display text-3xl italic">by {authorNames}</p>
-            {book.first_published_year ? (
-              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.22em] text-muted">
-                First printed in {book.first_published_year}
-              </p>
-            ) : null}
 
-            <Suspense fallback={<div className="mt-7 h-7 w-72 animate-pulse rounded bg-border/60" />}>
-              <TitlePageStats id={book.id} avg={avg} />
-            </Suspense>
+              <Suspense fallback={<div className="mt-4 h-6 w-64 animate-pulse rounded bg-border/60" />}>
+                <TitlePageStats id={book.id} avg={avg} />
+              </Suspense>
 
-            <div className="mt-7 w-full max-w-xs">
-              <ShelfButton workId={book.id} />
+              <div className="mt-5 w-full max-w-xs">
+                <ShelfButton workId={book.id} />
+              </div>
             </div>
           </div>
 
@@ -164,7 +168,7 @@ async function BookDetail({ params }: { params: Params }) {
 
       {/* The blurb */}
       {paragraphs.length > 0 ? (
-        <section className="mx-auto w-full max-w-2xl space-y-5 px-4 py-16 text-lg leading-relaxed sm:px-6 sm:text-xl">
+        <section className="mx-auto w-full max-w-2xl space-y-5 px-4 pb-16 pt-10 text-lg leading-relaxed sm:px-6 sm:text-xl">
           {paragraphs.map((p, i) => (
             <p
               key={i}
@@ -476,8 +480,8 @@ async function TitlePageStats({ id, avg }: { id: string; avg: number }) {
   const { distribution, shelves } = await getBookCommunity(id);
   const verdict = ratingVerdict(distribution);
   return (
-    <div className="mt-7 flex flex-col items-center gap-3">
-      <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+    <div className="mt-4 flex flex-col items-center gap-1.5 sm:items-start">
+      <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:justify-start">
         <span className="text-xl">
           <Stars rating={Math.round(avg * 2) / 2} />
         </span>
@@ -643,11 +647,13 @@ async function ShelvedNearby({ id }: { id: string }) {
 
 function BookSkeleton() {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-6 px-4 pb-16 pt-12 sm:pt-16">
-      <div className="aspect-[2/3] w-48 animate-pulse rounded bg-border/60 sm:w-60" />
-      <div className="h-3 w-40 animate-pulse rounded bg-border/60" />
-      <div className="h-16 w-3/4 animate-pulse rounded bg-border/60" />
-      <div className="h-6 w-56 animate-pulse rounded bg-border/60" />
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-8 px-4 py-10 sm:flex-row sm:items-center sm:py-14">
+      <div className="aspect-[2/3] w-40 shrink-0 animate-pulse rounded bg-border/60 sm:w-48 lg:w-56" />
+      <div className="flex w-full flex-col items-center gap-4 sm:items-start">
+        <div className="h-3 w-40 animate-pulse rounded bg-border/60" />
+        <div className="h-16 w-3/4 animate-pulse rounded bg-border/60" />
+        <div className="h-6 w-56 animate-pulse rounded bg-border/60" />
+      </div>
     </main>
   );
 }
