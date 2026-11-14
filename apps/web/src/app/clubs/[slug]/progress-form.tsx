@@ -77,13 +77,13 @@ export function ProgressForm({
     <form
       id="progress"
       onSubmit={save}
-      className="flex flex-col gap-3 rounded-2xl border border-border bg-surface px-5 py-4 sm:flex-row sm:items-center"
+      className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-border bg-surface px-5 py-4"
     >
-      <label htmlFor="progress-page" className="text-sm">
+      <label htmlFor="progress-page" className="min-w-0 flex-1 basis-64 text-sm">
         <span className="font-semibold">Where are you?</span>{" "}
         <span className="text-muted">We hide posts about pages you haven&rsquo;t reached.</span>
       </label>
-      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <span className="text-sm text-muted">Page</span>
         <input
           id="progress-page"
@@ -111,7 +111,7 @@ export function ProgressForm({
           I&rsquo;ve finished
         </button>
       </div>
-      {error ? <p className="text-sm text-accent sm:basis-full">{error}</p> : null}
+      {error ? <p className="basis-full text-sm text-accent">{error}</p> : null}
     </form>
   );
 }

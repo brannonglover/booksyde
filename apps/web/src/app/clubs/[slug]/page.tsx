@@ -33,7 +33,9 @@ import { ReadPicker, RemoveReadButton } from "./read-picker";
 type Params = Promise<{ slug: string }>;
 type SearchParams = Promise<{ before?: string }>;
 
-const POSTS_PER_PAGE = 50;
+const POSTS_PER_PAGE = 20;
+/** Members listed before the rest fold away under "Show all". */
+const MEMBERS_SHOWN = 8;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   await connection();
@@ -107,10 +109,12 @@ async function ClubView({ params, searchParams }: { params: Params; searchParams
   ]);
   const mine = viewerId ? progress.get(viewerId) : undefined;
   const titles = new Map([current, upcoming, ...past].flatMap((r) => (r ? [[r.id, r.work.title] as const] : [])));
-  // Number only the sections that render.
-  const numerals = ["I", "II", "III", "IV", "V"];
-  let n = 0;
-  const next = () => numerals[n++];
+  const memberRows = (members: ClubMember[]) =>
+    members.map((m) => (
+      <li key={m.userId}>
+        <MemberRow member={m} progress={current ? (progress.get(m.userId) ?? null) : undefined} />
+      </li>
+    ));
 
   return (
     <main className="flex flex-1 flex-col">
@@ -120,7 +124,7 @@ async function ClubView({ params, searchParams }: { params: Params; searchParams
           background: `linear-gradient(to bottom, color-mix(in oklab, ${ink} 14%, var(--bk-background)), var(--bk-background))`,
         }}
       >
-        <div className="mx-auto flex max-w-4xl flex-col items-center text-center sm:items-start sm:text-left">
+        <div className="mx-auto flex max-w-6xl flex-col items-center text-center sm:items-start sm:text-left">
           <p
             className="text-xs font-semibold uppercase tracking-[0.3em]"
             // The club's own colour, lifted toward the text colour so it reads in dark mode too.
@@ -153,9 +157,9 @@ async function ClubView({ params, searchParams }: { params: Params; searchParams
       </section>
 
       <div className="px-4 sm:px-6">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-16 py-14">
-          <section className="flex flex-col gap-8">
-            <SectionHeading numeral={next()}>Reading now</SectionHeading>
+        <div className="mx-auto grid w-full max-w-6xl gap-16 py-14 lg:grid-cols-[minmax(0,1fr)_20rem] lg:grid-rows-[auto_1fr] lg:gap-x-12">
+          <section className="flex min-w-0 flex-col gap-8 lg:col-start-1 lg:row-start-1">
+            <SectionHeading numeral="I">Reading now</SectionHeading>
             {current ? (
               <>
                 <CurrentRead read={current} members={club.members} progress={progress} isAdmin={isAdmin} />
@@ -172,7 +176,7 @@ async function ClubView({ params, searchParams }: { params: Params; searchParams
               <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border px-6 py-10 text-center">
                 <p className="text-muted">
                   {upcoming
-                    ? "Nothing on the go right now. The next book is lined up below."
+                    ? "Nothing on the go right now. The next book is lined up under Up next."
                     : isAdmin
                       ? "Your club hasn’t picked a book yet. Choose the first one."
                       : "This club hasn’t picked a book yet."}
@@ -182,8 +186,53 @@ async function ClubView({ params, searchParams }: { params: Params; searchParams
             )}
           </section>
 
-          <section id="talk" className="flex scroll-mt-8 flex-col gap-6">
-            <SectionHeading numeral={next()}>The talk</SectionHeading>
+          {/*
+           * Everything but the book and the talk lives in a sidebar on wide
+           * screens, so a busy discussion never buries the readers. On a phone
+           * it sits between the book and the talk, members folded after a few.
+           */}
+          <aside className="flex flex-col gap-12 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+            {upcoming ? (
+              <section className="flex flex-col gap-4">
+                <SideHeading>Up next</SideHeading>
+                <ReadRow read={upcoming} isAdmin={isAdmin} />
+              </section>
+            ) : null}
+
+            <section className="flex flex-col gap-4">
+              <SideHeading aside={`${club.members.length}`}>The readers</SideHeading>
+              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                {memberRows(club.members.slice(0, MEMBERS_SHOWN))}
+              </ul>
+              {club.members.length > MEMBERS_SHOWN ? (
+                <details className="group">
+                  <summary className="cursor-pointer list-none text-sm font-semibold text-accent hover:underline [&::-webkit-details-marker]:hidden">
+                    <span className="group-open:hidden">Show all {club.members.length} readers</span>
+                    <span className="hidden group-open:inline">Show fewer</span>
+                  </summary>
+                  <ul className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                    {memberRows(club.members.slice(MEMBERS_SHOWN))}
+                  </ul>
+                </details>
+              ) : null}
+            </section>
+
+            {past.length ? (
+              <section className="flex flex-col gap-4">
+                <SideHeading>Read together</SideHeading>
+                <ul className="flex flex-col gap-2">
+                  {past.map((read) => (
+                    <li key={read.id}>
+                      <ReadRow read={read} isAdmin={isAdmin} />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </aside>
+
+          <section id="talk" className="flex min-w-0 scroll-mt-8 flex-col gap-6 lg:col-start-1 lg:row-start-2">
+            <SectionHeading numeral="II">The talk</SectionHeading>
             {isMember ? (
               <>
                 {before ? null : (
@@ -227,40 +276,19 @@ async function ClubView({ params, searchParams }: { params: Params; searchParams
               </p>
             )}
           </section>
-
-          {upcoming ? (
-            <section className="flex flex-col gap-6">
-              <SectionHeading numeral={next()}>Up next</SectionHeading>
-              <ReadRow read={upcoming} isAdmin={isAdmin} />
-            </section>
-          ) : null}
-
-          <section className="flex flex-col gap-6">
-            <SectionHeading numeral={next()}>The readers</SectionHeading>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {club.members.map((m) => (
-                <li key={m.userId}>
-                  <MemberRow member={m} progress={current ? (progress.get(m.userId) ?? null) : undefined} />
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {past.length ? (
-            <section className="flex flex-col gap-6">
-              <SectionHeading numeral={next()}>Read together</SectionHeading>
-              <ul className="flex flex-col gap-3">
-                {past.map((read) => (
-                  <li key={read.id}>
-                    <ReadRow read={read} isAdmin={isAdmin} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
         </div>
       </div>
     </main>
+  );
+}
+
+/** A quieter heading for the sidebar's sections. */
+function SideHeading({ children, aside }: { children: React.ReactNode; aside?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
+      <h2 className="font-display text-3xl leading-none">{children}</h2>
+      {aside ? <span className="text-sm text-muted">{aside}</span> : null}
+    </div>
   );
 }
 
@@ -474,13 +502,13 @@ function ClubSkeleton() {
   return (
     <main className="flex flex-1 flex-col">
       <div className="border-b border-border px-4 pb-14 pt-16 sm:px-6">
-        <div className="mx-auto flex max-w-4xl flex-col gap-4">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4">
           <div className="h-4 w-28 animate-pulse rounded bg-border/50" />
           <div className="h-16 w-2/3 animate-pulse rounded bg-border/50" />
           <div className="h-5 w-1/2 animate-pulse rounded bg-border/40" />
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-4xl gap-6 px-4 py-14 sm:px-6">
+      <div className="mx-auto flex w-full max-w-6xl gap-6 px-4 py-14 sm:px-6">
         <div className="aspect-[2/3] w-40 animate-pulse rounded bg-border/50" />
         <div className="flex flex-1 flex-col gap-3">
           <div className="h-10 w-2/3 animate-pulse rounded bg-border/50" />
