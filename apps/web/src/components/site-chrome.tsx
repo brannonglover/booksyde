@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AccountMenu } from "@/components/account-menu";
 import { ThemePicker, ThemeToggleButton } from "@/components/theme-toggle";
+import { Wordmark } from "@/components/wordmark";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,8 +30,8 @@ export function SiteHeader() {
   return (
     <header className="border-b border-border">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="font-display text-[1.7rem] leading-none sm:text-3xl">
-          Booksyde<span className="text-highlight">.</span>
+        <Link href="/" className="text-[1.7rem] leading-none sm:text-3xl">
+          <Wordmark />
         </Link>
         <nav className="flex items-center gap-0.5 text-sm font-semibold sm:gap-2">
           <Link className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="/discover">
@@ -65,9 +66,7 @@ export function SiteFooter() {
     <footer className="border-t border-border">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex flex-col gap-1">
-          <span className="font-display text-2xl text-text">
-            Booksyde<span className="text-highlight">.</span>
-          </span>
+          <Wordmark className="self-start text-2xl text-text" />
           <span className="italic">Set in Instrument Serif &amp; Plus Jakarta Sans. Made for readers.</span>
         </div>
         <ThemePicker />

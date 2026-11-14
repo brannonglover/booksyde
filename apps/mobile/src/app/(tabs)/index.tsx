@@ -19,6 +19,7 @@ import { BookCover } from '@/components/book-cover';
 import { Stars } from '@/components/stars';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Wordmark } from '@/components/wordmark';
 import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
@@ -213,9 +214,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.masthead, { borderBottomColor: theme.border }]}>
-          <Text style={[styles.wordmark, { color: theme.text }]}>
-            Booksyde<Text style={{ color: theme.highlight }}>.</Text>
-          </Text>
+          <Wordmark />
           <View style={styles.mastheadActions}>
             <ThemeToggleButton />
             {profile ? (
@@ -312,9 +311,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={[styles.colophon, { borderTopColor: theme.border }]}>
-            <Text style={[styles.wordmark, { color: theme.text, fontSize: 24 }]}>
-              Booksyde<Text style={{ color: theme.highlight }}>.</Text>
-            </Text>
+            <Wordmark size={24} />
             <Text style={[styles.colophonText, { color: theme.textSecondary }]}>Made for readers.</Text>
             <Text style={[styles.label, { color: theme.textSecondary, marginTop: spacing[3] }]}>APPEARANCE</Text>
             <AppearancePicker />
@@ -351,7 +348,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  wordmark: { fontFamily: DisplayFonts.regular, fontSize: 30 },
   mastheadActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   colophon: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing[5], gap: spacing[2] },
   colophonText: { fontFamily: DisplayFonts.italic, fontSize: 16 },
