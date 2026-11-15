@@ -12,13 +12,14 @@ import {
   toFeatured,
   type YearInBooks,
 } from '@booksyde/shared';
-import { coverUrl, genreColor, palette, radii, spacing } from '@booksyde/theme';
+import { coverUrl, genreColor, radii, spacing } from '@booksyde/theme';
 import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/avatar';
 import { AppearancePicker, ThemeToggleButton } from '@/components/appearance-picker';
 import { BackdropStage } from '@/components/backdrop';
 import { BookCover } from '@/components/book-cover';
@@ -286,7 +287,7 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: Platform.OS === 'web' ? WebTabBarHeight : insets.top }]}
+        contentContainerStyle={{ paddingTop: Platform.OS === 'web' ? WebTabBarHeight : insets.top, paddingBottom: insets.bottom + BottomTabInset + spacing[7] }}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.masthead, { borderBottomColor: theme.border }]}>
@@ -297,9 +298,9 @@ export default function HomeScreen() {
               <Link href={{ pathname: '/u/[username]', params: { username: profile.username } }} asChild>
                 <Pressable
                   accessibilityLabel={`Your profile, ${profile.display_name || profile.username}`}
-                  style={StyleSheet.flatten([styles.avatar, { backgroundColor: profile.theme_color ?? theme.primary }])}
+                  style={styles.avatar}
                 >
-                  <Text style={styles.avatarInitial}>{(profile.display_name || profile.username).charAt(0).toUpperCase()}</Text>
+                  <Avatar name={profile.display_name || profile.username} src={profile.avatar_url} ink={profile.theme_color ?? theme.primary} size={36} />
                 </Pressable>
               </Link>
             ) : (
@@ -420,7 +421,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, flexDirection: 'row', justifyContent: 'center' },
-  scroll: { paddingBottom: BottomTabInset + spacing[7] },
   masthead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -433,7 +433,6 @@ const styles = StyleSheet.create({
   colophon: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing[5], gap: spacing[2] },
   colophonText: { fontFamily: DisplayFonts.italic, fontSize: 16 },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 20 },
   signedInRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[3] },
   joinButton: { borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
   buttonLabel: { fontWeight: '700', fontSize: 14 },
@@ -446,7 +445,7 @@ const styles = StyleSheet.create({
   },
   hero: { paddingTop: spacing[6], gap: spacing[4] },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 2 },
-  heroTitle: { fontFamily: DisplayFonts.regular, fontSize: 54, lineHeight: 54, letterSpacing: -0.5 },
+  heroTitle: { fontFamily: DisplayFonts.regular, fontSize: 54, lineHeight: 62, letterSpacing: -0.5 },
   italic: { fontFamily: DisplayFonts.italic },
   italicSmall: { fontFamily: DisplayFonts.italic, letterSpacing: 0, fontSize: 13 },
   lede: { fontSize: 17, lineHeight: 25 },
@@ -496,7 +495,7 @@ const styles = StyleSheet.create({
   shelfEmpty: { borderWidth: 1, borderStyle: 'dashed', borderRadius: radii.md, padding: spacing[5], textAlign: 'center' },
   year: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: spacing[5], gap: spacing[4] },
   yearStats: { flexDirection: 'row', gap: spacing[6] },
-  yearValue: { fontFamily: DisplayFonts.regular, fontSize: 44, lineHeight: 46 },
+  yearValue: { fontFamily: DisplayFonts.regular, fontSize: 44, lineHeight: 52 },
   spines: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 104, overflow: 'hidden', paddingHorizontal: spacing[2] },
   spine: { borderTopLeftRadius: 2, borderTopRightRadius: 2 },
   spineBand: { position: 'absolute', left: 0, right: 0, top: 12, height: 4, backgroundColor: 'rgba(184,137,58,0.7)' },

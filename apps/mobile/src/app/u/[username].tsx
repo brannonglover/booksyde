@@ -1,4 +1,6 @@
 import {
+  ARRANGEABLE_SHELVES,
+  arrangeShelf,
   follow,
   type FollowState,
   getFollowState,
@@ -6,9 +8,11 @@ import {
   getProfileShelves,
   getProfileStats,
   getUserReviews,
+  moveOnShelf,
   type ProfileStats,
   removeFromShelves,
   setReadingStatus,
+  type ShelfMove,
   unfollow,
 } from '@booksyde/shared';
 import type { ReadingStatus } from '@booksyde/types';
@@ -17,6 +21,7 @@ import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
 import { ShelfStatusSheet } from '@/components/shelf-status-sheet';
 import { Stars } from '@/components/stars';
@@ -27,7 +32,7 @@ import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
 /*
- * A reader's profile as the "Ex Libris" bookplate inside their books, then
+ * A reader's profile card, then
  * their reading palette, shelves and notes. Mirrors apps/web/src/app/u/[username].
  */
 
@@ -104,7 +109,34 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
   const name = profile.display_name || profile.username;
   const first = name.split(' ')[0];
   const isOwn = followState === 'self';
-  const [moving, setMoving] = useState<{ id: string; title: string; status: ReadingStatus } | null>(null);
+  const [moving, setMoving] = useState<{ id: string; title: string; status: ReadingStatus; index: number } | null>(null);
+  // Orders the reader has just made, shown straight away while they save.
+  const [arranging, setArranging] = useState<Partial<Record<ReadingStatus, ShelfWork[]>>>({});
+  const [seenShelves, setSeenShelves] = useState(shelves);
+  if (seenShelves !== shelves) {
+    setSeenShelves(shelves);
+    setArranging({});
+  }
+  const shelfBooks = (status: ReadingStatus) => arranging[status] ?? shelves?.books[status] ?? [];
+
+  async function saveOrder(status: ReadingStatus, books: ShelfWork[] | null) {
+    if (!supabase) return;
+    if (books) setArranging((a) => ({ ...a, [status]: books }));
+    try {
+      await arrangeShelf(supabase, status, books ? books.map((b) => b.id) : null);
+    } catch {
+      setArranging((a) => ({ ...a, [status]: undefined }));
+      Alert.alert('Couldn’t save that order', 'Something went wrong. Try again?');
+    }
+    onChange();
+  }
+
+  function moveAlong(how: ShelfMove) {
+    const book = moving;
+    setMoving(null);
+    if (!book) return;
+    void saveOrder(book.status, moveOnShelf(shelfBooks(book.status), book.index, how));
+  }
 
   async function moveTo(next: ReadingStatus | null) {
     const book = moving;
@@ -128,7 +160,7 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
         {!canSee ? (
           <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border, alignItems: 'center' }]}>
             <Text style={{ fontSize: 40 }}>🔒</Text>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>A private library</Text>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>A private profile</Text>
             <Text style={{ color: theme.textSecondary, textAlign: 'center', lineHeight: 21 }}>
               {followState === 'pending'
                 ? `Your request is with ${first}. Once they say yes, you’ll see their shelves and notes here.`
@@ -150,13 +182,14 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
                 key={key}
                 title={title}
                 empty={empty}
-                books={shelves?.[key] ?? []}
-                onLongPress={isOwn ? (w) => setMoving({ id: w.id, title: w.title, status: key }) : undefined}
+                books={shelfBooks(key)}
+                onLongPress={isOwn ? (w, index) => setMoving({ id: w.id, title: w.title, status: key, index }) : undefined}
+                onReset={isOwn && shelves?.arranged[key] ? () => saveOrder(key, null) : undefined}
               />
             ))}
             {isOwn ? (
               <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 13 }}>
-                Press and hold a book to move it to another shelf.
+                Press and hold a book to move it to another shelf, or along Reading now and Want to read to put them in your order.
               </Text>
             ) : null}
 
@@ -169,7 +202,13 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
           </>
         )}
       </View>
-      <ShelfStatusSheet book={moving} onChoose={moveTo} onClose={() => setMoving(null)} />
+      <ShelfStatusSheet
+        book={moving}
+        arrange={moving && ARRANGEABLE_SHELVES.includes(moving.status) ? { index: moving.index, count: shelfBooks(moving.status).length } : undefined}
+        onChoose={moveTo}
+        onArrange={moveAlong}
+        onClose={() => setMoving(null)}
+      />
     </ScrollView>
   );
 }
@@ -200,10 +239,8 @@ function Bookplate({
   return (
     <View style={[styles.plateOuter, { backgroundColor: dark ? '#2F2822' : '#FBF5E8' }]}>
       <View style={[styles.plateInner, { borderColor: ink }]}>
-        <Text style={[styles.exLibris, { color: ink }]}>EX LIBRIS</Text>
-        <View style={[styles.monogram, { backgroundColor: ink }]}>
-          <Text style={styles.monogramText}>{name.charAt(0).toUpperCase()}</Text>
-        </View>
+        <Text style={[styles.plateLabel, { color: ink }]}>READER</Text>
+        <Avatar name={name} src={profile.avatar_url} ink={ink} size={72} style={styles.monogram} />
         <Text style={[styles.name, { color: text }]}>{name}</Text>
         <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
           @{profile.username}
@@ -327,25 +364,35 @@ function ReadingPalette({ first, stats }: { first: string; stats: ProfileStats }
   );
 }
 
-type ShelfWork = NonNullable<Shelves>['read'][number];
+type ShelfWork = NonNullable<Shelves>['books']['read'][number];
 
 function ShelfRow({
   title,
   empty,
   books,
   onLongPress,
+  onReset,
 }: {
   title: string;
   empty: string;
   books: ShelfWork[];
-  onLongPress?: (book: ShelfWork) => void;
+  onLongPress?: (book: ShelfWork, index: number) => void;
+  /** Shown when the reader has arranged this shelf: put it back by date added. */
+  onReset?: () => void;
 }) {
   const theme = useTheme();
   return (
     <View style={{ gap: spacing[3] }}>
-      <Text style={[styles.shelfTitle, { color: theme.text }]}>
-        {title} <Text style={{ fontFamily: undefined, fontSize: 14, color: theme.textSecondary }}>{books.length}</Text>
-      </Text>
+      <View style={styles.shelfHeader}>
+        <Text style={[styles.shelfTitle, { color: theme.text }]}>
+          {title} <Text style={{ fontFamily: undefined, fontSize: 14, color: theme.textSecondary }}>{books.length}</Text>
+        </Text>
+        {onReset ? (
+          <Pressable accessibilityRole="button" onPress={onReset} hitSlop={8}>
+            <Text style={{ color: theme.accent, fontWeight: '700', fontSize: 14 }}>Back to date added</Text>
+          </Pressable>
+        ) : null}
+      </View>
       {books.length === 0 ? (
         <View style={[styles.emptyShelf, { borderColor: theme.border }]}>
           <Text style={{ color: theme.textSecondary, textAlign: 'center' }}>{empty}</Text>
@@ -353,10 +400,10 @@ function ShelfRow({
       ) : (
         <View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelfBooks}>
-            {books.map((w) => (
+            {books.map((w, index) => (
               <Link key={w.id} href={{ pathname: '/book/[id]', params: { id: w.id } }} push asChild>
                 <Pressable
-                  onLongPress={onLongPress ? () => onLongPress(w) : undefined}
+                  onLongPress={onLongPress ? () => onLongPress(w, index) : undefined}
                   delayLongPress={400}
                   accessibilityHint={onLongPress ? 'Press and hold to move it to another shelf' : undefined}
                   style={({ pressed }) => pressed && onLongPress ? { opacity: 0.7, transform: [{ scale: 0.97 }] } : null}
@@ -417,9 +464,8 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   plateInner: { borderWidth: 3, borderRadius: 2, alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[4], paddingVertical: spacing[5] },
-  exLibris: { fontSize: 11, fontWeight: '800', letterSpacing: 5 },
-  monogram: { width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: palette.gilt, alignItems: 'center', justifyContent: 'center', marginTop: spacing[2] },
-  monogramText: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 36 },
+  plateLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 5 },
+  monogram: { borderWidth: 3, borderColor: palette.gilt, marginTop: spacing[2] },
   name: { fontFamily: DisplayFonts.regular, fontSize: 40, lineHeight: 44, textAlign: 'center' },
   bio: { fontFamily: DisplayFonts.italic, fontSize: 19, lineHeight: 24, textAlign: 'center', marginTop: spacing[1] },
   since: { fontSize: 10, fontWeight: '700', letterSpacing: 2, marginTop: spacing[1] },
@@ -439,6 +485,7 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 9, height: 9, borderRadius: 5 },
   shelfTitle: { fontFamily: DisplayFonts.regular, fontSize: 26 },
+  shelfHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: spacing[3] },
   emptyShelf: { borderWidth: 1, borderStyle: 'dashed', borderRadius: radii.lg, padding: spacing[4] },
   shelfBooks: { gap: spacing[3], paddingHorizontal: spacing[2], alignItems: 'flex-end' },
   shelfBoard: { height: 10, borderRadius: 2, backgroundColor: '#8A6A4A' },

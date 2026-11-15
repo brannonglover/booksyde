@@ -3,6 +3,7 @@ import { genreColor, palette } from "@booksyde/theme";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { Avatar } from "@/components/avatar";
 import { BookCover } from "@/components/book-cover";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { getDrawers, parseSearch, searchEverything, searchWiderStacks } from "@/lib/catalog";
@@ -402,13 +403,7 @@ function ReaderList({ readers }: { readers: Reader[] }) {
                 className="flex items-center gap-3 rounded-sm border-[3px] border-double bg-[#FBF5E8] p-3 text-ink hover:-translate-y-0.5 transition dark:bg-[#2F2822] dark:text-paper"
                 style={{ borderColor: ink }}
               >
-                <span
-                  aria-hidden
-                  className="grid size-10 shrink-0 place-items-center rounded-full border-2 border-gilt font-display text-xl text-paper"
-                  style={{ background: ink }}
-                >
-                  {name.charAt(0).toUpperCase()}
-                </span>
+                <Avatar name={name} src={r.avatar_url} ink={ink} className="size-10 rounded-full border-2 border-gilt text-xl" />
                 <span className="min-w-0">
                   <span className="block truncate font-display text-lg leading-tight">{name}</span>
                   <span className="block truncate text-xs text-muted">

@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   sectionNumeral: { fontFamily: DisplayFonts.italic, fontSize: 24 },
   header: { alignItems: 'center', gap: spacing[3], paddingTop: spacing[4] },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 3, textAlign: 'center' },
-  title: { fontFamily: DisplayFonts.regular, fontSize: 48, lineHeight: 50, textAlign: 'center' },
+  title: { fontFamily: DisplayFonts.regular, fontSize: 48, lineHeight: 56, textAlign: 'center' },
   lede: { fontSize: 16, lineHeight: 24, textAlign: 'center' },
   empty: { borderWidth: 1, borderStyle: 'dashed', borderRadius: radii.lg, padding: spacing[5], alignItems: 'center', gap: spacing[3] },
   pill: {

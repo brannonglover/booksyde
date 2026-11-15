@@ -1,9 +1,11 @@
 import { bookVibe, compactCount, formatRating, ratingVerdict } from "@booksyde/shared";
 import { genreColor } from "@booksyde/theme";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { Avatar } from "@/components/avatar";
 import { BookCover } from "@/components/book-cover";
 import { Bookshelf } from "@/components/bookshelf";
 import { ReviewBody } from "@/components/review-body";
@@ -303,9 +305,13 @@ async function BookDetail({ params }: { params: Params }) {
               >
                 <div
                   aria-hidden
-                  className="grid h-36 w-28 place-items-center rounded-[50%] border-4 border-double border-gilt bg-green font-display text-5xl text-paper shadow-inner"
+                  className="relative grid h-36 w-28 place-items-center overflow-hidden rounded-[50%] border-4 border-double border-gilt bg-green font-display text-5xl text-paper shadow-inner"
                 >
                   {a.name.charAt(0)}
+                  {/* The portrait sits over the initial, so a photo that fails to load still leaves the monogram. */}
+                  {a.photo_url ? (
+                    <Image src={a.photo_url} alt="" fill sizes="112px" className="object-cover object-top" />
+                  ) : null}
                 </div>
                 <figcaption>
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted">About the author</p>
@@ -568,15 +574,7 @@ async function Marginalia({ id, avg }: { id: string; avg: number }) {
                 }`}
               >
                 <div className="flex items-center gap-3 border-b-2 border-oxblood/45 pb-3">
-                  <span
-                    aria-hidden
-                    className="grid size-9 shrink-0 place-items-center rounded-full font-display text-lg text-paper"
-                    style={{
-                      background: r.profiles?.theme_color ?? "var(--bk-green)",
-                    }}
-                  >
-                    {name.charAt(0)}
-                  </span>
+                  <Avatar name={name} src={r.profiles?.avatar_url} ink={r.profiles?.theme_color} className="size-9 rounded-full text-lg" />
                   <span className="min-w-0 flex-1">
                     {r.profiles?.username ? (
                       <Link href={`/u/${r.profiles.username}`} className="block truncate font-display text-xl leading-tight hover:text-accent">

@@ -3,6 +3,7 @@ import "server-only";
 import {
   type BookLike,
   createBooksydeClient,
+  getOpenLibraryAuthor,
   getOpenLibraryBook,
   OPEN_LIBRARY_WORK_ID,
   openLibraryTags,
@@ -132,7 +133,20 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
       }
     }
     if (!authorId) {
-      const created = await db.from("authors").insert({ name: author.name, open_library_id: author.olid }).select("id").single();
+      // New to us: bring their portrait, bio and dates along for the book page.
+      const details = author.olid ? await getOpenLibraryAuthor(author.olid, userAgent) : null;
+      const created = await db
+        .from("authors")
+        .insert({
+          name: author.name,
+          open_library_id: author.olid,
+          bio: details?.bio ?? null,
+          photo_url: details?.photoUrl ?? null,
+          birth_date: details?.birthDate ?? null,
+          death_date: details?.deathDate ?? null,
+        })
+        .select("id")
+        .single();
       if (created.error) continue;
       authorId = created.data.id;
     }

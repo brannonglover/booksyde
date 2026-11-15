@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Avatar } from "@/components/avatar";
 import { signOut } from "@/app/(auth)/actions";
 
-type Profile = { username: string; display_name: string | null; theme_color: string | null };
+type Profile = { username: string; display_name: string | null; avatar_url: string | null; theme_color: string | null };
 
 /** Avatar button with a small menu: who you are, and a way out. */
 export function AccountMenu({ profile }: { profile: Profile }) {
@@ -34,13 +35,7 @@ export function AccountMenu({ profile }: { profile: Profile }) {
         aria-haspopup="menu"
         className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 hover:bg-surface"
       >
-        <span
-          aria-hidden
-          className="grid size-8 place-items-center rounded-full font-display text-lg text-paper"
-          style={{ background: profile.theme_color ?? "var(--bk-green)" }}
-        >
-          {name.charAt(0).toUpperCase()}
-        </span>
+        <Avatar name={name} src={profile.avatar_url} ink={profile.theme_color} className="size-8 rounded-full text-lg" />
         <span className="hidden max-w-32 truncate sm:inline">{name.split(" ")[0]}</span>
       </button>
       {open ? (

@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { FormError, FormField, PrimaryButton } from '@/components/auth-form';
+import { Avatar } from '@/components/avatar';
+import { AvatarPicker } from '@/components/avatar-picker';
 import { InkPicker } from '@/components/ink-picker';
 import { Loading } from '@/components/page-chrome';
 import { inks } from '@/constants/inks';
@@ -17,7 +19,14 @@ import { supabase } from '@/lib/supabase';
 
 /** Edit your bookplate: how other readers see you. Mirrors apps/web/src/app/settings/profile. */
 
-type Profile = { username: string; display_name: string | null; bio: string | null; theme_color: string | null; is_private: boolean };
+type Profile = {
+  username: string;
+  display_name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  theme_color: string | null;
+  is_private: boolean;
+};
 
 export default function EditProfileScreen() {
   const theme = useTheme();
@@ -28,7 +37,7 @@ export default function EditProfileScreen() {
       ? async () => {
           const { data, error: e } = await supabase!
             .from('profiles')
-            .select('username, display_name, bio, theme_color, is_private')
+            .select('username, display_name, bio, avatar_url, theme_color, is_private')
             .eq('id', userId)
             .single();
           if (e) throw e;
@@ -71,6 +80,7 @@ function ProfileForm({ profile }: { profile: Profile }) {
   const [bio, setBio] = useState(profile.bio ?? '');
   const [ink, setInk] = useState<string>(profile.theme_color ?? inks[0].hex);
   const [isPrivate, setIsPrivate] = useState(profile.is_private);
+  const [avatar, setAvatar] = useState(profile.avatar_url);
   const [taken, setTaken] = useState<{ username: string; taken: boolean } | null>(null);
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const [error, setError] = useState<string | null>(null);
@@ -155,10 +165,8 @@ function ProfileForm({ profile }: { profile: Profile }) {
         {/* Live preview of the bookplate */}
         <View style={[styles.plateOuter, { backgroundColor: dark ? '#2F2822' : '#FBF5E8' }]}>
           <View style={[styles.plateInner, { borderColor: ink }]}>
-            <Text style={[styles.exLibris, { color: ink }]}>EX LIBRIS</Text>
-            <View style={[styles.monogram, { backgroundColor: ink }]}>
-              <Text style={styles.monogramText}>{shown.charAt(0).toUpperCase()}</Text>
-            </View>
+            <Text style={[styles.plateLabel, { color: ink }]}>READER</Text>
+            <Avatar name={shown} src={avatar} ink={ink} size={56} style={styles.monogram} />
             <Text style={[styles.plateName, { color: dark ? palette.paper : palette.ink }]}>{shown}</Text>
             <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
               @{username}
@@ -166,6 +174,11 @@ function ProfileForm({ profile }: { profile: Profile }) {
             </Text>
             {bio ? <Text style={[styles.plateBio, { color: dark ? palette.paper : palette.ink }]}>{bio}</Text> : null}
           </View>
+        </View>
+
+        <View style={{ gap: spacing[3] }}>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>YOUR PHOTO</Text>
+          <AvatarPicker hasPhoto={!!avatar} onChange={setAvatar} />
         </View>
 
         <FormError message={error} />
@@ -206,12 +219,12 @@ function ProfileForm({ profile }: { profile: Profile }) {
           style={[styles.toggle, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}
         >
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 16 }}>Keep my library private</Text>
+            <Text style={{ color: theme.text, fontWeight: '700', fontSize: 16 }}>Keep my profile private</Text>
             <Text style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 20 }}>
               Only people you approve can see your shelves, ratings and notes. Anyone can still see your bookplate.
             </Text>
           </View>
-          <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: theme.primary }} accessibilityLabel="Keep my library private" />
+          <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: theme.primary }} accessibilityLabel="Keep my profile private" />
         </Pressable>
 
         <PrimaryButton label={busy ? 'Saving…' : 'Save my bookplate'} busy={busy} onPress={save} />
@@ -238,9 +251,8 @@ const styles = StyleSheet.create({
   toggle: { flexDirection: 'row', alignItems: 'center', gap: spacing[4], borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: spacing[4] },
   plateOuter: { borderRadius: 3, padding: 6, alignSelf: 'center', width: '100%', maxWidth: 320 },
   plateInner: { borderWidth: 3, borderStyle: 'solid', borderRadius: 3, paddingHorizontal: spacing[5], paddingVertical: spacing[5], alignItems: 'center', gap: spacing[2] },
-  exLibris: { fontSize: 10, fontWeight: '800', letterSpacing: 4.5 },
-  monogram: { width: 56, height: 56, borderRadius: 28, borderWidth: 3, borderColor: palette.gilt, alignItems: 'center', justifyContent: 'center' },
-  monogramText: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 30 },
+  plateLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 4.5 },
+  monogram: { borderWidth: 3, borderColor: palette.gilt },
   plateName: { fontFamily: DisplayFonts.regular, fontSize: 28, lineHeight: 30, textAlign: 'center' },
   plateBio: { fontFamily: DisplayFonts.italic, fontSize: 17, lineHeight: 22, textAlign: 'center' },
 });

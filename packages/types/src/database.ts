@@ -495,14 +495,14 @@ isOneToOne: false
                   ]
                 },"user_books": {
                   Row: {
-                    "created_at": string,"edition_id": string | null,"finished_at": string | null,"started_at": string | null,"status": Database["public"]['Enums']["reading_status"],"updated_at": string,"user_id": string,"work_id": string
+                    "created_at": string,"edition_id": string | null,"finished_at": string | null,"position": number | null,"shelved_at": string,"started_at": string | null,"status": Database["public"]['Enums']["reading_status"],"updated_at": string,"user_id": string,"work_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"edition_id"?: string | null,"finished_at"?: string | null,"started_at"?: string | null,"status": Database["public"]['Enums']["reading_status"],"updated_at"?: string,"user_id": string,"work_id": string
+                    "created_at"?: string,"edition_id"?: string | null,"finished_at"?: string | null,"position"?: number | null,"shelved_at"?: string,"started_at"?: string | null,"status": Database["public"]['Enums']["reading_status"],"updated_at"?: string,"user_id": string,"work_id": string
                   }
                   Update: {
-                    "created_at"?: string,"edition_id"?: string | null,"finished_at"?: string | null,"started_at"?: string | null,"status"?: Database["public"]['Enums']["reading_status"],"updated_at"?: string,"user_id"?: string,"work_id"?: string
+                    "created_at"?: string,"edition_id"?: string | null,"finished_at"?: string | null,"position"?: number | null,"shelved_at"?: string,"started_at"?: string | null,"status"?: Database["public"]['Enums']["reading_status"],"updated_at"?: string,"user_id"?: string,"work_id"?: string
                   }
                   Relationships: [
                     {
@@ -597,12 +597,15 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "can_view_user":
+            "arrange_shelf":
+{ Args: { "p_status": Database["public"]['Enums']["reading_status"],"p_work_ids": (string)[] }; Returns: undefined
+                           },
+"can_view_user":
 { Args: { "target": string }; Returns: boolean
                            },
 "get_club_posts":
 { Args: { "before"?: string,"max_results"?: number,"p_club_id": string }; Returns: {
-              "body": string,"club_read_id": string,"created_at": string,"display_name": string,"id": string,"is_hidden": boolean,"spoiler_page": number,"theme_color": string,"updated_at": string,"user_id": string,"username": string,"work_id": string
+              "avatar_url": string,"body": string,"club_read_id": string,"created_at": string,"display_name": string,"id": string,"is_hidden": boolean,"spoiler_page": number,"theme_color": string,"updated_at": string,"user_id": string,"username": string,"work_id": string
             }[]
                            },
 "get_feed":
@@ -638,6 +641,9 @@ isOneToOne: false
                            },
 "is_librarian":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"merge_works":
+{ Args: { "p_dupe": string,"p_keep": string }; Returns: undefined
                            },
 "next_read":
 { Args: Record<PropertyKey, never>; Returns: {

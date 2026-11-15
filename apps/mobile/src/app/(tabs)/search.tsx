@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
 import { RequestSlip } from '@/components/request-slip';
 import { Stars } from '@/components/stars';
@@ -427,9 +428,7 @@ function ReaderPlate({ reader }: { reader: Found['readers'][number] }) {
   return (
     <Link href={{ pathname: '/u/[username]', params: { username: reader.username } }} asChild>
       <Pressable style={StyleSheet.flatten([styles.plate, { borderColor: ink, backgroundColor: dark ? '#2F2822' : '#FBF5E8' }])}>
-        <View style={[styles.plateBadge, { backgroundColor: ink }]}>
-          <Text style={styles.plateInitial}>{name.charAt(0).toUpperCase()}</Text>
-        </View>
+        <Avatar name={name} src={reader.avatar_url} ink={ink} size={40} style={styles.plateBadge} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.authorName, { color: dark ? palette.paper : palette.ink }]}>{name}</Text>
           <Text numberOfLines={1} style={{ color: theme.textSecondary, fontSize: 12 }}>
@@ -543,7 +542,7 @@ const styles = StyleSheet.create({
   scroll: { alignItems: 'center' },
   content: { width: '100%', maxWidth: MaxContentWidth, paddingHorizontal: spacing[5], gap: spacing[5] },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 3, textAlign: 'center' },
-  title: { fontFamily: DisplayFonts.regular, fontSize: 46, lineHeight: 48, textAlign: 'center' },
+  title: { fontFamily: DisplayFonts.regular, fontSize: 46, lineHeight: 54, textAlign: 'center' },
   lede: { fontSize: 16, lineHeight: 24, textAlign: 'center' },
   brass: {
     borderRadius: 14,
@@ -630,8 +629,7 @@ const styles = StyleSheet.create({
   authorInitials: { fontFamily: DisplayFonts.regular, fontSize: 20 },
   authorName: { fontFamily: DisplayFonts.regular, fontSize: 21, lineHeight: 24 },
   plate: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], borderWidth: 3, borderStyle: 'solid', borderRadius: 3, padding: spacing[3] },
-  plateBadge: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: palette.gilt, alignItems: 'center', justifyContent: 'center' },
-  plateInitial: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 20 },
+  plateBadge: { borderWidth: 2, borderColor: palette.gilt },
   empty: {
     alignItems: 'center',
     overflow: 'hidden',

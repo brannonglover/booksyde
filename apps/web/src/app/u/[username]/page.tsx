@@ -1,4 +1,5 @@
 import {
+  ARRANGEABLE_SHELVES,
   compactCount,
   type FollowState,
   getFollowState,
@@ -13,18 +14,21 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { ArrangeableShelf } from "@/components/arrangeable-shelf";
+import { Avatar } from "@/components/avatar";
 import { BookCover } from "@/components/book-cover";
 import { FollowButton } from "@/components/follow-button";
 import { ReviewBody } from "@/components/review-body";
 import { ShelfBook } from "@/components/shelf-book";
+import { ShelfScroller } from "@/components/shelf-scroller";
 import { Ornament, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { Stars } from "@/components/stars";
 import { createClient } from "@/lib/supabase/server";
 
 /*
  * A reader's profile, styled as the bookplate inside the cover of their
- * books ("Ex Libris"), followed by their reading palette, their shelves and
- * their marginalia. Personal to the viewer (follow state, private libraries),
+ * books, followed by their reading palette, their shelves and
+ * their marginalia. Personal to the viewer (follow state, private profiles),
  * so it renders per request.
  */
 
@@ -81,7 +85,7 @@ async function ProfileView({ params }: { params: Params }) {
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-24 px-4 py-16 sm:px-6">
         {!canSee ? (
-          <PrivateLibrary name={name} pending={followState === "pending"} />
+          <PrivateProfile name={name} pending={followState === "pending"} />
         ) : (
           <>
             {stats.moods.length > 0 ? <ReadingPalette name={name} stats={stats} /> : null}
@@ -145,7 +149,7 @@ function ChapterHeading({ kicker, title }: { kicker: string; title: string }) {
   );
 }
 
-/** The "Ex Libris" plate pasted inside the front cover, in the reader's own ink. */
+/** The reader's profile card, in the reader's own ink. */
 function Bookplate({
   profile,
   name,
@@ -179,19 +183,19 @@ function Bookplate({
           </span>
         ))}
         <p className="text-xs font-bold uppercase tracking-[0.5em]" style={{ color: ink }}>
-          Ex Libris
+          Reader
         </p>
-        <div
-          aria-hidden
-          className="mx-auto mt-5 grid size-20 place-items-center rounded-full border-4 border-double font-display text-4xl text-paper"
-          style={{ background: ink, borderColor: "var(--bk-gilt)" }}
-        >
-          {name.charAt(0).toUpperCase()}
-        </div>
+        <Avatar
+          name={name}
+          src={profile.avatar_url}
+          ink={ink}
+          className="mx-auto mt-5 size-20 rounded-full border-4 border-double text-4xl"
+          style={{ borderColor: "var(--bk-gilt)" }}
+        />
         <h1 className="mt-4 text-balance font-display text-5xl leading-none sm:text-6xl">{name}</h1>
         <p className="mt-2 text-sm text-muted">
           @{profile.username}
-          {profile.is_private ? <span title="Private library"> · 🔒 Private</span> : null}
+          {profile.is_private ? <span title="Private profile"> · 🔒 Private</span> : null}
         </p>
         {profile.bio ? <p className="mx-auto mt-4 max-w-md font-display text-xl italic leading-snug">{profile.bio}</p> : null}
         <p className="mt-4 text-[0.65rem] font-semibold uppercase tracking-[0.25em] text-muted">
@@ -275,19 +279,47 @@ const shelfOrder = [
   { key: "read", title: "Read", empty: "No finished books yet." },
 ] as const;
 
+const plank = <div aria-hidden className="h-3 rounded-sm bg-[#8A6A4A] shadow-[0_8px_14px_-6px_rgba(31,27,22,0.6)] dark:bg-[#6E543B]" />;
+const shelfRowClass = "flex items-end gap-4 overflow-x-auto px-3 pt-3 sm:gap-6";
+const shelfBookClass = "w-24 shrink-0 transition duration-300 hover:-translate-y-2 sm:w-28";
+
 function ShelvesSection({ shelves, isOwn }: { shelves: Shelves; isOwn: boolean }) {
   return (
     <section className="flex flex-col gap-10">
       <ChapterHeading kicker="The bookcase" title="On their shelves" />
-      {isOwn ? <p className="-mt-6 text-center text-sm text-muted">Right-click or press and hold a book to move it to another shelf.</p> : null}
+      {isOwn ? (
+        <p className="-mt-6 text-center text-sm text-muted">
+          Drag books along Reading now and Want to read to put them in your order. Right-click or press and hold a book to move it to another
+          shelf.
+        </p>
+      ) : null}
       {shelfOrder.map(({ key, title, empty }) => {
-        const books = shelves[key];
+        const books = shelves.books[key];
+        const heading = (
+          <h3 className="flex items-baseline gap-3 font-display text-3xl">
+            {title}
+            <span className="font-sans text-sm text-muted">{books.length}</span>
+          </h3>
+        );
+        const cover = (w: (typeof books)[number]) => <BookCover title={w.title} author="" src={w.cover_url} color={w.cover_color} sizes="112px" />;
+        if (isOwn && books.length > 0 && ARRANGEABLE_SHELVES.includes(key)) {
+          return (
+            <ArrangeableShelf
+              key={key}
+              status={key}
+              label={title}
+              heading={heading}
+              arranged={shelves.arranged[key]}
+              items={books.map((w) => ({ id: w.id, title: w.title, cover: cover(w) }))}
+              className={shelfRowClass}
+              bookClassName={shelfBookClass}
+              below={plank}
+            />
+          );
+        }
         return (
           <div key={key} className="flex flex-col gap-4">
-            <h3 className="flex items-baseline gap-3 font-display text-3xl">
-              {title}
-              <span className="font-sans text-sm text-muted">{books.length}</span>
-            </h3>
+            {heading}
             {books.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-border px-6 py-8 text-center text-muted">
                 {empty}
@@ -301,24 +333,19 @@ function ShelvesSection({ shelves, isOwn }: { shelves: Shelves; isOwn: boolean }
                 ) : null}
               </p>
             ) : (
-              <div>
-                <div className="flex items-end gap-4 overflow-x-auto px-3 pt-3 sm:gap-6">
-                  {books.map((w) => {
-                    const cover = <BookCover title={w.title} author="" src={w.cover_url} color={w.cover_color} sizes="112px" />;
-                    const className = "w-24 shrink-0 transition duration-300 hover:-translate-y-2 sm:w-28";
-                    return isOwn ? (
-                      <ShelfBook key={w.id} workId={w.id} title={w.title} status={key} className={className}>
-                        {cover}
-                      </ShelfBook>
-                    ) : (
-                      <Link key={w.id} href={`/books/${w.id}`} title={w.title} className={className}>
-                        {cover}
-                      </Link>
-                    );
-                  })}
-                </div>
-                <div aria-hidden className="h-3 rounded-sm bg-[#8A6A4A] shadow-[0_8px_14px_-6px_rgba(31,27,22,0.6)] dark:bg-[#6E543B]" />
-              </div>
+              <ShelfScroller label={title} className={shelfRowClass} below={plank}>
+                {books.map((w) =>
+                  isOwn ? (
+                    <ShelfBook key={w.id} workId={w.id} title={w.title} status={key} className={shelfBookClass}>
+                      {cover(w)}
+                    </ShelfBook>
+                  ) : (
+                    <Link key={w.id} href={`/books/${w.id}`} title={w.title} className={shelfBookClass}>
+                      {cover(w)}
+                    </Link>
+                  ),
+                )}
+              </ShelfScroller>
             )}
           </div>
         );
@@ -327,13 +354,13 @@ function ShelvesSection({ shelves, isOwn }: { shelves: Shelves; isOwn: boolean }
   );
 }
 
-function PrivateLibrary({ name, pending }: { name: string; pending: boolean }) {
+function PrivateProfile({ name, pending }: { name: string; pending: boolean }) {
   return (
     <section className="mx-auto flex max-w-lg flex-col items-center gap-4 rounded-3xl border border-border bg-surface px-8 py-12 text-center">
       <p className="text-5xl" aria-hidden>
         🔒
       </p>
-      <h2 className="font-display text-4xl">A private library</h2>
+      <h2 className="font-display text-4xl">A private profile</h2>
       <p className="text-muted">
         {pending
           ? `Your request is with ${name.split(" ")[0]}. Once they say yes, you’ll see their shelves and notes here.`

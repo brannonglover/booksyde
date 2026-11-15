@@ -1,4 +1,4 @@
-import { READING_STATUS_LABELS } from '@booksyde/shared';
+import { READING_STATUS_LABELS, type ShelfMove } from '@booksyde/shared';
 import type { ReadingStatus } from '@booksyde/types';
 import { radii, spacing } from '@booksyde/theme';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,18 +8,30 @@ import { DisplayFonts } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const statuses: ReadingStatus[] = ['want_to_read', 'reading', 'read', 'did_not_finish'];
+const moves: { move: ShelfMove; label: string }[] = [
+  { move: 'front', label: 'Move to the front' },
+  { move: 'earlier', label: 'Move left' },
+  { move: 'later', label: 'Move right' },
+  { move: 'end', label: 'Move to the end' },
+];
 
 /**
  * A bottom sheet for moving a book between the reader's shelves, opened by
- * long-pressing a cover. `onChoose(null)` means take it off the shelves.
+ * long-pressing a cover. `onChoose(null)` means take it off the shelves. With
+ * `arrange` (where the book sits on a shelf the reader can order), it also
+ * offers moves along that shelf.
  */
 export function ShelfStatusSheet({
   book,
+  arrange,
   onChoose,
+  onArrange,
   onClose,
 }: {
   book: { title: string; status: ReadingStatus } | null;
+  arrange?: { index: number; count: number };
   onChoose: (status: ReadingStatus | null) => void;
+  onArrange?: (move: ShelfMove) => void;
   onClose: () => void;
 }) {
   const theme = useTheme();
@@ -55,6 +67,34 @@ export function ShelfStatusSheet({
             </Pressable>
           );
         })}
+        {arrange && onArrange && arrange.count > 1 ? (
+          <>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <Text style={[styles.kicker, styles.subKicker, { color: theme.textSecondary }]}>ON THIS SHELF</Text>
+            <View style={styles.moveGrid}>
+              {moves.map(({ move, label }) => {
+                const disabled =
+                  move === 'front' || move === 'earlier' ? arrange.index === 0 : arrange.index === arrange.count - 1;
+                return (
+                  <Pressable
+                    key={move}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled }}
+                    disabled={disabled}
+                    onPress={() => onArrange(move)}
+                    style={({ pressed }) => [
+                      styles.moveButton,
+                      { borderColor: theme.border, opacity: disabled ? 0.4 : 1 },
+                      pressed && { backgroundColor: theme.backgroundElement },
+                    ]}
+                  >
+                    <Text style={[styles.moveText, { color: theme.text }]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
         <Pressable
           accessibilityRole="button"
@@ -96,5 +136,16 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
   },
   rowText: { fontSize: 17 },
+  subKicker: { paddingTop: spacing[2], paddingBottom: spacing[2] },
+  moveGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], paddingHorizontal: spacing[3], paddingBottom: spacing[2] },
+  moveButton: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    alignItems: 'center',
+    paddingVertical: spacing[2],
+    borderRadius: radii.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  moveText: { fontSize: 15 },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: spacing[1], marginHorizontal: spacing[3] },
 });

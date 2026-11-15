@@ -129,10 +129,10 @@ export default function SignUpScreen() {
           body="Track what you read, find your next favorite by mood, and swap notes with readers like you."
         />
 
-        {/* Their Ex Libris bookplate fills itself in as they type, as their profile will show it. */}
+        {/* Their profile card fills itself in as they type, as their profile will show it. */}
         <View style={styles.plateOuter}>
           <View style={styles.plateInner}>
-            <Text style={styles.exLibris}>EX LIBRIS</Text>
+            <Text style={styles.plateLabel}>READER</Text>
             <View style={styles.monogram}>
               <Text style={styles.monogramText}>{(displayName.trim() || '?').charAt(0).toUpperCase()}</Text>
             </View>
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   plateInner: { borderWidth: 3, borderRadius: 2, borderColor: PlateInk, alignItems: 'center', gap: spacing[1], paddingHorizontal: spacing[4], paddingVertical: spacing[4] },
-  exLibris: { color: PlateInk, fontSize: 10, fontWeight: '800', letterSpacing: 5 },
+  plateLabel: { color: PlateInk, fontSize: 10, fontWeight: '800', letterSpacing: 5 },
   monogram: { width: 52, height: 52, borderRadius: 26, borderWidth: 3, borderColor: palette.gilt, backgroundColor: PlateInk, alignItems: 'center', justifyContent: 'center', marginVertical: spacing[1] },
   monogramText: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 26 },
   plateName: { color: palette.ink, fontFamily: DisplayFonts.regular, fontSize: 30, lineHeight: 34, textAlign: 'center' },

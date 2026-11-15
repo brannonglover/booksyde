@@ -18,7 +18,8 @@
     "db:new": "supabase migration new",
     "db:types": "supabase gen types typescript --local > packages/types/src/database.ts",
     "db:import": "tsx supabase/import/open-library.mts",
-    "covers:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-covers.mts"
+    "covers:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-covers.mts",
+    "authors:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-authors.mts"
   },
   "devDependencies": {
     "supabase": "^3.1.0",

@@ -119,7 +119,7 @@ export function GoodreadsImport({ username }: { username: string }) {
             <span>
               <span className="block font-semibold">Bring my ratings and reviews</span>
               <span className="text-sm text-muted">
-                They show on each book’s page like any other review here, unless your library is private. Books you’ve already reviewed on Booksyde keep
+                They show on each book’s page like any other review here, unless your profile is private. Books you’ve already reviewed on Booksyde keep
                 your Booksyde review.
               </span>
             </span>

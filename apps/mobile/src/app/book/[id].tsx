@@ -12,11 +12,13 @@ import {
   setReadingStatus,
 } from '@booksyde/shared';
 import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
+import { Image } from 'expo-image';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
 import { Stars } from '@/components/stars';
 import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth } from '@/constants/theme';
@@ -324,6 +326,18 @@ function BookDetail({ data }: { data: BookData }) {
           <Card key={a.id} style={{ alignItems: 'center' }}>
             <View style={styles.cameo}>
               <Text style={styles.cameoInitial}>{a.name.charAt(0)}</Text>
+              {/* The portrait sits over the initial, so a photo that fails to load still leaves the monogram. */}
+              {a.photo_url ? (
+                <Image
+                  source={{ uri: a.photo_url }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  contentPosition="top"
+                  transition={150}
+                  cachePolicy="memory-disk"
+                  accessible={false}
+                />
+              ) : null}
             </View>
             <Text style={[styles.kicker, { color: theme.textSecondary }]}>ABOUT THE AUTHOR</Text>
             <Text style={[styles.authorName, { color: theme.text }]}>{a.name}</Text>
@@ -462,9 +476,7 @@ function IndexCard({ review, tilt }: { review: BookData['reviews'][number]; tilt
   return (
     <View style={[styles.indexCard, { backgroundColor: dark ? theme.backgroundSelected : '#FFFDF6', transform: [{ rotate: tilt }] }]}>
       <View style={styles.indexHeader}>
-        <View style={[styles.reviewAvatar, { backgroundColor: review.profiles?.theme_color ?? palette.green }]}>
-          <Text style={styles.reviewInitial}>{name.charAt(0)}</Text>
-        </View>
+        <Avatar name={name} src={review.profiles?.avatar_url} ink={review.profiles?.theme_color} size={34} />
         <View style={{ flex: 1 }}>
           {review.profiles?.username ? (
             <Link href={{ pathname: '/u/[username]', params: { username: review.profiles.username } }} push style={[styles.reviewName, { color: ink }]}>
@@ -548,7 +560,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 2.4, textAlign: 'center' },
-  title: { fontFamily: DisplayFonts.regular, fontSize: 52, lineHeight: 54, textAlign: 'center' },
+  title: { fontFamily: DisplayFonts.regular, fontSize: 52, lineHeight: 60, textAlign: 'center' },
   subtitle: { fontFamily: DisplayFonts.italic, fontSize: 22, textAlign: 'center', marginTop: -spacing[2] },
   byline: { fontFamily: DisplayFonts.italic, fontSize: 26 },
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[2] },
@@ -601,8 +613,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   indexHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingBottom: spacing[3], borderBottomWidth: 2, borderBottomColor: 'rgba(139,58,43,0.45)' },
-  reviewAvatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  reviewInitial: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 18 },
   reviewName: { fontFamily: DisplayFonts.regular, fontSize: 20 },
   reviewBody: { fontSize: 15, lineHeight: 26 },
   spoiler: { alignItems: 'center', borderWidth: 1, borderRadius: radii.md, paddingVertical: spacing[4] },
@@ -623,6 +633,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.green,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   cameoInitial: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 44 },
   authorName: { fontFamily: DisplayFonts.regular, fontSize: 30 },

@@ -27,7 +27,7 @@ function useDraft() {
   );
 }
 
-/** The reader's Ex Libris bookplate, filled in live from the form, as their profile will show it. */
+/** The reader's profile card, filled in live from the form, as their profile will show it. */
 export function DraftBookplate() {
   const { displayName, username } = useDraft();
   const ink = "#2D4A3E";
@@ -40,7 +40,7 @@ export function DraftBookplate() {
           </span>
         ))}
         <p className="text-[0.65rem] font-bold uppercase tracking-[0.5em]" style={{ color: ink }}>
-          Ex Libris
+          Reader
         </p>
         <div
           aria-hidden

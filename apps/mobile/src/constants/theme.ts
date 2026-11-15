@@ -79,5 +79,8 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+/** Height of the tab bar above the home indicator (components/app-tabs.tsx). */
+export const TabBarHeight = 56;
+/** Room to leave at the foot of a tab screen so its last item clears the bar (add the safe-area inset). */
+export const BottomTabInset = Platform.select({ ios: TabBarHeight, android: TabBarHeight }) ?? 0;
 export const MaxContentWidth = 800;

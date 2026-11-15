@@ -1,5 +1,6 @@
 import type { ReadingStatus } from "@booksyde/types";
 import type { BooksydeClient } from "../client";
+import { ARRANGEABLE_SHELVES } from "./reading";
 import { type ProfileUpdate, profileUpdateSchema } from "../schemas/profile";
 
 export type ProfileStats = {
@@ -20,23 +21,45 @@ export async function getProfileStats(client: BooksydeClient, userId: string): P
   return data as unknown as ProfileStats;
 }
 
-/** Everything on the reader's status shelves, newest first, grouped by shelf. */
+/**
+ * Everything on the reader's status shelves, grouped by shelf. "Reading now"
+ * and "Want to read" are in the reader's own order when they've arranged them,
+ * else by date added, newest first (see the shelf_order migration); the other
+ * shelves are newest-touched first. `arranged` says which shelves have a
+ * hand-made order.
+ */
 export async function getProfileShelves(client: BooksydeClient, userId: string, limit = 120) {
   const { data, error } = await client
     .from("user_books")
-    .select("status, updated_at, works ( id, title, cover_url, cover_color, avg_rating )")
+    .select("status, shelved_at, position, updated_at, works ( id, title, cover_url, cover_color, avg_rating )")
     .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  const shelves: Record<ReadingStatus, NonNullable<(typeof data)[number]["works"]>[]> = {
+  type Row = NonNullable<typeof data>[number];
+  const byShelfOrder = (a: Row, b: Row) =>
+    a.position === b.position
+      ? Date.parse(b.shelved_at) - Date.parse(a.shelved_at)
+      : a.position === null
+        ? -1
+        : b.position === null
+          ? 1
+          : a.position - b.position;
+  const rows = [...(data ?? [])];
+  const books: Record<ReadingStatus, NonNullable<Row["works"]>[]> = {
     reading: [],
     want_to_read: [],
     read: [],
     did_not_finish: [],
   };
-  for (const row of data ?? []) if (row.works) shelves[row.status].push(row.works);
-  return shelves;
+  const arranged: Record<ReadingStatus, boolean> = { reading: false, want_to_read: false, read: false, did_not_finish: false };
+  for (const status of ARRANGEABLE_SHELVES) {
+    const shelf = rows.filter((r) => r.status === status).sort(byShelfOrder);
+    books[status] = shelf.flatMap((r) => (r.works ? [r.works] : []));
+    arranged[status] = shelf.some((r) => r.position !== null);
+  }
+  for (const row of rows) if (row.works && !ARRANGEABLE_SHELVES.includes(row.status)) books[row.status].push(row.works);
+  return { books, arranged };
 }
 
 /** The reader's written reviews, with the book each one is about. */

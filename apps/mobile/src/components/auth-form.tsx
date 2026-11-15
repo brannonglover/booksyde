@@ -105,6 +105,6 @@ const styles = StyleSheet.create({
   primaryLabel: { fontWeight: '700', fontSize: 16 },
   formError: { borderWidth: 1, borderRadius: radii.lg, padding: spacing[3] },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 2.4 },
-  title: { fontFamily: DisplayFonts.regular, fontSize: 44, lineHeight: 46 },
+  title: { fontFamily: DisplayFonts.regular, fontSize: 44, lineHeight: 52 },
   titleAccent: { fontFamily: DisplayFonts.italic },
 });

@@ -353,6 +353,7 @@ export type ClubPost = {
   username: string;
   displayName: string | null;
   themeColor: string | null;
+  avatarUrl: string | null;
   /** Null when it's hidden from you as a spoiler. */
   body: string | null;
   spoilerPage: number | null;
@@ -383,6 +384,7 @@ export async function getClubPosts(
     username: p.username,
     displayName: p.display_name ?? null,
     themeColor: p.theme_color ?? null,
+    avatarUrl: p.avatar_url ?? null,
     body: p.is_hidden ? null : p.body,
     spoilerPage: p.spoiler_page ?? null,
     isHidden: p.is_hidden,

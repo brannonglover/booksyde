@@ -26,6 +26,7 @@ import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
 import { confirm, EmptyNote, Loading, notify, Ornament, Pill, SectionHeading } from '@/components/page-chrome';
 import { DEFAULT_INK } from '@/constants/inks';
@@ -403,7 +404,7 @@ function MemberRow({ member, progress }: { member: ClubMember; progress: ReaderP
   return (
     <Link href={{ pathname: '/u/[username]', params: { username: member.username } }} asChild>
       <Pressable style={StyleSheet.flatten([styles.rowCard, { backgroundColor: theme.backgroundElement, borderColor: theme.border }])}>
-        <Avatar name={name} ink={member.theme_color} size={40} />
+        <Avatar name={name} src={member.avatar_url} ink={member.theme_color ?? DEFAULT_INK} size={40} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={{ color: theme.text, fontWeight: '700', fontSize: 15 }}>
             {name}
@@ -429,14 +430,6 @@ function MemberRow({ member, progress }: { member: ClubMember; progress: ReaderP
         ) : null}
       </Pressable>
     </Link>
-  );
-}
-
-function Avatar({ name, ink, size }: { name: string; ink: string | null; size: number }) {
-  return (
-    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: ink ?? DEFAULT_INK }]}>
-      <Text style={{ color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: size * 0.5 }}>{name.charAt(0).toUpperCase()}</Text>
-    </View>
   );
 }
 
@@ -889,7 +882,7 @@ function PostItem({
     <View style={[styles.post, { borderBottomColor: theme.border }]}>
       <Link href={{ pathname: '/u/[username]', params: { username: post.username } }} asChild>
         <Pressable accessibilityLabel={name}>
-          <Avatar name={name} ink={post.themeColor} size={36} />
+          <Avatar name={name} src={post.avatarUrl} ink={post.themeColor ?? DEFAULT_INK} size={36} />
         </Pressable>
       </Link>
       <View style={{ flex: 1, minWidth: 0, gap: spacing[1] }}>
@@ -925,7 +918,7 @@ const styles = StyleSheet.create({
   hero: { borderBottomWidth: StyleSheet.hairlineWidth, paddingHorizontal: spacing[4], paddingTop: spacing[5], paddingBottom: spacing[7] },
   heroInner: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', alignItems: 'center', gap: spacing[3] },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 3 },
-  clubName: { fontFamily: DisplayFonts.regular, fontSize: 48, lineHeight: 50, textAlign: 'center' },
+  clubName: { fontFamily: DisplayFonts.regular, fontSize: 48, lineHeight: 56, textAlign: 'center' },
   description: { fontSize: 17, lineHeight: 25, textAlign: 'center' },
   content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', paddingHorizontal: spacing[4], paddingTop: spacing[7], gap: spacing[7] },
   section: { gap: spacing[5] },
@@ -946,7 +939,6 @@ const styles = StyleSheet.create({
   },
   rowLink: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   rowTitle: { fontFamily: DisplayFonts.regular, fontSize: 21, lineHeight: 24 },
-  avatar: { alignItems: 'center', justifyContent: 'center' },
   badge: { borderRadius: radii.pill, paddingHorizontal: spacing[3], paddingVertical: 4 },
   progress: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: spacing[4], gap: spacing[3] },
   progressRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[2] },

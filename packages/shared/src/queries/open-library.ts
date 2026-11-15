@@ -206,6 +206,45 @@ export function cleanDescription(raw: string) {
   return text ? text.slice(0, 3000) : null;
 }
 
+const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+
+/**
+ * Open Library's free-text dates as YYYY-MM-DD. Only full, unambiguous dates
+ * ("2003-02-01", "February 1, 2003", "1 Feb 2003"); anything vaguer is null.
+ */
+export function fullDate(raw?: string) {
+  const s = raw?.trim() ?? "";
+  let y: number, mo: number, d: number;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  else if ((m = s.match(/^([A-Za-z]{3,})\.? (\d{1,2}),? (\d{4})$/))) [y, mo, d] = [Number(m[3]), MONTHS[m[1].slice(0, 3).toLowerCase()], Number(m[2])];
+  else if ((m = s.match(/^(\d{1,2}) ([A-Za-z]{3,})\.?,? (\d{4})$/))) [y, mo, d] = [Number(m[3]), MONTHS[m[2].slice(0, 3).toLowerCase()], Number(m[1])];
+  else return null;
+  if (!mo || y < 1000 || y > new Date().getFullYear() + 1) return null;
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+export const OPEN_LIBRARY_AUTHOR_ID = /^OL\d{1,12}A$/;
+
+export type OpenLibraryAuthor = { bio: string | null; photoUrl: string | null; birthDate: string | null; deathDate: string | null };
+
+/** An author's bio, portrait and dates, or null if Open Library can't be read. */
+export async function getOpenLibraryAuthor(olid: string, init?: RequestInit): Promise<OpenLibraryAuthor | null> {
+  if (!OPEN_LIBRARY_AUTHOR_ID.test(olid)) return null;
+  const res = await fetch(`${API}/authors/${olid}.json`, init).catch(() => null);
+  if (!res?.ok) return null;
+  const a = (await res.json()) as { bio?: string | { value?: string }; photos?: number[]; birth_date?: string; death_date?: string };
+  const photoId = a.photos?.find((p) => p > 0);
+  return {
+    bio: cleanDescription(typeof a.bio === "string" ? a.bio : (a.bio?.value ?? "")),
+    photoUrl: photoId ? `https://covers.openlibrary.org/a/id/${photoId}-L.jpg` : null,
+    birthDate: fullDate(a.birth_date),
+    deathDate: fullDate(a.death_date),
+  };
+}
+
 /** Map Open Library's free-form subjects onto our genre tags. */
 const subjectRules: [RegExp, string][] = [
   [/\bfantasy\b|\bmagic\b|\bdragons?\b/i, "fantasy"],

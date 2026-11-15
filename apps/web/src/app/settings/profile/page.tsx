@@ -34,7 +34,7 @@ async function EditProfile() {
   if (!auth.user) redirect("/sign-in?next=/settings/profile");
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, display_name, bio, theme_color, is_private")
+    .select("username, display_name, bio, avatar_url, theme_color, is_private")
     .eq("id", auth.user.id)
     .single();
   if (!profile) redirect("/");

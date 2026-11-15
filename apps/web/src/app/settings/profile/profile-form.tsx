@@ -5,10 +5,19 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { Field, FormError, SubmitButton } from "@/app/(auth)/fields";
 import { createClient } from "@/lib/supabase/client";
+import { Avatar } from "@/components/avatar";
 import { inks } from "@/lib/inks";
 import { type ProfileFormState, saveProfile } from "./actions";
+import { AvatarPicker } from "./avatar-picker";
 
-type Profile = { username: string; display_name: string | null; bio: string | null; theme_color: string | null; is_private: boolean };
+type Profile = {
+  username: string;
+  display_name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+  theme_color: string | null;
+  is_private: boolean;
+};
 
 export function ProfileForm({ profile }: { profile: Profile }) {
   const [state, action] = useActionState<ProfileFormState, FormData>(saveProfile, {});
@@ -17,6 +26,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const [bio, setBio] = useState(profile.bio ?? "");
   const [ink, setInk] = useState(profile.theme_color ?? inks[0].hex);
   const [isPrivate, setIsPrivate] = useState(profile.is_private);
+  const [avatar, setAvatar] = useState(profile.avatar_url);
   const [taken, setTaken] = useState<{ username: string; taken: boolean } | null>(null);
 
   useEffect(() => {
@@ -53,6 +63,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
     <div className="grid gap-12 lg:grid-cols-[1fr_20rem]">
       <form action={action} className="flex flex-col gap-6" noValidate>
         <FormError message={state.error} />
+        <AvatarPicker name={name || username} ink={ink} src={avatar} onChange={setAvatar} />
         <Field
           label="Your name"
           name="display_name"
@@ -118,7 +129,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             className="mt-1 size-5 accent-[var(--bk-primary)]"
           />
           <span>
-            <span className="block font-semibold">Keep my library private</span>
+            <span className="block font-semibold">Keep my profile private</span>
             <span className="text-sm text-muted">
               Only people you approve can see your shelves, ratings and notes. Anyone can still see your bookplate.
             </span>
@@ -141,15 +152,15 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <div className="sticky top-8 rounded-sm bg-[#FBF5E8] p-1.5 text-ink shadow-[0_20px_40px_-24px_rgba(31,27,22,0.6)] dark:bg-[#2F2822] dark:text-paper">
           <div className="rounded-sm border-[3px] border-double px-5 pb-6 pt-5 text-center" style={{ borderColor: ink }}>
             <p className="text-[0.6rem] font-bold uppercase tracking-[0.45em]" style={{ color: ink }}>
-              Ex Libris
+              Reader
             </p>
-            <div
-              aria-hidden
-              className="mx-auto mt-3 grid size-14 place-items-center rounded-full border-4 border-double font-display text-3xl text-paper"
-              style={{ background: ink, borderColor: "var(--bk-gilt)" }}
-            >
-              {(name || username).charAt(0).toUpperCase()}
-            </div>
+            <Avatar
+              name={name || username}
+              src={avatar}
+              ink={ink}
+              className="mx-auto mt-3 size-14 rounded-full border-4 border-double text-3xl"
+              style={{ borderColor: "var(--bk-gilt)" }}
+            />
             <p className="mt-3 font-display text-3xl leading-none">{name || username}</p>
             <p className="mt-1 text-xs text-muted">
               @{username}

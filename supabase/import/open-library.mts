@@ -23,7 +23,7 @@ import { parseArgs } from "node:util";
 import { createGunzip } from "node:zlib";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../../packages/types/src/database";
-import { bookIdentity, cleanDescription, openLibraryTags, sameBook, titleKey } from "../../packages/shared/src/queries/open-library";
+import { bookIdentity, cleanDescription, fullDate as dateOf, openLibraryTags, sameBook, titleKey } from "../../packages/shared/src/queries/open-library";
 import { isbn10To13, isValidIsbn10, isValidIsbn13, normalizeIsbn } from "../../packages/shared/src/utils/isbn";
 
 // ---------------------------------------------------------------------------
@@ -173,22 +173,6 @@ function yearOf(s?: string) {
   const m = s?.match(/\b(\d{4})\b/);
   const y = m ? Number(m[1]) : NaN;
   return y >= 1000 && y <= thisYear + 1 ? y : null;
-}
-
-const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
-/** Only full, unambiguous dates ("2003-02-01", "February 1, 2003", "1 Feb 2003"); anything vaguer is null. */
-function dateOf(raw?: string) {
-  const s = raw?.trim() ?? "";
-  let y: number, mo: number, d: number;
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  else if ((m = s.match(/^([A-Za-z]{3,})\.? (\d{1,2}),? (\d{4})$/))) [y, mo, d] = [Number(m[3]), MONTHS[m[1].slice(0, 3).toLowerCase()], Number(m[2])];
-  else if ((m = s.match(/^(\d{1,2}) ([A-Za-z]{3,})\.?,? (\d{4})$/))) [y, mo, d] = [Number(m[3]), MONTHS[m[2].slice(0, 3).toLowerCase()], Number(m[1])];
-  else return null;
-  if (!mo || y < 1000 || y > thisYear + 1) return null;
-  const date = new Date(Date.UTC(y, mo - 1, d));
-  if (date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return null;
-  return date.toISOString().slice(0, 10);
 }
 
 const LANGUAGES: Record<string, string> = {

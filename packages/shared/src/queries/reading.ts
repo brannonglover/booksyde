@@ -39,6 +39,37 @@ export async function getMyBooks(client: BooksydeClient, status?: ReadingStatus)
   return data ?? [];
 }
 
+/** The shelves a reader can put in their own order. Every other shelf is newest first. */
+export const ARRANGEABLE_SHELVES: readonly ReadingStatus[] = ["reading", "want_to_read"];
+
+/**
+ * Save the reader's order for one of their shelves, front to back. Pass null to
+ * put the shelf back in date-added order. Books on the shelf that aren't in
+ * `workIds` go to the front, newest added first.
+ */
+export async function arrangeShelf(client: BooksydeClient, status: ReadingStatus, workIds: string[] | null) {
+  const { error } = await client.rpc("arrange_shelf", { p_status: status, p_work_ids: workIds ?? [] });
+  if (error) throw error;
+}
+
+export type ShelfMove = "front" | "earlier" | "later" | "end";
+
+/** `ids` with the book at `index` moved one step or to either end. Unchanged when it can't move that way. */
+export function moveOnShelf<T>(ids: readonly T[], index: number, move: ShelfMove): T[] {
+  const to = move === "front" ? 0 : move === "end" ? ids.length - 1 : index + (move === "earlier" ? -1 : 1);
+  return moveTo(ids, index, to);
+}
+
+/** `ids` with the item at `from` moved to `to` (clamped to the list). */
+export function moveTo<T>(ids: readonly T[], from: number, to: number): T[] {
+  const next = [...ids];
+  const target = Math.max(0, Math.min(to, ids.length - 1));
+  if (from < 0 || from >= ids.length || target === from) return next;
+  const [item] = next.splice(from, 1);
+  next.splice(target, 0, item);
+  return next;
+}
+
 /** Create or update the signed-in user's review of a work. */
 export async function upsertReview(client: BooksydeClient, input: ReviewInput) {
   const parsed = reviewInputSchema.parse(input);

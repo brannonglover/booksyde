@@ -14,6 +14,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { Avatar } from "@/components/avatar";
 import { BookCover } from "@/components/book-cover";
 import { Ornament, SectionHeading, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { DEFAULT_INK } from "@/lib/inks";
@@ -395,13 +396,7 @@ function MemberRow({ member, progress }: { member: ClubMember; progress: ReaderP
       href={`/u/${member.username}`}
       className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition hover:border-text/30"
     >
-      <span
-        aria-hidden
-        className="grid size-10 shrink-0 place-items-center rounded-full font-display text-xl text-paper"
-        style={{ background: ink }}
-      >
-        {name.charAt(0).toUpperCase()}
-      </span>
+      <Avatar name={name} src={member.avatar_url} ink={ink} className="size-10 rounded-full text-xl" />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">{name}</span>
         <span className="block truncate text-sm text-muted">
@@ -450,14 +445,8 @@ function PostList({
         const about = [title, post.spoilerPage ? `up to p. ${post.spoilerPage}` : null].filter(Boolean).join(" · ");
         return (
           <li key={post.id} className="flex gap-3 py-5">
-            <Link
-              href={`/u/${post.username}`}
-              aria-hidden
-              tabIndex={-1}
-              className="grid size-9 shrink-0 place-items-center rounded-full font-display text-lg text-paper"
-              style={{ background: post.themeColor ?? DEFAULT_INK }}
-            >
-              {name.charAt(0).toUpperCase()}
+            <Link href={`/u/${post.username}`} aria-hidden tabIndex={-1} className="shrink-0 self-start">
+              <Avatar name={name} src={post.avatarUrl} ink={post.themeColor ?? DEFAULT_INK} className="size-9 rounded-full text-lg" />
             </Link>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-2 text-sm">

@@ -36,7 +36,15 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Booksyde uses your photos so you can pick a picture for your bookplate.",
+          "cameraPermission": "Booksyde uses your camera so you can take a selfie for your bookplate.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

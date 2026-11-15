@@ -20,3 +20,4 @@ export * from "./queries/clubs";
 export * from "./schemas/club";
 export * from "./queries/discover";
 export * from "./queries/featured";
+export * from "./queries/avatar";

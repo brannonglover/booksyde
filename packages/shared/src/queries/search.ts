@@ -47,7 +47,7 @@ export async function searchReaders(client: BooksydeClient, query: string, limit
   if (q.length < 2) return [];
   const { data, error } = await client
     .from("profiles")
-    .select("id, username, display_name, bio, theme_color, is_private, followers_count")
+    .select("id, username, display_name, bio, avatar_url, theme_color, is_private, followers_count")
     .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
     .order("followers_count", { ascending: false })
     .limit(limit);
