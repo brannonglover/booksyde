@@ -3,7 +3,8 @@ import {
   InstrumentSerif_400Regular_Italic,
   useFonts,
 } from '@expo-google-fonts/instrument-serif';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { ThemeTransitionOverlay } from '@/components/theme-transition';
@@ -37,6 +38,9 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="book/[id]" options={{ title: '' }} />
         <Stack.Screen name="u/[username]" options={{ title: '' }} />
+        <Stack.Screen name="clubs/[slug]" options={{ title: '' }} />
+        <Stack.Screen name="clubs/new" options={{ presentation: 'modal', title: 'Start a club' }} />
+        <Stack.Screen name="settings/profile" options={{ presentation: 'modal', title: 'Edit your bookplate' }} />
         <Stack.Screen name="sign-in" options={{ presentation: 'modal', title: 'Sign in' }} />
         <Stack.Screen name="sign-up" options={{ presentation: 'modal', title: 'Join Booksyde' }} />
       </Stack>

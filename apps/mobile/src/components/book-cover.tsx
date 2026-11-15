@@ -35,9 +35,18 @@ export function BookCover({ title, author, width, src, coverId, color }: BookCov
           accessibilityLabel={`${title} by ${author}`}
         >
           <View style={styles.fallbackBorder} />
-          <Text style={[styles.fallbackTitle, { fontSize: Math.max(14, width * 0.13) }]}>{title}</Text>
+          {/* Thumbnails are too small to set type on: just the cloth and the star. */}
+          {width >= 64 ? (
+            <Text numberOfLines={4} style={[styles.fallbackTitle, { fontSize: Math.max(14, width * 0.13) }]}>
+              {title}
+            </Text>
+          ) : null}
           <Text style={styles.fallbackStar}>✦</Text>
-          {author ? <Text style={styles.fallbackAuthor}>{author.toUpperCase()}</Text> : null}
+          {author && width >= 96 ? (
+            <Text numberOfLines={2} style={styles.fallbackAuthor}>
+              {author.toUpperCase()}
+            </Text>
+          ) : null}
         </View>
       )}
     </View>
@@ -56,7 +65,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   image: { flex: 1, borderRadius: 3 },
-  fallback: { flex: 1, borderRadius: 3, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12 },
+  fallback: { flex: 1, borderRadius: 3, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, overflow: 'hidden' },
   fallbackBorder: {
     position: 'absolute',
     top: 6,

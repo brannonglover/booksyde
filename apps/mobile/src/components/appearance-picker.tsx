@@ -1,17 +1,31 @@
 import type { ThemePreference } from '@booksyde/theme';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ComponentProps } from 'react';
+import { Pressable, StyleSheet, Text, View, type ColorValue } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { setThemePreference, useThemePreference } from '@/lib/appearance';
 
-type IconName = SymbolViewProps['name'];
-const icons: Record<ThemePreference, IconName> = {
-  system: { ios: 'circle.lefthalf.filled', android: 'contrast', web: 'contrast' },
-  light: { ios: 'sun.max', android: 'light_mode', web: 'light_mode' },
-  dark: { ios: 'moon', android: 'dark_mode', web: 'dark_mode' },
+/** An SF Symbol on iOS, with the matching Material icon on Android and web. */
+type Icon = { ios: SymbolViewProps['name']; material: ComponentProps<typeof MaterialIcons>['name'] };
+const icons: Record<ThemePreference, Icon> = {
+  system: { ios: 'circle.lefthalf.filled', material: 'contrast' },
+  light: { ios: 'sun.max', material: 'light-mode' },
+  dark: { ios: 'moon', material: 'dark-mode' },
 };
+
+function ThemeIcon({ icon, color, size }: { icon: Icon; color: ColorValue; size: number }) {
+  return (
+    <SymbolView
+      name={icon.ios}
+      tintColor={color}
+      size={size}
+      fallback={<MaterialIcons name={icon.material} color={color as string} size={size} />}
+    />
+  );
+}
 
 /** One-tap light/dark switch for the masthead. */
 export function ThemeToggleButton() {
@@ -26,7 +40,7 @@ export function ThemeToggleButton() {
       hitSlop={8}
       style={({ pressed }) => [styles.iconButton, pressed && { backgroundColor: theme.backgroundElement }]}
     >
-      <SymbolView name={showingDark ? icons.light : icons.dark} tintColor={theme.text} size={20} />
+      <ThemeIcon icon={showingDark ? icons.light : icons.dark} color={theme.text} size={20} />
     </Pressable>
   );
 }
@@ -58,7 +72,7 @@ export function AppearancePicker() {
             onPress={() => setThemePreference(value)}
             style={[styles.option, selected && { backgroundColor: theme.primary }]}
           >
-            <SymbolView name={icons[value]} tintColor={color} size={15} />
+            <ThemeIcon icon={icons[value]} color={color} size={15} />
             <Text style={[styles.optionLabel, { color }]}>{label}</Text>
           </Pressable>
         );

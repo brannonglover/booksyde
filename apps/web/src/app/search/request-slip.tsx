@@ -12,7 +12,7 @@ function AddButton() {
   return (
     <button
       disabled={pending}
-      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-text transition hover:opacity-90 disabled:opacity-70"
+      className="relative z-10 inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-text transition hover:opacity-90 disabled:opacity-70"
     >
       {pending ? (
         "Adding…"
@@ -25,7 +25,21 @@ function AddButton() {
   );
 }
 
-/** An Open Library book we don't hold yet; submitting the card adds it to the catalogue. */
+/** Stretched over the whole slip so clicking anywhere on the book opens it, like a catalogue card does. */
+function SlipCover() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      tabIndex={-1}
+      aria-hidden
+      className="absolute inset-0 z-0 cursor-pointer rounded-2xl disabled:cursor-wait"
+    />
+  );
+}
+
+/** An Open Library book we don't hold yet; clicking the slip adds it to the catalogue and opens its page. */
 export function RequestSlip({ book }: { book: WiderStacksBook }) {
   const [state, action] = useActionState<ImportState, FormData>(addToCatalogue, {});
   const byline = book.authors.map((a) => a.name).join(", ") || "Unknown";
@@ -39,7 +53,7 @@ export function RequestSlip({ book }: { book: WiderStacksBook }) {
       author={byline}
       coverId={book.coverId}
       sizes="96px"
-      className="w-20 shrink-0 self-start transition duration-300 group-hover:-rotate-2 group-hover:scale-[1.04] sm:w-24"
+      className="pointer-events-none w-20 shrink-0 self-start transition duration-300 group-hover:-rotate-2 group-hover:scale-[1.04] sm:w-24"
     />
   );
   const details = (
@@ -72,6 +86,7 @@ export function RequestSlip({ book }: { book: WiderStacksBook }) {
   return (
     <form action={action} className={shell}>
       <input type="hidden" name="olid" value={book.olid} />
+      <SlipCover />
       {cover}
       <div className="flex min-w-0 flex-1 flex-col">
         {details}

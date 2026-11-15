@@ -13,7 +13,7 @@ import {
 } from '@booksyde/shared';
 import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useHeaderHeight } from 'expo-router/react-navigation';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -40,7 +40,18 @@ type BookData = {
   similar: Awaited<ReturnType<typeof getMoreLikeThis>>;
 };
 
-const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
+// Hermes on React Native 0.81 (Expo SDK 54) has no Intl.DisplayNames, so fall back to
+// a short table of common languages, then to the code itself.
+const FALLBACK_LANGUAGE_NAMES: Record<string, string> = {
+  ar: 'Arabic', da: 'Danish', de: 'German', el: 'Greek', en: 'English', es: 'Spanish',
+  fi: 'Finnish', fr: 'French', he: 'Hebrew', hi: 'Hindi', it: 'Italian', ja: 'Japanese',
+  ko: 'Korean', la: 'Latin', nl: 'Dutch', no: 'Norwegian', pl: 'Polish', pt: 'Portuguese',
+  ru: 'Russian', sv: 'Swedish', tr: 'Turkish', uk: 'Ukrainian', zh: 'Chinese',
+};
+const languageNames =
+  typeof Intl.DisplayNames === 'function'
+    ? new Intl.DisplayNames(['en'], { type: 'language' })
+    : { of: (code: string) => FALLBACK_LANGUAGE_NAMES[code] ?? code.toUpperCase() };
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const formatLabels: Record<string, string> = {
   hardcover: 'Hardcover',

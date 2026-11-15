@@ -18,3 +18,5 @@ export * from "./utils/csv";
 export * from "./utils/goodreads";
 export * from "./queries/clubs";
 export * from "./schemas/club";
+export * from "./queries/discover";
+export * from "./queries/featured";

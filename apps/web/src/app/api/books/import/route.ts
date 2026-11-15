@@ -23,8 +23,8 @@ export async function POST(request: Request) {
   try {
     const id = await importOpenLibraryWork(olid);
     if (!id) return Response.json({ error: "Not found on Open Library" }, { status: 404, headers: cors });
-    revalidateTag("catalog-search", "max");
-    revalidateTag("catalog-drawers", "max");
+    revalidateTag("catalog-search", { expire: 0 });
+    revalidateTag("catalog-drawers", { expire: 0 });
     return Response.json({ id }, { headers: cors });
   } catch (e) {
     console.error("Open Library import failed", olid, e);

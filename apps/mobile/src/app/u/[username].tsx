@@ -15,7 +15,7 @@ import type { ReadingStatus } from '@booksyde/types';
 import { genreColor, palette, radii, spacing } from '@booksyde/theme';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/book-cover';
 import { ShelfStatusSheet } from '@/components/shelf-status-sheet';
@@ -36,7 +36,6 @@ type Shelves = Awaited<ReturnType<typeof getProfileShelves>>;
 type Reviews = Awaited<ReturnType<typeof getUserReviews>>;
 type Data = { profile: Profile; followState: FollowState; stats: ProfileStats; shelves: Shelves | null; reviews: Reviews };
 
-const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
 const monthYear = new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
 function useProfile(username: string) {
@@ -222,11 +221,11 @@ function Bookplate({
           ))}
         </View>
         {followState === 'self' ? (
-          webUrl ? (
-            <Pressable onPress={() => Linking.openURL(`${webUrl}/settings/profile`)} style={[styles.outlineButton, { borderColor: theme.border }]}>
+          <Link href="/settings/profile" asChild>
+            <Pressable style={StyleSheet.flatten([styles.outlineButton, { borderColor: theme.border }])}>
               <Text style={{ color: text, fontWeight: '700' }}>Edit your bookplate</Text>
             </Pressable>
-          ) : null
+          </Link>
         ) : (
           <FollowButton userId={profile.id} state={followState} isPrivate={profile.is_private} onChange={onChange} />
         )}

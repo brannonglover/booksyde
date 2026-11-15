@@ -1,13 +1,18 @@
 import {
   compactCount,
   describeNextRead,
+  type FeaturedBook,
   formatRating,
+  getFeaturedBook,
   getNextRead,
   getNightstand,
-  type NextRead,
+  getWork,
+  getYearInBooks,
   type NightstandBook,
+  toFeatured,
+  type YearInBooks,
 } from '@booksyde/shared';
-import { genreColor, palette, radii, spacing } from '@booksyde/theme';
+import { coverUrl, genreColor, palette, radii, spacing } from '@booksyde/theme';
 import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -15,12 +20,15 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, T
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppearancePicker, ThemeToggleButton } from '@/components/appearance-picker';
+import { BackdropStage } from '@/components/backdrop';
 import { BookCover } from '@/components/book-cover';
+import { Ornament, SectionHeading } from '@/components/page-chrome';
 import { Stars } from '@/components/stars';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Wordmark } from '@/components/wordmark';
 import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
+import { useAsync } from '@/hooks/use-async';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
@@ -34,9 +42,11 @@ const moods = [
   ['romance', 'Romance'],
   ['mystery', 'Mystery'],
   ['thriller', 'Thriller'],
-  ['science-fiction', 'Sci-fi'],
-  ['gothic', 'Gothic'],
+  ['science-fiction', 'Science fiction'],
+  ['horror', 'Gothic & horror'],
   ['literary-fiction', 'Literary'],
+  ['historical-fiction', 'Historical'],
+  ['non-fiction', 'Non-fiction'],
   ['poetry', 'Poetry'],
 ] as const;
 
@@ -46,95 +56,152 @@ const features = [
   { numeral: 'iii', title: 'Buddy reads', body: 'Read alongside friends, with no spoilers past your page.' },
 ];
 
-function Ornament({ center = false }: { center?: boolean }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.ornament, center && { alignSelf: 'center' }]}>
-      <View style={[styles.ornamentRule, { backgroundColor: theme.highlight }]} />
-      <Text style={{ color: theme.highlight, fontSize: 16 }}>❦</Text>
-      <View style={[styles.ornamentRule, { backgroundColor: theme.highlight }]} />
-    </View>
-  );
-}
-
-function SectionHeading({ numeral, children }: { numeral: string; children: string }) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.sectionHeading, { borderBottomColor: theme.border }]}>
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>
-        <Text style={[styles.sectionNumeral, { color: theme.highlight }]}>{numeral}. </Text>
-        {children}
-      </Text>
-    </View>
-  );
-}
-
-/** Shown when signed out, or when the reader's shelves don't suggest anything yet. */
-const fallbackPick = {
-  label: 'Today’s pick',
-  why: null,
-  work: { id: '', title: 'Pride and Prejudice', author: 'Jane Austen', year: 1813, cover_url: null, cover_color: null },
+/** Shown when the catalogue is empty (or unreachable), so the hero is never bare. */
+const fallbackPick: FeaturedBook = {
+  id: '',
+  title: 'Pride and Prejudice',
+  author: 'Jane Austen',
+  year: 1813,
+  cover_url: coverUrl(14348537),
+  cover_color: null,
+  backdrop_style: null,
+  tags: [],
 };
 
-/** The signed-in reader's next read in the arch window; a classic for everyone else. */
-function NextReadWindow() {
-  const theme = useTheme();
-  const { session } = useSession();
-  const userId = session?.user.id;
-  // Keyed by reader, so a pick never outlives a sign-out or account switch.
-  const [loaded, setLoaded] = useState<{ userId: string; pick: NextRead | null } | null>(null);
-  const pick = userId && loaded?.userId === userId ? loaded.pick : null;
-  useEffect(() => {
-    if (!supabase || !userId) return;
-    let live = true;
-    getNextRead(supabase)
-      .then((p) => live && setLoaded({ userId, pick: p }))
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [userId]);
+type Pick = { book: FeaturedBook; caption: { label: string; why: string | null } };
 
-  const { label, why, work } = pick ? { ...describeNextRead(pick), work: pick.work } : fallbackPick;
-  const stage = (
-    <View style={styles.arch}>
-      <View style={styles.archInner} />
-      <View style={styles.archBook}>
-        <BookCover
-          title={work.title}
-          author={work.author}
-          src={work.cover_url}
-          coverId={work.id ? null : 14348537}
-          color={work.cover_color}
-          width={132}
-        />
+/** The signed-in reader's next read; for everyone else, one of the most-shelved books, a different one each day. */
+async function loadFeaturedPick(signedIn: boolean): Promise<Pick | null> {
+  const client = supabase;
+  if (!client) return null;
+  if (signedIn) {
+    // e.g. the next_read migration hasn't run yet: fall back to today's pick.
+    const pick = await getNextRead(client).catch(() => null);
+    const work = pick ? await getWork(client, pick.work.id).catch(() => null) : null;
+    if (pick && work) return { book: toFeatured(work), caption: describeNextRead(pick) };
+  }
+  const book = await getFeaturedBook(client);
+  return book ? { book, caption: { label: 'Today’s pick', why: null } } : null;
+}
+
+/** Your next read (or today's pick), staged on a backdrop drawn from the book itself. */
+function FeaturedPick() {
+  const theme = useTheme();
+  const { session, loading: sessionLoading } = useSession();
+  const userId = session?.user.id ?? null;
+  const { data, loading } = useAsync(sessionLoading ? null : () => loadFeaturedPick(userId !== null), [userId, sessionLoading]);
+  if (sessionLoading || (loading && !data)) {
+    return (
+      <View>
+        <View style={[styles.stageSkeleton, { backgroundColor: theme.border }]} />
+        <View style={[styles.caption, { borderBottomColor: theme.border, height: 48 }]} />
       </View>
-    </View>
+    );
+  }
+  const { book, caption } = data ?? { book: fallbackPick, caption: { label: 'Today’s pick', why: null } };
+  const stage = (
+    <BackdropStage
+      work={book}
+      cover={<BookCover title={book.title} author={book.author} src={book.cover_url} color={book.cover_color} width={150} />}
+    />
   );
   return (
     <View>
-      {work.id ? (
-        <Link href={{ pathname: '/book/[id]', params: { id: work.id } }} asChild>
-          <Pressable accessibilityLabel={`${work.title} by ${work.author}`}>{stage}</Pressable>
+      {book.id ? (
+        <Link href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
+          <Pressable accessibilityLabel={`${book.title} by ${book.author}`}>{stage}</Pressable>
         </Link>
       ) : (
         stage
       )}
       <View style={[styles.caption, { borderBottomColor: theme.border }]}>
         <View style={styles.captionRow}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>{label.toUpperCase()}</Text>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>{caption.label.toUpperCase()}</Text>
           <Text style={[styles.captionText, { color: theme.text }]} numberOfLines={1}>
-            <Text style={styles.captionTitle}>{work.title}</Text>
-            {work.year ? <Text style={{ color: theme.textSecondary }}> · {work.year}</Text> : null}
+            <Text style={styles.captionTitle}>{book.title}</Text>
+            {book.year ? <Text style={{ color: theme.textSecondary }}> · {book.year}</Text> : null}
           </Text>
         </View>
-        {why ? (
+        {caption.why ? (
           <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.captionWhy}>
-            {why}
+            {caption.why}
           </ThemedText>
         ) : null}
       </View>
     </View>
+  );
+}
+
+const numberFormat = new Intl.NumberFormat('en');
+
+// Spines between 100 and 900 pages scale from short and slim to tall and thick.
+function spineSize(pages: number | null) {
+  const t = pages == null ? 0.4 : Math.min(Math.max((pages - 100) / 800, 0), 1);
+  return { height: Math.round(54 + t * 44), width: Math.round(12 + t * 8) };
+}
+
+/** The year as a shelf of spines: the reader's own when signed in, everyone's when signed out. */
+function YearInBooksSection({ numeral }: { numeral: string }) {
+  const theme = useTheme();
+  const { session, loading: sessionLoading } = useSession();
+  const userId = session?.user.id ?? null;
+  const { data: year } = useAsync<YearInBooks | null>(
+    sessionLoading || !supabase ? null : () => getYearInBooks(supabase!, { userId, spines: 18 }).catch(() => null),
+    [userId, sessionLoading],
+  );
+  const mine = year?.scope === 'mine';
+  const label = year?.year ?? new Date().getUTCFullYear();
+  const empty = !year || year.books === 0;
+  const body = mine
+    ? empty
+      ? `Nothing finished yet in ${label}. Mark a book as read and its spine lands here.`
+      : `Every book you finished in ${label}, lined up on one shelf.`
+    : empty
+      ? `Every book our readers finish in ${label} lines up here. Join and add yours.`
+      : `Every book our readers finished in ${label}, lined up on one shelf. Join and add yours.`;
+  return (
+    <>
+      <SectionHeading numeral={numeral}>{mine ? 'Your year in books' : 'Booksyde’s year in books'}</SectionHeading>
+      <View style={[styles.year, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
+        <ThemedText themeColor="textSecondary" style={{ fontSize: 16, lineHeight: 23 }}>
+          {body}
+        </ThemedText>
+        <View style={styles.yearStats}>
+          {[
+            ['BOOKS', year ? numberFormat.format(year.books) : '—'],
+            ['PAGES', year ? numberFormat.format(year.pages) : '—'],
+          ].map(([name, value]) => (
+            <View key={name}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>{name}</Text>
+              <Text style={[styles.yearValue, { color: theme.text }]}>{value}</Text>
+            </View>
+          ))}
+        </View>
+        <View>
+          <View style={styles.spines}>
+            {year?.spines.map((s, i) => {
+              const { height, width } = spineSize(s.pages);
+              return (
+                <Link key={`${s.workId}-${i}`} href={{ pathname: '/book/[id]', params: { id: s.workId } }} asChild>
+                  <Pressable
+                    accessibilityLabel={s.title}
+                    style={[styles.spine, { height, width, backgroundColor: genreColor(s.genre ?? 'default').dot }]}
+                  >
+                    {i % 3 === 0 ? <View style={styles.spineBand} /> : null}
+                  </Pressable>
+                </Link>
+              );
+            })}
+            {empty ? (
+              <Text style={[styles.captionTitle, { color: theme.textSecondary, marginBottom: spacing[3] }]}>
+                {mine ? 'Your shelf is waiting.' : 'The shelf is waiting.'}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.plank} />
+        </View>
+      </View>
+    </>
   );
 }
 
@@ -195,6 +262,15 @@ function Nightstand() {
         </Link>
       ))}
     </ScrollView>
+  );
+}
+
+function AsideLink({ href, label }: { href: '/discover' | '/search'; label: string }) {
+  const theme = useTheme();
+  return (
+    <Link href={href} style={{ color: theme.accent, fontWeight: '700', fontSize: 14 }}>
+      {label}
+    </Link>
   );
 }
 
@@ -264,11 +340,12 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Your next read, framed in a library-window arch */}
-          <NextReadWindow />
+          {/* Your next read (or today's pick), staged on a backdrop drawn from the book itself */}
+          <FeaturedPick />
 
-
-          <SectionHeading numeral="I">What are you in the mood for?</SectionHeading>
+          <SectionHeading numeral="I" aside={<AsideLink href="/discover" label="Discover more →" />}>
+            What are you in the mood for?
+          </SectionHeading>
           <View style={styles.chips}>
             {moods.map(([slug, label]) => (
               <Link key={slug} href={{ pathname: '/search', params: { tags: slug } }} asChild>
@@ -282,8 +359,12 @@ export default function HomeScreen() {
             ))}
           </View>
 
-          <SectionHeading numeral="II">On everyone’s nightstand</SectionHeading>
+          <SectionHeading numeral="II" aside={<AsideLink href="/search" label="See all →" />}>
+            On everyone’s nightstand
+          </SectionHeading>
           <Nightstand />
+
+          <YearInBooksSection numeral="III" />
 
           <View style={styles.quote}>
             <Ornament center />
@@ -295,7 +376,7 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <SectionHeading numeral="III">A better place to keep your books</SectionHeading>
+          <SectionHeading numeral="IV">A few things you’ll love</SectionHeading>
           <View style={[styles.features, { borderColor: theme.border, backgroundColor: theme.border }]}>
             {features.map((f) => (
               <View key={f.title} style={[styles.feature, { backgroundColor: theme.backgroundElement }]}>
@@ -368,8 +449,6 @@ const styles = StyleSheet.create({
   heroTitle: { fontFamily: DisplayFonts.regular, fontSize: 54, lineHeight: 54, letterSpacing: -0.5 },
   italic: { fontFamily: DisplayFonts.italic },
   italicSmall: { fontFamily: DisplayFonts.italic, letterSpacing: 0, fontSize: 13 },
-  ornament: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  ornamentRule: { height: StyleSheet.hairlineWidth * 2, width: 36, opacity: 0.6 },
   lede: { fontSize: 17, lineHeight: 25 },
   search: {
     flexDirection: 'row',
@@ -382,30 +461,7 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, minWidth: 0, fontSize: 16, paddingVertical: spacing[2] },
   searchButton: { borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] + 2 },
-  arch: {
-    aspectRatio: 4 / 5,
-    width: '100%',
-    maxWidth: 360,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    backgroundColor: palette.green,
-    borderTopLeftRadius: 999,
-    borderTopRightRadius: 999,
-  },
-  archInner: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
-    bottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(184,137,58,0.45)',
-    borderTopLeftRadius: 999,
-    borderTopRightRadius: 999,
-  },
-  archBook: { marginTop: spacing[7], transform: [{ rotate: '-2deg' }] },
+  stageSkeleton: { aspectRatio: 4 / 5, width: '100%', maxWidth: 360, alignSelf: 'center', borderRadius: 28, opacity: 0.5 },
   caption: {
     maxWidth: 360,
     width: '100%',
@@ -418,9 +474,6 @@ const styles = StyleSheet.create({
   captionTitle: { fontFamily: DisplayFonts.italic, fontSize: 18 },
   captionWhy: { marginTop: spacing[1], textAlign: 'right' },
   label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.8 },
-  sectionHeading: { paddingBottom: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: -spacing[2] },
-  sectionTitle: { fontFamily: DisplayFonts.regular, fontSize: 34, lineHeight: 38 },
-  sectionNumeral: { fontFamily: DisplayFonts.italic, fontSize: 24 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   chip: {
     flexDirection: 'row',
@@ -441,6 +494,13 @@ const styles = StyleSheet.create({
   readers: { fontSize: 10, fontWeight: '700', letterSpacing: 1.4, marginTop: 2 },
   shelfLoading: { paddingVertical: spacing[7] },
   shelfEmpty: { borderWidth: 1, borderStyle: 'dashed', borderRadius: radii.md, padding: spacing[5], textAlign: 'center' },
+  year: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: spacing[5], gap: spacing[4] },
+  yearStats: { flexDirection: 'row', gap: spacing[6] },
+  yearValue: { fontFamily: DisplayFonts.regular, fontSize: 44, lineHeight: 46 },
+  spines: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 104, overflow: 'hidden', paddingHorizontal: spacing[2] },
+  spine: { borderTopLeftRadius: 2, borderTopRightRadius: 2 },
+  spineBand: { position: 'absolute', left: 0, right: 0, top: 12, height: 4, backgroundColor: 'rgba(184,137,58,0.7)' },
+  plank: { height: 10, borderRadius: 2, backgroundColor: '#8A6A4A' },
   quote: { gap: spacing[4], paddingVertical: spacing[4] },
   quoteText: { fontFamily: DisplayFonts.italic, fontSize: 30, lineHeight: 36, textAlign: 'center' },
   features: { borderWidth: 1, borderRadius: radii.md, overflow: 'hidden', gap: 1 },

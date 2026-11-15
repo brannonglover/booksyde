@@ -13,13 +13,14 @@ import {
   searchReaders,
 } from '@booksyde/shared';
 import { genreColor, palette, radii, spacing } from '@booksyde/theme';
-import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookCover } from '@/components/book-cover';
+import { RequestSlip } from '@/components/request-slip';
 import { Stars } from '@/components/stars';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth } from '@/constants/theme';
@@ -30,7 +31,6 @@ import { supabase } from '@/lib/supabase';
 // On web the tab bar floats over the top of the screen; start below it.
 const WebTabBarHeight = 72;
 const mono = Fonts.mono;
-const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
 
 type Drawer = Awaited<ReturnType<typeof getTagDrawers>>[number];
 type Found = {
@@ -335,73 +335,6 @@ function WiderStacks({
   );
 }
 
-function RequestSlip({ book, tilt }: { book: OpenLibraryBook; tilt: string }) {
-  const router = useRouter();
-  const dark = useColorScheme() === 'dark';
-  const [state, setState] = useState<'idle' | 'adding' | 'error'>('idle');
-  const ink = dark ? palette.paper : palette.ink;
-  const label = dark ? '#A9C29A' : '#4A6040';
-  const byline = book.authors.map((a) => a.name).join(', ') || 'Unknown';
-
-  async function add() {
-    if (!webUrl) return setState('error');
-    setState('adding');
-    try {
-      const res = await fetch(`${webUrl}/api/books/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ olid: book.olid }),
-      });
-      const json = (await res.json()) as { id?: string };
-      if (!res.ok || !json.id) throw new Error('Import failed');
-      setState('idle');
-      router.push({ pathname: '/book/[id]', params: { id: json.id } });
-    } catch {
-      setState('error');
-    }
-  }
-
-  const fields: [string, string | number | null][] = [
-    ['Title', book.subtitle ? `${book.title}: ${book.subtitle}` : book.title],
-    ['Author', byline],
-    ['Year', book.year],
-  ];
-  return (
-    <View style={[styles.slipCard, { backgroundColor: dark ? '#2C3529' : '#EEF3E8', transform: [{ rotate: tilt }] }]}>
-      <View style={[styles.slipHeader, { borderBottomColor: 'rgba(126,154,110,0.6)' }]}>
-        <Text style={[styles.slipHeaderText, { color: label }]}>REQUEST SLIP</Text>
-        <Text style={[styles.slipHeaderText, { color: label }]}>NO. {book.olid.replace(/\D/g, '').slice(-5)}</Text>
-      </View>
-      <View style={styles.cardBody}>
-        <View style={{ flex: 1, gap: 6 }}>
-          {fields.map(([name, value]) =>
-            value ? (
-              <View key={name} style={styles.slipField}>
-                <Text style={[styles.mono, { color: label, width: 58 }]}>{name}:</Text>
-                <Text style={[name === 'Title' ? styles.slipTitle : styles.mono, { color: ink, flex: 1 }]}>{value}</Text>
-              </View>
-            ) : null,
-          )}
-        </View>
-        <BookCover title={book.title} author={byline} coverId={book.coverId} width={56} />
-      </View>
-      {state === 'error' ? (
-        <Text style={{ color: palette.oxblood, fontSize: 13 }}>
-          {webUrl ? 'The stacks are stuck right now. Try again in a moment.' : 'Set EXPO_PUBLIC_WEB_URL to add books.'}
-        </Text>
-      ) : null}
-      <Pressable
-        onPress={add}
-        disabled={state === 'adding'}
-        accessibilityRole="button"
-        style={[styles.slipButton, { opacity: state === 'adding' ? 0.7 : 1 }]}
-      >
-        <Text style={styles.slipButtonText}>{state === 'adding' ? 'Fetching it from the stacks…' : 'Add to the catalogue →'}</Text>
-      </Pressable>
-    </View>
-  );
-}
-
 function AsideHeading({ children }: { children: string }) {
   const theme = useTheme();
   return (
@@ -508,6 +441,7 @@ function ReaderPlate({ reader }: { reader: Found['readers'][number] }) {
   );
 }
 
+/** Nothing turned up: three blank covers fanned like books just pulled off a shelf, and a way back out. */
 function EmptyDrawer({
   term,
   error,
@@ -522,20 +456,28 @@ function EmptyDrawer({
   onClear: () => void;
 }) {
   const theme = useTheme();
-  const c = useCardColors();
   return (
-    <View style={[styles.card, { backgroundColor: c.paper, transform: [{ rotate: '-0.6deg' }] }]}>
-      <Text style={[styles.callNumber, { color: theme.accent, letterSpacing: 2 }]}>NOT ON FILE</Text>
-      <Text style={[styles.cardTitle, { color: c.ink }]}>{error ? 'The catalogue is stuck.' : 'This drawer is empty.'}</Text>
-      <Text style={[styles.mono, { color: c.ink, lineHeight: 22 }]}>
+    <View style={[styles.empty, { borderColor: theme.border }]}>
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.fan}>
+        <View style={[styles.fanSide, { backgroundColor: 'rgba(139,58,43,0.7)', transform: [{ translateX: 12 }, { rotate: '-12deg' }] }]} />
+        <View style={styles.fanMiddle}>
+          <Text style={styles.fanMark}>?</Text>
+        </View>
+        <View style={[styles.fanSide, { backgroundColor: 'rgba(184,137,58,0.8)', transform: [{ translateX: -12 }, { rotate: '12deg' }] }]} />
+      </View>
+      <Text style={[styles.emptyTitle, { color: theme.text }]}>{error ? 'The catalogue is stuck' : 'Nothing turned up'}</Text>
+      <Text style={[styles.emptyBody, { color: theme.textSecondary }]}>
         {error
           ? 'We couldn’t reach the catalogue. Check your connection and try again.'
-          : `${term ? `Nothing ${stacksChecked ? 'here or in the wider stacks' : ''} answers to “${term}”. `.replace('  ', ' ') : ''}${hasTags ? 'Try lifting a filter or two.' : 'Try a shorter word, a surname, or the ISBN on the back.'}`}
+          : `${term ? `We couldn’t find “${term}” ${stacksChecked ? 'here or on Open Library' : 'on Booksyde'}. ` : ''}${
+              hasTags ? 'Try removing a filter or two, or browse by mood and genre.' : 'Try a shorter word, an author’s surname, or the ISBN on the back.'
+            }`}
       </Text>
       <Pressable onPress={onClear} style={[styles.emptyButton, { borderColor: theme.border }]}>
-        <Text style={{ color: c.ink, fontWeight: '600' }}>{hasTags ? 'Clear the filters' : 'Browse the drawers'}</Text>
+        <Text style={{ color: theme.text, fontWeight: '600' }}>
+          {hasTags && term ? `Search “${term}” without filters` : 'Browse by mood & genre'}
+        </Text>
       </Pressable>
-      <Hole />
     </View>
   );
 }
@@ -688,7 +630,36 @@ const styles = StyleSheet.create({
   plate: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], borderWidth: 3, borderStyle: 'solid', borderRadius: 3, padding: spacing[3] },
   plateBadge: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: palette.gilt, alignItems: 'center', justifyContent: 'center' },
   plateInitial: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 20 },
-  emptyButton: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
+  empty: {
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[7],
+    gap: spacing[2],
+    marginTop: spacing[4],
+  },
+  fan: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', height: 80, marginBottom: spacing[4] },
+  fanSide: { width: 44, height: 64, borderRadius: 3 },
+  fanMiddle: {
+    zIndex: 1,
+    width: 56,
+    height: 80,
+    borderRadius: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.green,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  fanMark: { fontFamily: DisplayFonts.regular, fontSize: 28, color: palette.gilt },
+  emptyTitle: { fontFamily: DisplayFonts.regular, fontSize: 30, lineHeight: 34, textAlign: 'center' },
+  emptyBody: { fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 360 },
+  emptyButton: { marginTop: spacing[3], borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: spacing[2] },
   suggestion: { borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: spacing[3], paddingVertical: 4 },
   cabinetTitle: { fontFamily: DisplayFonts.regular, fontSize: 36, lineHeight: 38 },
@@ -731,21 +702,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  slipCard: {
-    borderRadius: 3,
-    padding: spacing[4],
-    gap: spacing[3],
-    shadowColor: '#1F1B16',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-  },
-  slipHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 6, borderBottomWidth: 1, borderStyle: 'dashed' },
-  slipHeaderText: { fontFamily: mono, fontSize: 10, letterSpacing: 2 },
-  slipField: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[2] },
-  slipTitle: { fontFamily: DisplayFonts.regular, fontSize: 19, lineHeight: 22 },
-  slipButton: { alignSelf: 'flex-start', backgroundColor: palette.green, borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
-  slipButtonText: { color: palette.paper, fontWeight: '600', fontSize: 14 },
+
   drawerCount: { marginTop: spacing[2], textAlign: 'center', fontSize: 10, letterSpacing: 1.5, color: 'rgba(232,217,191,0.7)' },
 });
