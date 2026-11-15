@@ -1,10 +1,11 @@
 import {
-  bookIdentity,
+  type BookLike,
   type CatalogBook,
   callNumber,
   catalogName,
   compactCount,
   getTagDrawers,
+  heldAlready,
   lifeYears,
   type OpenLibraryBook,
   searchAuthors,
@@ -274,7 +275,7 @@ export default function SearchScreen() {
               {results && stacksWanted ? (
                 <WiderStacks
                   stacks={stacksNow}
-                  onFile={results.books.map((b) => bookIdentity(b.title, leadAuthor(b)?.name))}
+                  onFile={results.books.map((b) => ({ title: b.title, authors: authorNames(b) }))}
                   headline={results.books.length === 0}
                   empty={
                     results.authors.length + results.readers.length === 0 ? (
@@ -291,9 +292,11 @@ export default function SearchScreen() {
   );
 }
 
-function leadAuthor(book: CatalogBook) {
-  return [...book.work_contributors].filter((c) => c.role === 'author').sort((a, b) => a.position - b.position)[0]
-    ?.authors;
+function authorNames(book: CatalogBook) {
+  return [...book.work_contributors]
+    .filter((c) => c.role === 'author')
+    .sort((a, b) => a.position - b.position)
+    .map((c) => c.authors.name);
 }
 
 function WiderStacks({
@@ -303,14 +306,13 @@ function WiderStacks({
   empty,
 }: {
   stacks: { books: OpenLibraryBook[] | null } | null;
-  onFile: string[];
+  onFile: BookLike[];
   headline: boolean;
   /** Shown instead when nothing turned up here or in the stacks. */
   empty: React.ReactNode;
 }) {
   const theme = useTheme();
-  const held = new Set(onFile);
-  const books = (stacks?.books ?? []).filter((b) => !held.has(bookIdentity(b.title, b.authors[0]?.name))).slice(0, 6);
+  const books = (stacks?.books ?? []).filter((b) => !heldAlready(b, onFile)).slice(0, 6);
   if (stacks?.books && books.length === 0) return headline ? empty : null;
   return (
     <View style={[{ gap: spacing[4] }, !headline && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border, paddingTop: spacing[6] }]}>

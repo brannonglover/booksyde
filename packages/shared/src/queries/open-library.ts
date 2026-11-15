@@ -8,7 +8,7 @@ import { isValidIsbn13, isbn10To13, normalizeIsbn } from "../utils/isbn";
  */
 
 const API = "https://openlibrary.org";
-const FIELDS = "key,title,subtitle,author_name,author_key,first_publish_year,cover_i,isbn,number_of_pages_median,subject";
+const FIELDS = "key,title,subtitle,author_name,author_key,first_publish_year,cover_i,isbn,number_of_pages_median,subject,edition_count";
 
 export type OpenLibraryBook = {
   /** Work id, e.g. "OL38495W". */
@@ -19,6 +19,10 @@ export type OpenLibraryBook = {
   year: number | null;
   coverId: number | null;
   isbn13: string | null;
+  /** ISBN-13s across the work's editions (capped), for spotting a book we already hold. */
+  isbns: string[];
+  /** How many editions Open Library knows; 1 often means a stub, audiobook or stray reprint record. */
+  editionCount: number;
   pages: number | null;
   subjects: string[];
 };
@@ -34,6 +38,7 @@ type SearchDoc = {
   isbn?: string[];
   number_of_pages_median?: number;
   subject?: string[];
+  edition_count?: number;
 };
 
 export const OPEN_LIBRARY_WORK_ID = /^OL\d{1,12}W$/;
@@ -50,6 +55,17 @@ function firstIsbn13(isbns: string[] = []) {
   return null;
 }
 
+function allIsbn13s(isbns: string[] = [], max = 60) {
+  const out = new Set<string>();
+  for (const raw of isbns) {
+    const isbn = normalizeIsbn(raw);
+    const thirteen = isbn.length === 13 ? (isValidIsbn13(isbn) ? isbn : null) : isbn10To13(raw);
+    if (thirteen) out.add(thirteen);
+    if (out.size >= max) break;
+  }
+  return [...out];
+}
+
 function toBook(doc: SearchDoc): OpenLibraryBook | null {
   const olid = doc.key.replace("/works/", "");
   if (!OPEN_LIBRARY_WORK_ID.test(olid) || !doc.title) return null;
@@ -61,6 +77,8 @@ function toBook(doc: SearchDoc): OpenLibraryBook | null {
     year: doc.first_publish_year ?? null,
     coverId: doc.cover_i ?? null,
     isbn13: firstIsbn13(doc.isbn),
+    isbns: allIsbn13s(doc.isbn),
+    editionCount: doc.edition_count ?? 0,
     pages: doc.number_of_pages_median ?? null,
     subjects: (doc.subject ?? []).slice(0, 40),
   };
@@ -211,17 +229,61 @@ export function openLibraryTags(subjects: string[]) {
   return [...slugs].slice(0, 4);
 }
 
-/** A loose identity for "the same book" across catalogues: title + lead author's surname. */
+const norm = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/^(the|a|an)\s+/, "")
+    .replace(/[^a-z0-9]/g, "");
+
+/** The part of a title that names the book: before any subtitle or "(Series Book 1)", minus a leading article. */
+export function titleKey(title: string) {
+  return norm(title.split(/[:;(]/)[0]);
+}
+
+function surnameKey(name: string) {
+  return norm(name.trim().split(/\s+/).pop() ?? "");
+}
+
+/**
+ * A strict key: title + lead author's surname. Handy for bulk de-duplication
+ * of trusted data (the Open Library dumps); to ask whether a book is already
+ * in the catalogue, use `sameBook`, which also copes with missing or
+ * mis-ordered authors.
+ */
 export function bookIdentity(title: string, author?: string | null) {
-  const norm = (s: string) =>
-    s
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/^(the|a|an)\s+/, "")
-      .replace(/[^a-z0-9]/g, "");
-  const surname = author?.trim().split(/\s+/).pop() ?? "";
-  return `${norm(title.split(/[:;(]/)[0])}|${norm(surname)}`;
+  return `${titleKey(title)}|${author ? surnameKey(author) : ""}`;
+}
+
+/** Just what matching needs: a title and author names, lead author first. */
+export type BookLike = { title: string; authors: string[] };
+
+/**
+ * Whether two records are the same book, across catalogues: the same title,
+ * and at least one author surname in common. A side with no authors at all
+ * (Open Library has authorless stub works) matches on title alone, and
+ * co-authors count, so "Entangled, Lydia Fenwick" style credits don't need
+ * the real author first. Different authors' same-titled books stay apart.
+ */
+export function sameBook(a: BookLike, b: BookLike) {
+  const key = titleKey(a.title);
+  if (!key || key !== titleKey(b.title)) return false;
+  const theirs = new Set(a.authors.map(surnameKey).filter(Boolean));
+  const ours = b.authors.map(surnameKey).filter(Boolean);
+  return theirs.size === 0 || ours.length === 0 || ours.some((s) => theirs.has(s));
+}
+
+/**
+ * For the wider stacks: whether an Open Library result is a book we already
+ * hold, so it shouldn't be offered as a request slip. Besides `sameBook`, a
+ * one-edition record titled like a held book (an audiobook, a stray reprint,
+ * a mis-credited stub) is treated as that book rather than offered again.
+ */
+export function heldAlready(found: OpenLibraryBook, held: BookLike[]) {
+  const asBook = { title: found.title, authors: found.authors.map((a) => a.name) };
+  const key = titleKey(found.title);
+  return held.some((h) => sameBook(h, asBook) || (found.editionCount <= 1 && titleKey(h.title) === key));
 }
 
 /** Our genre tags as Open Library subjects (for looking further afield than our own shelves). */

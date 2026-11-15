@@ -23,7 +23,7 @@ import { parseArgs } from "node:util";
 import { createGunzip } from "node:zlib";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../../packages/types/src/database";
-import { bookIdentity, cleanDescription, openLibraryTags } from "../../packages/shared/src/queries/open-library";
+import { bookIdentity, cleanDescription, openLibraryTags, sameBook, titleKey } from "../../packages/shared/src/queries/open-library";
 import { isbn10To13, isValidIsbn10, isValidIsbn13, normalizeIsbn } from "../../packages/shared/src/utils/isbn";
 
 // ---------------------------------------------------------------------------
@@ -477,11 +477,13 @@ if (tagError) fail(`Couldn't read tags: ${JSON.stringify(tagError)}`);
 const tagId = new Map((tagRows ?? []).map((t) => [t.slug, t.id]));
 
 const workByOl = new Map<string, { id: string; hasAuthors: boolean }>();
-const workByIdentity = new Map<string, { id: string; olid: string | null }>();
+// Held works by title, so each candidate is only compared (with sameBook) against same-titled ones.
+const worksByTitle = new Map<string, { id: string; olid: string | null; title: string; authors: string[] }[]>();
 for (const w of existingWorks) {
   if (w.open_library_id) workByOl.set(w.open_library_id, { id: w.id, hasAuthors: w.work_contributors.length > 0 });
-  const lead = [...w.work_contributors].sort((x, y) => x.position - y.position)[0]?.authors?.name;
-  workByIdentity.set(bookIdentity(w.title, lead), { id: w.id, olid: w.open_library_id });
+  const names = [...w.work_contributors].sort((x, y) => x.position - y.position).map((c) => c.authors.name);
+  const key = titleKey(w.title);
+  worksByTitle.set(key, [...(worksByTitle.get(key) ?? []), { id: w.id, olid: w.open_library_id, title: w.title, authors: names }]);
 }
 const authorByOl = new Map(existingAuthors.filter((a) => a.open_library_id).map((a) => [a.open_library_id!, a.id]));
 const authorByName = new Map(existingAuthors.map((a) => [a.name.toLowerCase(), a]));
@@ -500,7 +502,8 @@ for (const w of selected) {
     else toRepair.push({ work: w, id: byOl.id });
     continue;
   }
-  const same = workByIdentity.get(bookIdentity(w.title, authors.get(w.authorIds[0])!.name));
+  const candidate = { title: w.title, authors: w.authorIds.map((id) => authors.get(id)!.name) };
+  const same = worksByTitle.get(titleKey(w.title))?.find((held) => sameBook(held, candidate));
   if (same) {
     if (!same.olid) toLink.push({ id: same.id, olid: w.olid });
     skipped++;

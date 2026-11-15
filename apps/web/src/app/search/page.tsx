@@ -1,4 +1,4 @@
-import { bookIdentity, type CatalogBook, compactCount, formatRating, lifeYears } from "@booksyde/shared";
+import { type BookLike, type CatalogBook, compactCount, formatRating, heldAlready, lifeYears } from "@booksyde/shared";
 import { genreColor, palette } from "@booksyde/theme";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -128,7 +128,7 @@ async function Results({ searchParams }: { searchParams: Promise<Params> }) {
         <Suspense fallback={<StacksSkeleton />}>
           <WiderStacks
             q={q}
-            onFile={books.map((b) => bookIdentity(b.title, leadAuthor(b)?.name))}
+            onFile={books.map((b) => ({ title: b.title, authors: authorNames(b) }))}
             headline={books.length === 0}
           />
         </Suspense>
@@ -137,8 +137,11 @@ async function Results({ searchParams }: { searchParams: Promise<Params> }) {
   );
 }
 
-function leadAuthor(book: CatalogBook) {
-  return [...book.work_contributors].filter((c) => c.role === "author").sort((a, b) => a.position - b.position)[0]?.authors;
+function authorNames(book: CatalogBook) {
+  return [...book.work_contributors]
+    .filter((c) => c.role === "author")
+    .sort((a, b) => a.position - b.position)
+    .map((c) => c.authors.name);
 }
 
 function StacksSkeleton() {
@@ -152,10 +155,9 @@ function StacksSkeleton() {
 }
 
 /** Open Library results we don't hold yet, as request slips that add them to the catalogue. */
-async function WiderStacks({ q, onFile, headline }: { q: string; onFile: string[]; headline: boolean }) {
+async function WiderStacks({ q, onFile, headline }: { q: string; onFile: BookLike[]; headline: boolean }) {
   const found = await searchWiderStacks(q);
-  const held = new Set(onFile);
-  const books = (found ?? []).filter((b) => !held.has(bookIdentity(b.title, b.authors[0]?.name))).slice(0, 6);
+  const books = (found ?? []).filter((b) => !heldAlready(b, onFile)).slice(0, 6);
   if (found && books.length === 0) return headline ? <NoCards q={q} tags={[]} stacksChecked /> : null;
 
   return (
