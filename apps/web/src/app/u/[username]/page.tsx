@@ -39,7 +39,8 @@ type Shelves = Awaited<ReturnType<typeof getProfileShelves>>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { username } = await params;
-  return { title: `@${decodeURIComponent(username).replace(/^@/, "")}` };
+  const handle = decodeURIComponent(username).replace(/^@/, "");
+  return { title: `@${handle}`, alternates: { canonical: `/u/${handle}` } };
 }
 
 export default function ProfilePage({ params }: { params: Params }) {

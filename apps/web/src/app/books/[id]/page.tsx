@@ -28,9 +28,20 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const book = await getBook(id);
   if (!book) return { title: "Book not found" };
   const author = authorsOf(book)[0]?.name;
+  const title = author ? `${book.title} by ${author}` : book.title;
+  const description = book.description?.split("\n")[0];
   return {
-    title: author ? `${book.title} by ${author}` : book.title,
-    description: book.description?.split("\n")[0],
+    title,
+    description,
+    alternates: { canonical: `/books/${id}` },
+    openGraph: {
+      type: "book",
+      siteName: "Booksyde",
+      url: `/books/${id}`,
+      title,
+      description,
+      images: book.cover_url ? [{ url: book.cover_url, alt: `Cover of ${title}` }] : undefined,
+    },
   };
 }
 

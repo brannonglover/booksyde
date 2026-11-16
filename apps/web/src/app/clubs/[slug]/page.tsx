@@ -43,7 +43,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { slug } = await params;
   const supabase = await createClient();
   const club = await getClubBySlug(supabase, decodeURIComponent(slug)).catch(() => null);
-  return club ? { title: club.name, description: club.description ?? undefined } : { title: "Club" };
+  return club
+    ? { title: club.name, description: club.description ?? undefined, alternates: { canonical: `/clubs/${club.slug}` } }
+    : { title: "Club" };
 }
 
 export default function ClubPage({ params, searchParams }: { params: Params; searchParams: SearchParams }) {
