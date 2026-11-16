@@ -3,9 +3,11 @@ import { genreColor, palette } from "@booksyde/theme";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { TrackSearch } from "@/components/analytics";
 import { Avatar } from "@/components/avatar";
 import { BookCover } from "@/components/book-cover";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { AnalyticsEvent, track } from "@/lib/analytics";
 import { getDrawers, parseSearch, searchEverything, searchWiderStacks } from "@/lib/catalog";
 import { RequestSlip } from "./request-slip";
 import { SearchBox } from "./search-box";
@@ -87,6 +89,7 @@ async function Results({ searchParams }: { searchParams: Promise<Params> }) {
 
   return (
     <div className="mt-16">
+      <TrackSearch query={q} tags={tags} books={books.length} authors={authors.length} readers={readers.length} />
       {/* Summary + the narrowing chips */}
       <div className="flex flex-col gap-5 border-b border-border pb-6">
         <p className="text-muted">
@@ -218,6 +221,13 @@ function Narrow({ q, tags, drawers }: { q: string; tags: string[]; drawers: Draw
             href={hrefFor(q, next)}
             scroll={false}
             aria-pressed={on}
+            {...track(AnalyticsEvent.MoodChipClicked, {
+              tag: d.slug,
+              label: d.name,
+              kind: d.kind,
+              location: "search_narrow",
+              action: on ? "remove" : "add",
+            })}
             className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-sm transition ${
               on ? "border-transparent font-semibold" : "border-border text-muted hover:border-text/30 hover:text-text"
             }`}
@@ -505,6 +515,7 @@ function DrawerFront({ drawer }: { drawer: Drawer }) {
   return (
     <Link
       href={hrefFor("", [drawer.slug])}
+      {...track(AnalyticsEvent.MoodChipClicked, { tag: drawer.slug, label: drawer.name, kind: drawer.kind, location: "search_cabinet" })}
       className={`${shell} transition hover:-translate-y-0.5 hover:from-[#86603C] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_10px_18px_-10px_rgba(0,0,0,0.6)]`}
     >
       {face}

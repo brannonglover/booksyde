@@ -1,14 +1,17 @@
-import { compactCount, describeNextRead, formatRating, getNextRead } from "@booksyde/shared";
+import { compactCount, describeNextRead, formatRating, getMyReadingDesk, getNextRead } from "@booksyde/shared";
 import Link from "next/link";
 import { connection } from "next/server";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import { coverUrl, genreColor } from "@booksyde/theme";
-import { BackdropStage } from "@/components/backdrop";
 import { BookCover } from "@/components/book-cover";
+import { BookObject } from "@/components/book-object";
 import { FeatureBento } from "@/components/feature-bento";
 import { Stars } from "@/components/stars";
+import { ReadingDesk } from "@/components/reading-desk";
+import { ReadingProgress } from "@/components/reading-progress";
 import { Ornament, SectionHeading, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { YearInBooksSection } from "@/components/year-in-books";
+import { AnalyticsEvent, track } from "@/lib/analytics";
 import { type FeaturedBook, getBook, getFeaturedBook, getNightstandBooks, toFeatured } from "@/lib/catalog";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -80,17 +83,26 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Your next read (or today's pick when signed out), staged on a backdrop drawn from the book itself */}
+          {/* Your next read (or today's pick when signed out), drawn as a book; with a bookmark if you've started it */}
           <Suspense fallback={<FeaturedSkeleton />}>
             <FeaturedPick />
           </Suspense>
         </section>
 
+        {/* Signed-in readers' books in progress, each with a bookmark they can move. */}
+        <Suspense fallback={null}>
+          <WhereYouLeftOff />
+        </Suspense>
+
         <section id="discover" className="flex flex-col gap-6">
           <SectionHeading
             numeral="I"
             aside={
-              <Link href="/discover" className="shrink-0 text-sm font-semibold text-accent hover:underline">
+              <Link
+                href="/discover"
+                className="shrink-0 text-sm font-semibold text-accent hover:underline"
+                {...track(AnalyticsEvent.DiscoverClicked, { location: "home_moods" })}
+              >
                 Discover more →
               </Link>
             }
@@ -103,6 +115,7 @@ export default function Home() {
                 key={slug}
                 href={`/search?tags=${slug}`}
                 className="inline-flex items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2 font-medium transition hover:border-text/40 hover:bg-surface-raised"
+                {...track(AnalyticsEvent.MoodChipClicked, { tag: slug, label, location: "home" })}
               >
                 <span aria-hidden className="size-2 rounded-full" style={{ background: genreColor(slug).dot }} />
                 {label}
@@ -111,21 +124,10 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="flex flex-col gap-8">
-          <SectionHeading
-            numeral="II"
-            aside={
-              <Link href="/search" className="shrink-0 text-sm font-semibold text-accent hover:underline">
-                See all →
-              </Link>
-            }
-          >
-            On everyone&rsquo;s nightstand
-          </SectionHeading>
-          <Suspense fallback={<NightstandSkeleton />}>
-            <Nightstand />
-          </Suspense>
-        </section>
+        {/* Only once enough different readers have books open; until then it would be a few people's shelves. */}
+        <Suspense fallback={null}>
+          <Nightstand />
+        </Suspense>
 
         <YearInBooksSection numeral="III" />
 
@@ -162,16 +164,75 @@ const fallbackPick: FeaturedBook = {
   tags: [],
 };
 
-/** The signed-in reader's next read, staged like the featured book; null when signed out or nothing fits. */
+/** The signed-in reader's Reading now books with their places in them, once per request; null when signed out. */
+const loadReadingDesk = cache(async () => {
+  await connection();
+  if (!hasSupabaseEnv) return null;
+  try {
+    const client = await createClient();
+    const { data } = await client.auth.getUser();
+    return data.user ? await getMyReadingDesk(client) : null;
+  } catch {
+    return null;
+  }
+});
+
+/** "Updated 3 days ago", to the day. */
+function sinceLabel(iso: string | null) {
+  if (!iso) return null;
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return "Updated today";
+  if (days === 1) return "Updated yesterday";
+  if (days < 14) return `Updated ${days} days ago`;
+  if (days < 60) return `Updated ${Math.floor(days / 7)} weeks ago`;
+  return `Updated ${Math.floor(days / 30)} months ago`;
+}
+
+/** The reader's desk: every book they're partway through. Nothing at all when signed out or between books. */
+async function WhereYouLeftOff() {
+  const desk = await loadReadingDesk();
+  if (!desk?.length) return null;
+  const tracked = desk.filter((b) => b.page != null).length;
+  return (
+    <section id="where-you-left-off" className="-mt-8 flex scroll-mt-24 flex-col gap-6">
+      <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Your reading desk</p>
+          <h2 className="mt-2 font-display text-4xl leading-none sm:text-5xl">Where you left off</h2>
+        </div>
+        <p className="hidden shrink-0 text-sm text-muted sm:block">
+          {desk.length === 1 ? "1 book open" : `${desk.length} books open`}
+          {tracked < desk.length ? " · tracking pages is optional" : null}
+        </p>
+      </div>
+      <ReadingDesk books={desk.map((b) => ({ ...b, updatedLabel: sinceLabel(b.updatedAt) }))} />
+    </section>
+  );
+}
+
+/** The signed-in reader's next read, with their place in it if they've started; null when signed out or nothing fits. */
 async function getPersonalPick() {
   // Reads the session cookie, so it can only run at request time.
   await connection();
   if (!hasSupabaseEnv) return null;
   try {
-    const pick = await getNextRead(await createClient());
+    const client = await createClient();
+    const pick = await getNextRead(client);
     if (!pick) return null;
-    const work = await getBook(pick.work.id);
-    return work ? { book: toFeatured(work), caption: describeNextRead(pick) } : null;
+    const reading = pick.reason === "reading";
+    const [work, desk] = await Promise.all([getBook(pick.work.id), reading ? loadReadingDesk() : null]);
+    if (!work) return null;
+    const onDesk = desk?.find((b) => b.work.id === pick.work.id);
+    return {
+      book: toFeatured(work),
+      reason: pick.reason,
+      caption: describeNextRead(pick),
+      page: onDesk?.page ?? null,
+      // The longest edition's count unless we know which edition they're holding.
+      pages: onDesk?.pages ?? (Math.max(0, ...work.editions.map((e) => e.page_count ?? 0)) || null),
+      // The hero shows the front book; the rest are on the desk just below.
+      more: desk && desk.length > 1 ? { count: desk.length - 1, href: "#where-you-left-off" } : null,
+    };
   } catch {
     // e.g. the next_read migration hasn't run yet: show today's pick instead.
     return null;
@@ -182,42 +243,70 @@ async function getPersonalPick() {
 async function FeaturedPick() {
   const personal = await getPersonalPick();
   const book = personal?.book ?? (await getFeaturedBook().catch(() => null)) ?? fallbackPick;
-  const caption = personal?.caption ?? { label: "Today’s pick", why: null };
-  const stage = (
-    <BackdropStage
-      work={book}
-      className="transition duration-300 group-hover:-translate-y-1"
-      cover={
-        <BookCover
-          title={book.title}
-          author={book.author}
-          src={book.cover_url}
-          color={book.cover_color}
-          sizes="200px"
-          priority
-          className="w-[48%] -rotate-2"
-        />
-      }
-    />
+  const reading = personal?.reason === "reading";
+  const art = (
+    <div className="grid place-items-center pt-6 pb-14">
+      <BookObject
+        ribbon={reading}
+        className="w-[58%] -rotate-2 transition duration-300 group-hover:-translate-y-1 group-hover:-rotate-1"
+        cover={
+          <BookCover
+            title={book.title}
+            author={book.author}
+            src={book.cover_url}
+            color={book.cover_color}
+            sizes="240px"
+            priority
+            className="w-full"
+          />
+        }
+      />
+    </div>
   );
+  const titleLine = (
+    <span className="truncate">
+      <span className="font-display text-lg italic">{book.title}</span>
+      {book.author ? <span className="text-muted"> &middot; {book.author}</span> : null}
+    </span>
+  );
+  const label = (text: string) => (
+    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{text}</span>
+  );
+
   return (
     <figure className="mx-auto w-full max-w-sm">
       {book.id ? (
         <Link href={`/books/${book.id}`} className="group block" aria-label={`${book.title} by ${book.author}`}>
-          {stage}
+          {art}
         </Link>
       ) : (
-        stage
+        art
       )}
-      <figcaption className="border-b border-border py-3 text-sm">
-        <div className="flex items-baseline justify-between gap-4">
-          <span className="shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-muted">{caption.label}</span>
-          <span className="truncate text-right">
-            <span className="font-display text-lg italic">{book.title}</span>
-            {book.year ? <span className="text-muted"> &middot; {book.year}</span> : null}
-          </span>
-        </div>
-        {caption.why ? <p className="mt-1 truncate text-right text-muted">{caption.why}</p> : null}
+      <figcaption className="border-b border-border pb-3 text-sm">
+        {reading && personal ? (
+          <ReadingProgress
+            label={label(personal.caption.label)}
+            title={titleLine}
+            page={personal.page}
+            pages={personal.pages}
+            more={personal.more}
+          />
+        ) : personal ? (
+          // A book they haven't started: why it's next is the news.
+          <>
+            {label(personal.caption.label)}
+            <p className="mt-1.5 font-display text-2xl leading-snug">{personal.caption.why}</p>
+            <p className="mt-1 flex text-muted">{titleLine}</p>
+          </>
+        ) : (
+          <div className="flex items-baseline justify-between gap-4">
+            <span className="shrink-0">{label("Today’s pick")}</span>
+            <span className="truncate text-right">
+              <span className="font-display text-lg italic">{book.title}</span>
+              {book.year ? <span className="text-muted"> &middot; {book.year}</span> : null}
+            </span>
+          </div>
+        )}
       </figcaption>
     </figure>
   );
@@ -226,26 +315,38 @@ async function FeaturedPick() {
 function FeaturedSkeleton() {
   return (
     <div className="mx-auto w-full max-w-sm">
-      <div className="aspect-[4/5] animate-pulse rounded-[28px] bg-border/50" />
+      <div className="mx-auto mt-6 mb-14 aspect-[2/3] w-[58%] animate-pulse rounded-[3px] bg-border/50" />
       <div className="mt-3 h-6 animate-pulse rounded bg-border/40" />
     </div>
   );
 }
 
-/** The books the most readers have open right now. */
+/**
+ * "On everyone's nightstand": the books the most readers have open right now.
+ * Without enough readers, nightstand_works sends catalogue books with no
+ * reader counts, and the whole section stays hidden.
+ */
 async function Nightstand() {
   const books = await getNightstandBooks(5).catch(() => []);
-  if (books.length === 0) {
-    return (
-      <p className="rounded-2xl border border-dashed border-border px-6 py-8 text-center text-muted">
-        The nightstands are bare for now.{" "}
-        <Link href="/search" className="font-semibold text-accent hover:underline">
-          Start a book
-        </Link>{" "}
-        and yours will be the first.
-      </p>
-    );
-  }
+  if (!books.some((b) => b.readers > 0)) return null;
+  return (
+    <section className="flex flex-col gap-8">
+      <SectionHeading
+        numeral="II"
+        aside={
+          <Link href="/search" className="shrink-0 text-sm font-semibold text-accent hover:underline">
+            See all →
+          </Link>
+        }
+      >
+        On everyone&rsquo;s nightstand
+      </SectionHeading>
+      <NightstandShelf books={books} />
+    </section>
+  );
+}
+
+function NightstandShelf({ books }: { books: Awaited<ReturnType<typeof getNightstandBooks>> }) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
       {books.map((book) => (
@@ -281,16 +382,3 @@ async function Nightstand() {
   );
 }
 
-function NightstandSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} className={i > 1 ? "hidden sm:block" : ""}>
-          <div className="aspect-[2/3] animate-pulse rounded-[3px] bg-border/50" />
-          <div className="mt-4 h-5 w-3/4 animate-pulse rounded bg-border/50" />
-          <div className="mt-2 h-4 w-1/2 animate-pulse rounded bg-border/40" />
-        </div>
-      ))}
-    </div>
-  );
-}

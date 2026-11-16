@@ -603,6 +603,11 @@ isOneToOne: false
 "can_view_user":
 { Args: { "target": string }; Returns: boolean
                            },
+"featured_pool":
+{ Args: { "max_results"?: number }; Returns: {
+              "work_id": string
+            }[]
+                           },
 "get_club_posts":
 { Args: { "before"?: string,"max_results"?: number,"p_club_id": string }; Returns: {
               "avatar_url": string,"body": string,"club_read_id": string,"created_at": string,"display_name": string,"id": string,"is_hidden": boolean,"spoiler_page": number,"theme_color": string,"updated_at": string,"user_id": string,"username": string,"work_id": string
@@ -625,6 +630,9 @@ isOneToOne: false
         isOneToOne: false
         isSetofReturn: true
       } },
+"has_crowd":
+{ Args: { "book_status"?: Database["public"]["Enums"]["reading_status"] }; Returns: boolean
+                           },
 "import_reading_history":
 { Args: { "p_items": Json }; Returns: {
               "outcome": string,"work_id": string
@@ -641,6 +649,9 @@ isOneToOne: false
                            },
 "is_librarian":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"min_crowd":
+{ Args: Record<PropertyKey, never>; Returns: number
                            },
 "merge_works":
 { Args: { "p_dupe": string,"p_keep": string }; Returns: undefined

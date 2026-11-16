@@ -3,6 +3,8 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AccountMenu } from "@/components/account-menu";
+import { IdentifyReader } from "@/components/analytics";
+import { AnalyticsEvent, track } from "@/lib/analytics";
 import { ThemePicker, ThemeToggleButton } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -13,13 +15,25 @@ async function AccountArea() {
   // Request-time only: the Supabase client reads the clock, which can't happen while prerendering.
   await connection();
   const profile = hasSupabaseEnv ? await getMyProfile(await createClient()).catch(() => null) : null;
-  if (profile) return <AccountMenu profile={profile} />;
+  if (profile) {
+    return (
+      <>
+        <IdentifyReader userId={profile.id} username={profile.username} />
+        <AccountMenu profile={profile} />
+      </>
+    );
+  }
   return (
     <>
+      <IdentifyReader userId={null} />
       <Link className="whitespace-nowrap rounded-full px-2.5 py-2 hover:bg-surface sm:px-4" href="/sign-in">
         Sign in
       </Link>
-      <Link className="whitespace-nowrap rounded-full bg-primary px-3.5 py-2 text-primary-text hover:opacity-90 sm:px-4" href="/sign-up">
+      <Link
+        className="whitespace-nowrap rounded-full bg-primary px-3.5 py-2 text-primary-text hover:opacity-90 sm:px-4"
+        href="/sign-up"
+        {...track(AnalyticsEvent.JoinFreeClicked, { location: "header" })}
+      >
         Join free
       </Link>
     </>
@@ -34,10 +48,18 @@ export function SiteHeader() {
           <Wordmark />
         </Link>
         <nav className="flex items-center gap-0.5 text-sm font-semibold sm:gap-2">
-          <Link className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="/discover">
+          <Link
+            className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block"
+            href="/discover"
+            {...track(AnalyticsEvent.DiscoverClicked, { location: "header" })}
+          >
             Discover
           </Link>
-          <Link className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block" href="/clubs">
+          <Link
+            className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block"
+            href="/clubs"
+            {...track(AnalyticsEvent.ClubsClicked, { location: "header" })}
+          >
             Clubs
           </Link>
           <Link

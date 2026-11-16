@@ -76,15 +76,15 @@ export async function getFeaturedBook(): Promise<FeaturedBook | null> {
   return getFeaturedBookFor(publicClient());
 }
 
-/** The most-shelved books, as candidates to try in the backdrop preview. */
-export async function getBackdropCandidates(limit = 16) {
+/** The most-shelved books, as candidates to try in the hero preview. */
+export async function getPreviewCandidates(limit = 16) {
   "use cache";
   cacheLife("hours");
   cacheTag("featured");
   return getTrendingWorks(publicClient(), limit);
 }
 
-/** Any book as a featured-book stage, for the backdrop preview. */
+/** Any book as a featured book, for the hero preview. */
 export async function getFeaturedById(id: string): Promise<FeaturedBook | null> {
   const book = await getBook(id);
   return book ? toFeatured(book) : null;

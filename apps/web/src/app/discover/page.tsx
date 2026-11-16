@@ -8,6 +8,7 @@ import { Bookshelf, type ShelfBook } from "@/components/bookshelf";
 import { Ornament, SectionHeading, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { getDiscoverShelves, getSimilarBooks, getWiderStacksPicks, type WiderStacksBook } from "@/lib/catalog";
 import { RequestSlip } from "../search/request-slip";
+import { AnalyticsEvent, track } from "@/lib/analytics";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -259,7 +260,11 @@ function SignedOutNote() {
         <Link href="/sign-in" className="rounded-full px-4 py-2 hover:bg-surface-raised">
           Sign in
         </Link>
-        <Link href="/sign-up" className="rounded-full bg-primary px-4 py-2 text-primary-text hover:opacity-90">
+        <Link
+          href="/sign-up"
+          className="rounded-full bg-primary px-4 py-2 text-primary-text hover:opacity-90"
+          {...track(AnalyticsEvent.JoinFreeClicked, { location: "discover" })}
+        >
           Join free
         </Link>
       </div>
@@ -349,6 +354,7 @@ function ChipGroup({ title, blurb, drawers }: { title: string; blurb: string; dr
             key={d.slug}
             href={`/search?tags=${d.slug}`}
             className="inline-flex items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2 font-medium transition hover:border-text/40 hover:bg-surface-raised"
+            {...track(AnalyticsEvent.MoodChipClicked, { tag: d.slug, label: d.name, kind: d.kind, location: "discover" })}
           >
             <span aria-hidden className="size-2 rounded-full" style={{ background: genreColor(d.slug).dot }} />
             {d.name}

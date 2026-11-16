@@ -11,6 +11,8 @@ import {
 } from "@booksyde/shared";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { AnalyticsEvent } from "@/lib/analytics";
+import { captureServerEvent } from "@/lib/analytics-server";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthFormState = {
@@ -52,8 +54,9 @@ export async function signIn(_prev: AuthFormState, form: FormData): Promise<Auth
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error), values };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: reportAuthError("signIn", error), values };
+  captureServerEvent(data.user.id, AnalyticsEvent.SignedIn, { method: "password" });
   redirect(safeNext(form.get("next")));
 }
 
@@ -98,6 +101,7 @@ export async function signUp(_prev: AuthFormState, form: FormData): Promise<Auth
   if (error) return { error: reportAuthError("signUp", error), values };
   // With email confirmation on, there's no session until they click the link.
   if (!data.session) return { sentTo: parsed.data.email };
+  if (data.user) captureServerEvent(data.user.id, AnalyticsEvent.SignedUp, { method: "password" });
   redirect(next);
 }
 

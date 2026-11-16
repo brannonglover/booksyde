@@ -48,12 +48,25 @@ dump files outside `dumps/`.
 
 ### What it does
 
-1. **Ranks** every work by the number of reading-log entries plus ratings, and keeps the top `2 × limit` as candidates.
+1. **Ranks** every work by the number of reading-log entries plus ratings, and keeps the top `3 × limit` as
+   candidates (`2 × limit` with `--all-languages`).
 2. **Works pass:** keeps candidates that have a title, an author and a cover.
-3. **Authors pass:** reads just the authors those works need.
-4. **Selects** the top `limit`, with one work per title + lead author (Open Library has many duplicate works).
-5. **Editions pass:** picks the best edition per work (ISBN-13, page count, English, cover, publisher, known
-   format) and takes the earliest publication year across all editions.
+3. **Editions pass:** for every candidate, picks the best English edition (ISBN-13, page count, cover,
+   publisher, known format) and takes the earliest publication year across all editions. An edition counts
+   as English by its language field or, when it has none, by an ISBN in the English-language groups
+   (978-0, 978-1, 979-8). Candidates with no English edition are dropped, so the next most popular English
+   book takes their place. Pass `--all-languages` to keep them.
+
+   It also gives translated books their **English title**. Open Library titles a work in its original
+   language ("Преступление и наказание"), so the English editions vote on a title instead (Crime and
+   Punishment). Spellings that differ only in case, or in a leading "The"/"A", count as one vote. The
+   work's own title is kept whenever English editions use it about as often as foreign ones, so English
+   books are never renamed, not even Harry Potter to its US title.
+
+   Covers get the same treatment. When a work's cover belongs to a non-English edition and to no
+   English one (L'Étranger for The Stranger), it's swapped for the cover of the best English edition.
+4. **Authors pass:** reads just the authors the remaining works need.
+5. **Selects** the top `limit`, with one work per title + lead author (Open Library has many duplicate works).
 6. **Writes**, skipping anything already in the catalogue:
    - Works matched by `open_library_id`, or by title + lead author for books added by hand. Those get their
      `open_library_id` filled in.
@@ -61,15 +74,17 @@ dump files outside `dumps/`.
    - ISBNs that another edition already has are left off.
    - Genre tags come from Open Library subjects (`openLibraryTags`).
 
-Existing rows are never overwritten, so it's safe to re-run, for example with a larger `--limit` or next
+Existing rows are never overwritten, with one exception: a book imported with its original-language title
+or cover gets the English one, but only while that field still holds exactly what Open Library had, so
+anything edited by hand stays. So it's safe to re-run, for example with a larger `--limit` or next
 month's dump. Works go in 500 at a time together with their authors, editions and tags. If a run is
 interrupted, the next run finishes the half-written batch.
 
 ### Time and memory
 
-The editions pass dominates the run because it streams the whole 12.6 GB file. Expect tens of minutes on
-a laptop; the other passes take a few minutes. Memory stays small: one counter per ranked work plus the
-selected records. For `--limit` above about 100k, give Node more heap:
+The editions pass dominates the run because it streams the whole 12.6 GB file. A 10k dry run took about
+5 minutes on an Apple Silicon Mac with a peak of 730 MB of memory: one counter per ranked work plus the
+candidate records. For `--limit` above about 100k, give Node more heap:
 `NODE_OPTIONS=--max-old-space-size=4096`.
 
 Database size matters more than the network. Descriptions are the bulk of each row, so 10k books is a few
@@ -82,3 +97,6 @@ tens of MB. Check the free tier's 500 MB limit before going above about 100k.
   Open Library asks people not to.
 - `works.embedding` for `similar_works()`: generate it from description + tags after importing.
 - Series, translators and other non-author contributors aren't imported.
+- Author names come from Open Library's author record as-is, so some are in the original script or a
+  non-English spelling (太宰 治 rather than Osamu Dazai, Fiódor Dostoievski).
+- `first_published_year` is the earliest year on any edition, so one misdated edition makes it too early.

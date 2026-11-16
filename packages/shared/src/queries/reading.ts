@@ -39,6 +39,73 @@ export async function getMyBooks(client: BooksydeClient, status?: ReadingStatus)
   return data ?? [];
 }
 
+export type DeskBook = {
+  work: { id: string; title: string; cover_url: string | null; cover_color: string | null };
+  author: string | null;
+  /** The page they've logged in their open read-through, or null if they're not tracking it. */
+  page: number | null;
+  /** Pages in the edition they're holding, else the longest edition we know of. */
+  pages: number | null;
+  /** When they last logged a page. */
+  updatedAt: string | null;
+};
+
+/**
+ * Every book on the signed-in reader's Reading now shelf, in their shelf order,
+ * with their place in each. Tracking a page is optional: untracked books come
+ * back with `page: null`.
+ */
+export async function getMyReadingDesk(client: BooksydeClient): Promise<DeskBook[]> {
+  const userId = await requireUserId(client);
+  const { data: books, error } = await client
+    .from("user_books")
+    .select(
+      "work_id, editions ( page_count ), works ( id, title, cover_url, cover_color, editions ( page_count ), work_contributors ( role, position, authors ( name ) ) )",
+    )
+    .match({ user_id: userId, status: "reading" })
+    .order("position", { ascending: true, nullsFirst: true })
+    .order("shelved_at", { ascending: false });
+  if (error) throw error;
+  if (!books?.length) return [];
+
+  const { data: sessions, error: sessionError } = await client
+    .from("reading_sessions")
+    .select("work_id, current_page, finished_at, updated_at")
+    .eq("user_id", userId)
+    .in(
+      "work_id",
+      books.map((b) => b.work_id),
+    )
+    .order("started_at", { ascending: false });
+  if (sessionError) throw sessionError;
+  // Newest first: only each book's latest read-through counts, and only while it's open.
+  const latest = new Map<string, { page: number | null; updatedAt: string }>();
+  for (const s of sessions ?? []) {
+    if (latest.has(s.work_id)) continue;
+    latest.set(s.work_id, { page: s.finished_at ? null : s.current_page, updatedAt: s.updated_at });
+  }
+
+  return books.flatMap((b) => {
+    const w = b.works;
+    if (!w) return [];
+    const author =
+      [...(w.work_contributors ?? [])]
+        .filter((c) => c.role === "author" && c.authors)
+        .sort((x, y) => x.position - y.position)[0]?.authors?.name ?? null;
+    const longest = Math.max(0, ...(w.editions ?? []).map((e) => e.page_count ?? 0)) || null;
+    const session = latest.get(b.work_id);
+    return [
+      {
+        work: { id: w.id, title: w.title, cover_url: w.cover_url, cover_color: w.cover_color },
+        author,
+        page: session?.page ?? null,
+        pages: b.editions?.page_count || longest,
+        updatedAt: session?.page != null ? session.updatedAt : null,
+      },
+    ];
+  });
+}
+
 /** The shelves a reader can put in their own order. Every other shelf is newest first. */
 export const ARRANGEABLE_SHELVES: readonly ReadingStatus[] = ["reading", "want_to_read"];
 

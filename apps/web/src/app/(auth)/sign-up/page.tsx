@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AuthHeading, AuthShell } from "../auth-shell";
-import { DraftBookplate } from "./draft-bookplate";
+import { DraftProfile } from "./draft-profile";
 import { SignUpForm } from "./sign-up-form";
 
 export const metadata: Metadata = { title: "Start your shelf" };
@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Start your shelf" };
 export default function SignUpPage() {
   return (
     <AuthShell
-      aside={<DraftBookplate />}
+      aside={<DraftProfile />}
       quote={{ text: "I declare after all there is no enjoyment like reading!", source: "Jane Austen, Pride and Prejudice" }}
       switchPrompt={{ text: "Already a member?", label: "Sign in", href: "/sign-in" }}
     >

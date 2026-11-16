@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnalyticsEvent, track } from "@/lib/analytics";
 
 /*
  * "What you get" section: three colourful tiles, each with a tiny illustration
@@ -49,6 +50,7 @@ export function FeatureBento() {
             <Link
               key={m.label}
               href={`/search?tags=${m.tags}`}
+              {...track(AnalyticsEvent.MoodChipClicked, { tag: m.tags, label: m.label, location: "home_feature" })}
               className={`rounded-full px-4 py-2 font-semibold shadow-[0_4px_0_rgba(0,0,0,0.18)] transition duration-300 hover:rotate-0 hover:scale-110 focus-visible:rotate-0 focus-visible:scale-110 ${m.rotate} ${m.tone}`}
             >
               {m.label}

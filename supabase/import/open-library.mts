@@ -7,7 +7,7 @@
  * Reads the dumps from disk (see README.md for the download commands), so the
  * only network traffic is the one-time download plus batched writes to
  * Supabase. Books are ranked by how often Open Library readers shelve and
- * rate them, then the top --limit are imported with their authors, one
+ * rate them, then the top --limit with an English edition are imported with their authors, one
  * edition each (ISBN, pages, publisher) and genre tags.
  *
  * Safe to re-run: works and authors are matched on open_library_id (and on
@@ -39,6 +39,7 @@ const { values: opts } = parseArgs({
     ratings: { type: "string" },
     limit: { type: "string", default: "10000" },
     "allow-no-cover": { type: "boolean", default: false },
+    "all-languages": { type: "boolean", default: false },
     "dry-run": { type: "boolean", default: false },
     env: { type: "string" },
     remote: { type: "boolean", default: false },
@@ -52,6 +53,7 @@ if (opts.help) {
   --limit N           How many books to import (default 10000)
   --dry-run           Read the dumps and report what would be imported; write nothing
   --allow-no-cover    Include books without a cover (skipped by default)
+  --all-languages     Include books with no English edition (skipped by default; needs the editions dump to tell)
   --dir PATH          Folder holding the ol_dump_*.txt.gz files (default supabase/import/dumps)
   --works/--editions/--authors/--reading-log/--ratings PATH
                       Point at a specific dump file instead of auto-detecting it in --dir
@@ -87,7 +89,10 @@ if (!files.authors) fail(`No authors dump found. Put ol_dump_authors_*.txt.gz in
 if (!files.readingLog && !files.ratings) {
   fail(`No reading-log or ratings dump found; one is needed to rank books by popularity. Put it in ${opts.dir}.`);
 }
-if (!files.editions) log("No editions dump: books will be imported without ISBNs, page counts or publishers.");
+const englishOnly = !opts["all-languages"] && Boolean(files.editions);
+if (!files.editions) {
+  log("No editions dump: books will be imported without ISBNs, page counts or publishers, in any language.");
+}
 
 // ---------------------------------------------------------------------------
 // Supabase (only needed when writing)
@@ -216,11 +221,12 @@ for (const file of [files.readingLog, files.ratings]) {
     }
   }
 }
-// Some candidates will lack a cover or an author, or turn out to be duplicates, so read a wider pool.
+// Some candidates will lack a cover, an author or an English edition, or turn out to be duplicates,
+// so read a wider pool.
 const pool = new Set(
   [...score.entries()]
     .sort((a, b) => b[1] - a[1] || a[0] - b[0])
-    .slice(0, limit * 2)
+    .slice(0, limit * (englishOnly ? 3 : 2))
     .map(([id]) => id),
 );
 log(`${score.size.toLocaleString()} books have reader activity; considering the top ${pool.size.toLocaleString()}`);
@@ -233,6 +239,10 @@ type Work = {
   olid: string;
   title: string;
   subtitle: string | null;
+  /** As Open Library has them, before any switch to the English title or cover. */
+  originalTitle: string;
+  originalSubtitle: string | null;
+  originalCoverId: number | undefined;
   description: string | null;
   year: number | null;
   coverId: number | undefined;
@@ -269,11 +279,17 @@ for await (const line of lines(files.works, "works")) {
     ),
   ].slice(0, 3);
   if (!title || title.length > 500 || !authorIds.length || (!coverId && !opts["allow-no-cover"])) continue;
+  const subtitle = w.subtitle?.trim() || null;
+  // Some records were split at the colon inside a bracket: "Fetch (Five Nights at Freddy's" + "Fazbear Frights #2)".
+  const broken = subtitle?.endsWith(")") && (title.match(/\(/g) ?? []).length > (title.match(/\)/g) ?? []).length;
   works.set(Number(m[1]), {
     id: Number(m[1]),
     olid: `OL${m[1]}W`,
-    title,
-    subtitle: w.subtitle?.trim() || null,
+    title: broken ? `${title}: ${subtitle}` : title,
+    subtitle: broken ? null : subtitle,
+    originalTitle: title,
+    originalSubtitle: subtitle,
+    originalCoverId: coverId,
     description: clean(w.description),
     year: yearOf(w.first_publish_date),
     coverId,
@@ -284,7 +300,208 @@ for await (const line of lines(files.works, "works")) {
 log(`${works.size.toLocaleString()} candidate works have a title, an author${opts["allow-no-cover"] ? "" : " and a cover"}`);
 
 // ---------------------------------------------------------------------------
-// 3. Authors
+// 3. Editions, for every candidate: the best edition, the earliest publication year, and
+//    whether the book is published in English at all (so we can choose by it).
+
+type Edition = {
+  olid: string;
+  title: string | null;
+  isbn13: string | null;
+  isbn10: string | null;
+  format: Format;
+  publisher: string | null;
+  publishedDate: string | null;
+  pages: number | null;
+  language: string | null;
+  coverUrl: string | null;
+  rank: number;
+};
+type EditionJson = {
+  title?: string;
+  isbn_13?: string[];
+  isbn_10?: string[];
+  physical_format?: string;
+  publishers?: string[];
+  publish_date?: string;
+  number_of_pages?: number;
+  languages?: { key?: string }[];
+  covers?: number[];
+  description?: Text;
+};
+
+/** ISBN registration groups for English-language publishing: 978-0, 978-1 and 979-8 (US). */
+const ENGLISH_ISBN = /^(978[01]|9798)/;
+
+/*
+ * English titles for translated books. Open Library titles a work in its original language
+ * ("Преступление и наказание"), so each work's English editions vote on what to call it
+ * instead. We also count which editions use the work's own title: when mostly non-English
+ * ones do, the title is a foreign original; when English ones do too, it stays
+ * (so "Harry Potter and the Philosopher's Stone" isn't swapped for the US title).
+ */
+type TitleVotes = { english: Map<string, Map<string, number>>; originalInEnglish: number; originalElsewhere: number };
+const titleVotes = new Map<number, TitleVotes>();
+
+function voteTitle(work: Work, raw: string, english: boolean, languageKnown: boolean) {
+  const key = titleKey(raw);
+  if (!key) return; // nothing Latin-script to compare
+  let votes = titleVotes.get(work.id);
+  if (!votes) titleVotes.set(work.id, (votes = { english: new Map(), originalInEnglish: 0, originalElsewhere: 0 }));
+  if (key === titleKey(work.title)) {
+    if (english) votes.originalInEnglish++;
+    else if (languageKnown) votes.originalElsewhere++;
+  }
+  if (!english) return;
+  // The title proper, without "(Penguin Classics)", ": A Novel" or a catalogue's trailing slash.
+  const shown = raw.split(/\s*[:;([]/)[0].replace(/[\s.,/]+$/, "").trim();
+  if (!shown) return;
+  const spellings = votes.english.get(key) ?? new Map<string, number>();
+  spellings.set(shown, (spellings.get(shown) ?? 0) + 1);
+  votes.english.set(key, spellings);
+}
+
+/** Title Case, not a library catalogue's "Crime and punishment" or a shouty "CRIME AND PUNISHMENT". */
+const titleCased = (s: string) =>
+  s !== s.toUpperCase() && s.split(/\s+/).filter((w) => w.length > 3 && /^\p{L}/u.test(w)).every((w) => /^\p{Lu}/u.test(w));
+
+/** The English title to use instead of the work's own, or null to keep it. */
+function englishTitle(work: Work) {
+  const votes = titleVotes.get(work.id);
+  if (!votes) return null;
+  const ownKey = titleKey(work.title);
+  // A Latin-script title that English editions use at least as often as foreign ones is already English.
+  if (ownKey && votes.originalElsewhere <= votes.originalInEnglish) return null;
+  let best: { key: string; count: number; spellings: Map<string, number> } | null = null;
+  for (const [key, spellings] of votes.english) {
+    const count = [...spellings.values()].reduce((a, b) => a + b, 0);
+    if (!best || count > best.count) best = { key, count, spellings };
+  }
+  if (!best || best.key === ownKey || best.count < 2) return null;
+  // The most common wording ignoring case ("The stranger" and "The Stranger" are one), then its Title
+  // Case spelling if any edition has one. Bookseller feeds often drop a leading article ("Stranger"),
+  // so a bare wording's votes go to its "The …" / "A …" form whenever at least two editions use that.
+  const wordings = new Map<string, { votes: number; spellings: [string, number][] }>();
+  for (const [spelling, n] of best.spellings) {
+    const k = spelling.toLowerCase();
+    const w = wordings.get(k) ?? { votes: 0, spellings: [] };
+    w.votes += n;
+    w.spellings.push([spelling, n]);
+    wordings.set(k, w);
+  }
+  for (const [k, w] of wordings) {
+    const bare = wordings.get(k.replace(/^(the|an?) /, ""));
+    if (bare && bare !== w && w.votes >= 2) {
+      w.votes += bare.votes;
+      bare.votes = 0;
+    }
+  }
+  const wording = [...wordings.values()].sort((a, b) => b.votes - a.votes)[0];
+  return wording.spellings.sort((a, b) => Number(titleCased(b[0])) - Number(titleCased(a[0])) || b[1] - a[1])[0][0];
+}
+
+const editions = new Map<number, Edition>();
+/** Candidates whose title or cover we corrected; kept apart from the selection, see toCorrect. */
+const corrected: Work[] = [];
+const editionDescriptions = new Map<number, string>();
+const inEnglish = new Set<number>();
+/*
+ * English covers. A work's cover is often its original edition's (L'Étranger for The Stranger). When
+ * the work's cover belongs to a non-English edition and to no English one, use the cover of the best
+ * English edition that has one.
+ */
+const coverOnForeignEdition = new Set<number>();
+const coverOnEnglishEdition = new Set<number>();
+const bestEnglishCover = new Map<number, { id: number; rank: number }>();
+if (files.editions) {
+  log(`Reading editions from ${files.editions}`);
+  for await (const line of lines(files.editions, "editions")) {
+    const m = EDITION_WORK.exec(line);
+    if (!m) continue;
+    const workId = Number(m[1]);
+    const work = works.get(workId);
+    if (!work) continue;
+    const { type, key, json } = columns(line);
+    const ek = EDITION_KEY.exec(key);
+    if (type !== "/type/edition" || !ek) continue;
+    const e = JSON.parse(json) as EditionJson;
+
+    const year = yearOf(e.publish_date);
+    if (year && (!work.year || year < work.year)) work.year = year;
+
+    const isbn10 = (e.isbn_10 ?? []).map(normalizeIsbn).find(isValidIsbn10) ?? null;
+    const isbn13 = (e.isbn_13 ?? []).map(normalizeIsbn).find(isValidIsbn13) ?? (isbn10 ? isbn10To13(isbn10) : null);
+    const language = LANGUAGES[e.languages?.[0]?.key?.replace("/languages/", "") ?? ""] ?? null;
+    // English by the language field, or, when an edition has none, by its ISBN's registration group.
+    const english = language ? language === "en" : ENGLISH_ISBN.test(isbn13 ?? "");
+    if (english) inEnglish.add(workId);
+    const title = e.title?.trim() || null;
+    if (title) voteTitle(work, title, english, Boolean(language || isbn13));
+    const coverIds = (e.covers ?? []).filter((c) => c > 0);
+    if (work.originalCoverId && coverIds.includes(work.originalCoverId)) {
+      if (english) coverOnEnglishEdition.add(workId);
+      else if (language || isbn13) coverOnForeignEdition.add(workId);
+    }
+    if (englishOnly && !english) continue;
+
+    if (!work.description && !editionDescriptions.has(workId)) {
+      const d = clean(e.description);
+      if (d) editionDescriptions.set(workId, d);
+    }
+    const pages = e.number_of_pages && e.number_of_pages > 0 && e.number_of_pages < 20000 ? Math.round(e.number_of_pages) : null;
+    const format = formatOf(e.physical_format);
+    const publisher = e.publishers?.[0]?.trim().slice(0, 300) || null;
+    const cover = coverUrl(e.covers?.find((c) => c > 0));
+    const languageRank = language ? (language === "en" ? 3 : -4) : english ? 2 : 0;
+    const rank = (isbn13 ? 8 : 0) + (pages ? 4 : 0) + languageRank + (cover ? 1 : 0) + (publisher ? 1 : 0) + (format !== "other" ? 1 : 0);
+    if (english && coverIds.length && rank > (bestEnglishCover.get(workId)?.rank ?? -Infinity)) {
+      bestEnglishCover.set(workId, { id: coverIds[0], rank });
+    }
+    if ((editions.get(workId)?.rank ?? -Infinity) >= rank) continue;
+
+    editions.set(workId, {
+      olid: `OL${ek[1]}M`,
+      title: title?.slice(0, 500) ?? null, // cleared below if it's just the work's title
+      isbn13,
+      isbn10,
+      format,
+      publisher,
+      publishedDate: dateOf(e.publish_date),
+      pages,
+      language,
+      coverUrl: cover,
+      rank,
+    });
+  }
+  for (const [id, d] of editionDescriptions) works.get(id)!.description ??= d;
+  editionDescriptions.clear();
+
+  for (const work of works.values()) {
+    const title = englishTitle(work);
+    if (title) {
+      work.title = title;
+      work.subtitle = null; // it belonged to the original-language title
+    }
+    const e = editions.get(work.id);
+    if (e?.title && e.title.toLowerCase() === work.title.toLowerCase()) e.title = null;
+    const englishCover = bestEnglishCover.get(work.id);
+    if (englishCover && coverOnForeignEdition.has(work.id) && !coverOnEnglishEdition.has(work.id)) work.coverId = englishCover.id;
+  }
+  titleVotes.clear();
+  bestEnglishCover.clear();
+}
+corrected.push(...[...works.values()].filter((w) => w.title !== w.originalTitle || w.coverId !== w.originalCoverId));
+log(
+  `Corrected ${corrected.filter((w) => w.title !== w.originalTitle).length.toLocaleString()} titles and ` +
+    `${corrected.filter((w) => w.coverId !== w.originalCoverId).length.toLocaleString()} covers (English for translations, repaired splits)`,
+);
+if (englishOnly) {
+  const before = works.size;
+  for (const id of works.keys()) if (!inEnglish.has(id)) works.delete(id);
+  log(`${works.size.toLocaleString()} of ${before.toLocaleString()} have an English edition (--all-languages to keep the rest)`);
+}
+
+// ---------------------------------------------------------------------------
+// 4. Authors
 
 type Author = { id: number; olid: string; name: string; bio: string | null; photoUrl: string | null; birth: string | null; death: string | null };
 type AuthorJson = { name?: string; bio?: Text; photos?: number[]; birth_date?: string; death_date?: string };
@@ -327,94 +544,13 @@ works.clear();
 log(`Selected ${selected.length.toLocaleString()} books`);
 
 // ---------------------------------------------------------------------------
-// 4. Editions: the best one per work, plus the earliest publication year.
-
-type Edition = {
-  olid: string;
-  title: string | null;
-  isbn13: string | null;
-  isbn10: string | null;
-  format: Format;
-  publisher: string | null;
-  publishedDate: string | null;
-  pages: number | null;
-  language: string | null;
-  coverUrl: string | null;
-  rank: number;
-};
-type EditionJson = {
-  title?: string;
-  isbn_13?: string[];
-  isbn_10?: string[];
-  physical_format?: string;
-  publishers?: string[];
-  publish_date?: string;
-  number_of_pages?: number;
-  languages?: { key?: string }[];
-  covers?: number[];
-  description?: Text;
-};
-
-const byId = new Map(selected.map((w) => [w.id, w]));
-const editions = new Map<number, Edition>();
-const editionDescriptions = new Map<number, string>();
-if (files.editions) {
-  log(`Reading editions from ${files.editions}`);
-  for await (const line of lines(files.editions, "editions")) {
-    const m = EDITION_WORK.exec(line);
-    if (!m) continue;
-    const workId = Number(m[1]);
-    const work = byId.get(workId);
-    if (!work) continue;
-    const { type, key, json } = columns(line);
-    const ek = EDITION_KEY.exec(key);
-    if (type !== "/type/edition" || !ek) continue;
-    const e = JSON.parse(json) as EditionJson;
-
-    const year = yearOf(e.publish_date);
-    if (year && (!work.year || year < work.year)) work.year = year;
-    if (!work.description && !editionDescriptions.has(workId)) {
-      const d = clean(e.description);
-      if (d) editionDescriptions.set(workId, d);
-    }
-
-    const isbn10 = (e.isbn_10 ?? []).map(normalizeIsbn).find(isValidIsbn10) ?? null;
-    const isbn13 = (e.isbn_13 ?? []).map(normalizeIsbn).find(isValidIsbn13) ?? (isbn10 ? isbn10To13(isbn10) : null);
-    const pages = e.number_of_pages && e.number_of_pages > 0 && e.number_of_pages < 20000 ? Math.round(e.number_of_pages) : null;
-    const language = LANGUAGES[e.languages?.[0]?.key?.replace("/languages/", "") ?? ""] ?? null;
-    const format = formatOf(e.physical_format);
-    const publisher = e.publishers?.[0]?.trim().slice(0, 300) || null;
-    const cover = coverUrl(e.covers?.find((c) => c > 0));
-    // Prefer English (Booksyde's readers), judged by the language field or else the ISBN's 978-0/978-1 prefix.
-    const english = language ? (language === "en" ? 3 : -4) : /^97[89][01]/.test(isbn13 ?? "") ? 2 : 0;
-    const rank = (isbn13 ? 8 : 0) + (pages ? 4 : 0) + english + (cover ? 1 : 0) + (publisher ? 1 : 0) + (format !== "other" ? 1 : 0);
-    if ((editions.get(workId)?.rank ?? -1) >= rank) continue;
-
-    const title = e.title?.trim();
-    editions.set(workId, {
-      olid: `OL${ek[1]}M`,
-      title: title && title.toLowerCase() !== work.title.toLowerCase() ? title.slice(0, 500) : null,
-      isbn13,
-      isbn10,
-      format,
-      publisher,
-      publishedDate: dateOf(e.publish_date),
-      pages,
-      language,
-      coverUrl: cover,
-      rank,
-    });
-  }
-  for (const [id, d] of editionDescriptions) byId.get(id)!.description ??= d;
-}
-
-// ---------------------------------------------------------------------------
 // Report
 
-const withIsbn = [...editions.values()].filter((e) => e.isbn13).length;
+const chosenEditions = selected.map((w) => editions.get(w.id)).filter((e): e is Edition => Boolean(e));
+const withIsbn = chosenEditions.filter((e) => e.isbn13).length;
 log(
   `Ready: ${selected.length.toLocaleString()} books, ${new Set(selected.flatMap((w) => w.authorIds)).size.toLocaleString()} authors, ` +
-    `${editions.size.toLocaleString()} editions (${withIsbn.toLocaleString()} with an ISBN), ` +
+    `${chosenEditions.length.toLocaleString()} editions (${withIsbn.toLocaleString()} with an ISBN), ` +
     `${selected.filter((w) => w.description).length.toLocaleString()} with a description`,
 );
 for (const w of selected.slice(0, 10)) {
@@ -450,7 +586,7 @@ function check(label: string, error: unknown) {
 
 log("Loading what the catalogue already holds");
 const existingWorks = await all("works", (a, b) =>
-  db.from("works").select("id, title, open_library_id, work_contributors ( position, authors ( name ) )").order("id").range(a, b),
+  db.from("works").select("id, title, subtitle, cover_url, open_library_id, work_contributors ( position, authors ( name ) )").order("id").range(a, b),
 );
 const existingAuthors = await all("authors", (a, b) => db.from("authors").select("id, name, open_library_id").order("id").range(a, b));
 const existingEditions = await all("editions", (a, b) =>
@@ -460,11 +596,13 @@ const { data: tagRows, error: tagError } = await db.from("tags").select("id, slu
 if (tagError) fail(`Couldn't read tags: ${JSON.stringify(tagError)}`);
 const tagId = new Map((tagRows ?? []).map((t) => [t.slug, t.id]));
 
-const workByOl = new Map<string, { id: string; hasAuthors: boolean }>();
+const workByOl = new Map<string, { id: string; hasAuthors: boolean; title: string; subtitle: string | null; coverUrl: string | null }>();
 // Held works by title, so each candidate is only compared (with sameBook) against same-titled ones.
 const worksByTitle = new Map<string, { id: string; olid: string | null; title: string; authors: string[] }[]>();
 for (const w of existingWorks) {
-  if (w.open_library_id) workByOl.set(w.open_library_id, { id: w.id, hasAuthors: w.work_contributors.length > 0 });
+  if (w.open_library_id) {
+    workByOl.set(w.open_library_id, { id: w.id, hasAuthors: w.work_contributors.length > 0, title: w.title, subtitle: w.subtitle, coverUrl: w.cover_url });
+  }
   const names = [...w.work_contributors].sort((x, y) => x.position - y.position).map((c) => c.authors.name);
   const key = titleKey(w.title);
   worksByTitle.set(key, [...(worksByTitle.get(key) ?? []), { id: w.id, olid: w.open_library_id, title: w.title, authors: names }]);
@@ -478,6 +616,22 @@ const takenEditions = new Set(existingEditions.map((e) => e.open_library_id).fil
 const toInsert: Work[] = [];
 const toRepair: { work: Work; id: string }[] = []; // imported before but interrupted before its authors were written
 const toLink: { id: string; olid: string }[] = []; // added by hand; just record the Open Library id
+// Imported earlier with Open Library's original title or cover. This covers every corrected candidate,
+// not just the selection: an English title can make a book a duplicate that selection now drops, but
+// the copy already in the catalogue should still be fixed. Each field is only changed while it still
+// holds exactly what Open Library had, so anything someone edited by hand is left alone.
+type Correction = { id: string; title?: string; subtitle?: null; cover_url?: string | null };
+const toCorrect = corrected.flatMap((w): Correction[] => {
+  const held = workByOl.get(w.olid);
+  if (!held) return [];
+  const fix: Correction = { id: held.id };
+  if (w.title !== w.originalTitle && held.title === w.originalTitle) {
+    fix.title = w.title;
+    if (held.subtitle !== null && held.subtitle === w.originalSubtitle) fix.subtitle = null;
+  }
+  if (w.coverId !== w.originalCoverId && held.coverUrl === coverUrl(w.originalCoverId)) fix.cover_url = coverUrl(w.coverId);
+  return Object.keys(fix).length > 1 ? [fix] : [];
+});
 let skipped = 0;
 for (const w of selected) {
   const byOl = workByOl.get(w.olid);
@@ -501,6 +655,20 @@ for (const { id, olid } of toLink) {
   const { error } = await db.from("works").update({ open_library_id: olid }).eq("id", id);
   check("works.open_library_id", error);
 }
+
+for (const { id, ...fields } of toCorrect) {
+  // A changed cover means the old tint no longer matches it.
+  const { error } = await db.from("works").update("cover_url" in fields ? { ...fields, cover_color: null } : fields).eq("id", id);
+  check("works", error);
+  if (fields.title) {
+    // The edition was stored with its English title because it differed from the work's; now it doesn't.
+    const { error: editionError } = await db.from("editions").update({ title: null }).eq("work_id", id).ilike("title", fields.title.replace(/[%_\\]/g, "\\$&"));
+    check("editions.title", editionError);
+  }
+}
+const retitledCount = toCorrect.filter((c) => c.title).length;
+const recoveredCount = toCorrect.filter((c) => "cover_url" in c).length;
+if (toCorrect.length) log(`Fixed books imported earlier: ${retitledCount.toLocaleString()} titles, ${recoveredCount.toLocaleString()} covers`);
 
 // Authors: reuse by Open Library id, then by exact name; create the rest.
 const authorUuid = new Map<number, string>();
@@ -599,4 +767,4 @@ for (const batch of chunks(toInsert, 500)) {
   log(`  works: ${written.toLocaleString()} / ${toInsert.length.toLocaleString()}`);
 }
 
-log(`Done. Added ${toInsert.length.toLocaleString()} books${toLink.length ? `, linked ${toLink.length} existing ones to Open Library` : ""}.`);
+log(`Done. Added ${toInsert.length.toLocaleString()} books${toCorrect.length ? `, fixed ${retitledCount} titles and ${recoveredCount} covers` : ""}${toLink.length ? `, linked ${toLink.length} existing ones to Open Library` : ""}.`);

@@ -6,7 +6,7 @@ import { useActionState, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { type AuthFormState, signUp } from "../actions";
 import { CheckYourInbox, Field, FormError, PasswordField, SubmitButton } from "../fields";
-import { setDraft } from "./draft-bookplate";
+import { setDraft } from "./draft-profile";
 
 /** "Margot Okafor" → "margot_okafor" (fits the username rules). */
 function suggestUsername(name: string) {
@@ -29,7 +29,7 @@ export function SignUpForm() {
   const [usernameEdited, setUsernameEdited] = useState(Boolean(state.values?.username));
   const [availability, setAvailability] = useState<Availability | null>(null);
 
-  // Keep the bookplate preview in step with the form.
+  // Keep the profile preview in step with the form.
   useEffect(() => setDraft({ displayName, username }), [displayName, username]);
 
   // Check the username a moment after the reader stops typing.

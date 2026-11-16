@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { createClient } from "@/lib/supabase/server";
@@ -29,6 +30,8 @@ export default function EditProfilePage() {
 }
 
 async function EditProfile() {
+  // Per request: Supabase's auth checks the session against the clock.
+  await connection();
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect("/sign-in?next=/settings/profile");

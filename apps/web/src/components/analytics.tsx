@@ -1,0 +1,73 @@
+"use client";
+
+import posthog from "posthog-js";
+import { useEffect } from "react";
+import { AnalyticsEvent, analyticsEnabled } from "@/lib/analytics";
+
+/**
+ * One document-level listener for every element tagged with `track(...)` from
+ * lib/analytics.ts, so server-rendered links can be tracked without becoming
+ * client components.
+ */
+export function TrackClicks() {
+  useEffect(() => {
+    if (!analyticsEnabled) return;
+    const onClick = (e: MouseEvent) => {
+      const el = (e.target as Element | null)?.closest<HTMLElement>("[data-track]");
+      const event = el?.dataset.track;
+      if (!el || !event) return;
+      const props: Record<string, string> = {};
+      for (const [key, value] of Object.entries(el.dataset)) {
+        // dataset turns data-track-mood-kind into trackMoodKind; send it as mood_kind.
+        if (key === "track" || !key.startsWith("track") || value === undefined) continue;
+        props[key.slice(5).replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`).replace(/^_/, "")] = value;
+      }
+      posthog.capture(event, props);
+    };
+    // Capture phase, so it still runs if a handler further down stops propagation.
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
+  return null;
+}
+
+/**
+ * Ties this browser to the signed-in reader (and forgets them on sign-out), so
+ * anonymous browsing before sign-in joins their profile.
+ */
+export function IdentifyReader({ userId, username }: { userId: string | null; username?: string }) {
+  useEffect(() => {
+    if (!analyticsEnabled) return;
+    if (userId) {
+      if (posthog.get_distinct_id() !== userId) posthog.identify(userId, { username });
+    } else if (posthog._isIdentified()) {
+      posthog.reset();
+    }
+  }, [userId, username]);
+  return null;
+}
+
+/**
+ * Records a search once the reader stops typing. Rendered with the results, so
+ * it covers every way in: the search page box, the home page form, and links.
+ */
+export function TrackSearch({ query, tags, books, authors, readers }: { query: string; tags: string[]; books: number; authors: number; readers: number }) {
+  const tagKey = tags.join(",");
+  useEffect(() => {
+    if (!analyticsEnabled) return;
+    // Results follow keystrokes; wait for a pause so "har", "harr", "harry" count once.
+    const timer = setTimeout(() => {
+      posthog.capture(AnalyticsEvent.SearchPerformed, {
+        query,
+        query_length: query.length,
+        tags: tagKey ? tagKey.split(",") : [],
+        book_results: books,
+        author_results: authors,
+        reader_results: readers,
+        no_results: books + authors + readers === 0,
+      });
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [query, tagKey, books, authors, readers]);
+  return null;
+}

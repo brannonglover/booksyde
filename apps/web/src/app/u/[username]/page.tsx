@@ -13,6 +13,7 @@ import { genreColor } from "@booksyde/theme";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { ArrangeableShelf } from "@/components/arrangeable-shelf";
 import { Avatar } from "@/components/avatar";
@@ -61,6 +62,8 @@ function plural(n: number, word: string) {
 }
 
 async function ProfileView({ params }: { params: Params }) {
+  // Per request: Supabase's auth checks the session against the clock.
+  await connection();
   const { username } = await params;
   const supabase = await createClient();
   const profile = await getProfileByUsername(supabase, decodeURIComponent(username).replace(/^@/, ""));
@@ -296,7 +299,7 @@ function ShelvesSection({ shelves, isOwn }: { shelves: Shelves; isOwn: boolean }
       {shelfOrder.map(({ key, title, empty }) => {
         const books = shelves.books[key];
         const heading = (
-          <h3 className="flex items-baseline gap-3 font-display text-3xl">
+          <h3 id={`shelf-${key}`} className="flex scroll-mt-24 items-baseline gap-3 font-display text-3xl">
             {title}
             <span className="font-sans text-sm text-muted">{books.length}</span>
           </h3>

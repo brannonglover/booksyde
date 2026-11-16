@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { AnalyticsEvent } from "@/lib/analytics";
+import { captureServerEvent } from "@/lib/analytics-server";
 import { FLASH_COOKIE, type FlashKind } from "@/lib/flash";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,6 +24,14 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // Password-reset links land here too; those aren't counted as sign-ins.
+      if (data.user && next !== "/update-password") {
+        captureServerEvent(
+          data.user.id,
+          isSignup ? AnalyticsEvent.SignedUp : AnalyticsEvent.SignedIn,
+          isSignup ? { method: "email_confirmation" } : { method: "email_link" },
+        );
+      }
       const response = NextResponse.redirect(new URL(next, origin));
       if (isSignup) {
         const name = String(data.user?.user_metadata?.display_name ?? "").trim().split(/\s+/)[0] ?? "";

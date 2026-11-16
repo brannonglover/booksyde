@@ -22,9 +22,17 @@ export type YearInBooks = {
 const ROW_LIMIT = 1000;
 
 /**
+ * Everyone's year stays empty until this many different readers have finished
+ * a book in it; with fewer, the "community" shelf is really one person's.
+ * Matches public.min_crowd() in the database.
+ */
+export const MIN_CROWD = 5;
+
+/**
  * Books finished this calendar year (UTC) and the pages in them, plus a spine
  * for each recent one. With a `userId`, that reader's year; without, everyone's
- * (only readers the viewer may see, per row-level security).
+ * (only readers the viewer may see, per row-level security), and empty until
+ * at least MIN_CROWD of them have finished something.
  */
 export async function getYearInBooks(
   client: BooksydeClient,
@@ -34,7 +42,7 @@ export async function getYearInBooks(
   let query = client
     .from("user_books")
     .select(
-      "finished_at, works ( id, title, editions ( page_count ), work_tags ( votes, tags ( slug, kind ) ) )",
+      "user_id, finished_at, works ( id, title, editions ( page_count ), work_tags ( votes, tags ( slug, kind ) ) )",
       { count: "exact" },
     )
     .eq("status", "read")
@@ -44,6 +52,10 @@ export async function getYearInBooks(
   if (userId) query = query.eq("user_id", userId);
   const { data, count, error } = await query;
   if (error) throw error;
+
+  if (!userId && new Set((data ?? []).map((row) => row.user_id)).size < MIN_CROWD) {
+    return { year, scope: "everyone", books: 0, pages: 0, spines: [] };
+  }
 
   const finished = (data ?? []).flatMap((row) => (row.works ? [row.works] : []));
   const spines: YearSpine[] = finished.map((w) => {
