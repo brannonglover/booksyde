@@ -31,3 +31,6 @@ supabase/.temp
 
 # Open Library dumps (multi-GB downloads)
 supabase/import/dumps/
+
+# local scratch copies of the web app (preview against a local db, import tests)
+apps/.web-*/
