@@ -21,6 +21,7 @@ import {
   searchReaders,
 } from "@booksyde/shared";
 import { cacheLife, cacheTag } from "next/cache";
+import { bestsellerAsFeatured, bestsellerOfTheDay } from "./bestsellers";
 import { supabaseKey, supabaseUrl } from "./supabase/env";
 
 /*
@@ -73,7 +74,20 @@ export async function getFeaturedBook(): Promise<FeaturedBook | null> {
   "use cache";
   cacheLife("hours");
   cacheTag("featured");
-  return getFeaturedBookFor(publicClient());
+  const client = publicClient();
+  return getFeaturedBookFor(client, {
+    // Before Booksyde has a crowd: a current bestseller, as its catalogue page when we have it.
+    beforeCrowd: async (day) => {
+      const pick = await bestsellerOfTheDay(day);
+      if (!pick) return null;
+      if (pick.isbn13) {
+        const { data } = await client.from("editions").select("work_id").eq("isbn_13", pick.isbn13).maybeSingle();
+        const work = data ? await getBook(data.work_id) : null;
+        if (work?.cover_url) return toFeatured(work);
+      }
+      return bestsellerAsFeatured(pick);
+    },
+  });
 }
 
 /** The most-shelved books, as candidates to try in the hero preview. */

@@ -25,6 +25,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "books.googleusercontent.com" },
       // Hand-picked covers where Open Library only has a poor photo.
       { protocol: "https", hostname: "m.media-amazon.com", pathname: "/images/**" },
+      // NYT Best Sellers covers, for the signed-out pick of the day (see src/lib/bestsellers.ts).
+      // NYT Best Sellers covers (static01 today; older lists used the Google bucket).
+      { protocol: "https", hostname: "static01.nyt.com", pathname: "/bestsellers/images/**" },
+      { protocol: "https", hostname: "storage.googleapis.com", pathname: "/du-prd/books/images/**" },
     ],
   },
   turbopack: {

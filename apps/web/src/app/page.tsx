@@ -124,27 +124,10 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Only once enough different readers have books open; until then it would be a few people's shelves. */}
-        <Suspense fallback={null}>
-          <Nightstand />
+        {/* The nightstand only shows once enough different readers have books open, and the numbering follows. */}
+        <Suspense fallback={<LaterSections nightstand={null} />}>
+          <LaterSectionsWithNightstand />
         </Suspense>
-
-        <YearInBooksSection numeral="III" />
-
-        <figure className="mx-auto max-w-2xl text-center">
-          <Ornament className="justify-center" />
-          <blockquote className="mt-6 font-display text-3xl italic leading-snug sm:text-4xl">
-            &ldquo;I declare after all there is no enjoyment like reading!&rdquo;
-          </blockquote>
-          <figcaption className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-            Jane Austen, <span className="normal-case italic tracking-normal">Pride and Prejudice</span>
-          </figcaption>
-        </figure>
-
-        <section id="join" className="flex flex-col gap-8">
-          <SectionHeading numeral="IV">A few things you&rsquo;ll love</SectionHeading>
-          <FeatureBento />
-        </section>
       </main>
 
       <SiteFooter />
@@ -275,13 +258,14 @@ async function FeaturedPick() {
 
   return (
     <figure className="mx-auto w-full max-w-sm">
-      {book.id ? (
-        <Link href={`/books/${book.id}`} className="group block" aria-label={`${book.title} by ${book.author}`}>
-          {art}
-        </Link>
-      ) : (
-        art
-      )}
+      {/* A pick that isn't in the catalogue yet goes to search, where it can be found and added. */}
+      <Link
+        href={book.id ? `/books/${book.id}` : `/search?q=${encodeURIComponent(`${book.title} ${book.author}`.trim())}`}
+        className="group block"
+        aria-label={`${book.title} by ${book.author}`}
+      >
+        {art}
+      </Link>
       <figcaption className="border-b border-border pb-3 text-sm">
         {reading && personal ? (
           <ReadingProgress
@@ -321,32 +305,60 @@ function FeaturedSkeleton() {
   );
 }
 
+type NightstandBooks = Awaited<ReturnType<typeof getNightstandBooks>>;
+
 /**
  * "On everyone's nightstand": the books the most readers have open right now.
  * Without enough readers, nightstand_works sends catalogue books with no
- * reader counts, and the whole section stays hidden.
+ * reader counts, and the section stays hidden.
  */
-async function Nightstand() {
+async function LaterSectionsWithNightstand() {
   const books = await getNightstandBooks(5).catch(() => []);
-  if (!books.some((b) => b.readers > 0)) return null;
+  return <LaterSections nightstand={books.some((b) => b.readers > 0) ? books : null} />;
+}
+
+/** Everything after the mood chips, numbered on from I. */
+function LaterSections({ nightstand }: { nightstand: NightstandBooks | null }) {
+  const [year, features] = nightstand ? ["III", "IV"] : ["II", "III"];
   return (
-    <section className="flex flex-col gap-8">
-      <SectionHeading
-        numeral="II"
-        aside={
-          <Link href="/search" className="shrink-0 text-sm font-semibold text-accent hover:underline">
-            See all →
-          </Link>
-        }
-      >
-        On everyone&rsquo;s nightstand
-      </SectionHeading>
-      <NightstandShelf books={books} />
-    </section>
+    <>
+      {nightstand ? (
+        <section className="flex flex-col gap-8">
+          <SectionHeading
+            numeral="II"
+            aside={
+              <Link href="/search" className="shrink-0 text-sm font-semibold text-accent hover:underline">
+                See all →
+              </Link>
+            }
+          >
+            On everyone&rsquo;s nightstand
+          </SectionHeading>
+          <NightstandShelf books={nightstand} />
+        </section>
+      ) : null}
+
+      <YearInBooksSection numeral={year} />
+
+      <figure className="mx-auto max-w-2xl text-center">
+        <Ornament className="justify-center" />
+        <blockquote className="mt-6 font-display text-3xl italic leading-snug sm:text-4xl">
+          &ldquo;I declare after all there is no enjoyment like reading!&rdquo;
+        </blockquote>
+        <figcaption className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+          Jane Austen, <span className="normal-case italic tracking-normal">Pride and Prejudice</span>
+        </figcaption>
+      </figure>
+
+      <section id="join" className="flex flex-col gap-8">
+        <SectionHeading numeral={features}>A few things you&rsquo;ll love</SectionHeading>
+        <FeatureBento />
+      </section>
+    </>
   );
 }
 
-function NightstandShelf({ books }: { books: Awaited<ReturnType<typeof getNightstandBooks>> }) {
+function NightstandShelf({ books }: { books: NightstandBooks }) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
       {books.map((book) => (

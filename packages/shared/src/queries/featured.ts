@@ -31,10 +31,11 @@ const FEATURED_POOL = 30;
 const olCover = (id: number) => `https://covers.openlibrary.org/b/id/${id}-L.jpg`;
 
 /**
- * Public-domain classics the pick of the day rotates through until enough
- * readers are shelving books. Built in rather than looked up, because a young
- * catalogue is mostly whatever its first readers imported. No `id`: they may
- * not be in the catalogue, so the home page links them to a search instead.
+ * Public-domain classics the pick of the day falls back on before there's a
+ * crowd, when no other pick (e.g. a bestseller) is to hand. Built in rather
+ * than looked up, because a young catalogue is mostly whatever its first
+ * readers imported. No `id`: they may not be in the catalogue, so the home
+ * page links them to a search instead.
  */
 export const CLASSIC_PICKS: FeaturedBook[] = [
   { title: "Pride and Prejudice", author: "Jane Austen", year: 1813, coverId: 14348537, color: "#C2416B" },
@@ -54,16 +55,23 @@ export const CLASSIC_PICKS: FeaturedBook[] = [
 }));
 
 /**
- * The home page's pick of the day, a different one each day: one of the
- * most-shelved books with a cover once enough different readers are shelving
- * (see has_crowd), and one of CLASSIC_PICKS before then, so a handful of
- * readers' shelves don't show through. Null when the catalogue is empty.
+ * The home page's pick of the day, a different one each day. Once enough
+ * different readers are shelving books (see has_crowd), one of the
+ * most-shelved books with a cover. Before then, so a handful of readers'
+ * shelves don't show through, whatever `beforeCrowd` picks (the web app uses
+ * the bestseller list), or one of CLASSIC_PICKS. Null when the catalogue is empty.
  */
-export async function getFeaturedBook(client: BooksydeClient): Promise<FeaturedBook | null> {
+export async function getFeaturedBook(
+  client: BooksydeClient,
+  { beforeCrowd }: { beforeCrowd?: (day: number) => Promise<FeaturedBook | null> } = {},
+): Promise<FeaturedBook | null> {
   const day = Math.floor(Date.now() / 86_400_000);
   // An error (e.g. the crowd migration hasn't run) counts as no crowd.
   const { data: crowd } = await client.rpc("has_crowd");
-  if (!crowd) return CLASSIC_PICKS[day % CLASSIC_PICKS.length];
+  if (!crowd) {
+    const pick = beforeCrowd ? await beforeCrowd(day).catch(() => null) : null;
+    return pick ?? CLASSIC_PICKS[day % CLASSIC_PICKS.length];
+  }
 
   const { data, error } = await client.rpc("featured_pool", { max_results: FEATURED_POOL });
   if (error) throw error;
