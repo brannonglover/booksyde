@@ -4,6 +4,8 @@ import { follow, type FollowState, unfollow } from "@booksyde/shared";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { captureEvent } from "@/components/analytics";
+import { AnalyticsEvent } from "@/lib/analytics";
 import { createClient } from "@/lib/supabase/client";
 
 const labels: Record<Exclude<FollowState, "self" | "signed-out">, { idle: string; hover?: string }> = {
@@ -38,6 +40,7 @@ export function FollowButton({ userId, initial, isPrivate }: { userId: string; i
       try {
         if (state === "none") {
           await follow(client, userId);
+          captureEvent(AnalyticsEvent.ReaderFollowed, { requested: isPrivate });
           setState(isPrivate ? "pending" : "following");
         } else {
           await unfollow(client, userId);

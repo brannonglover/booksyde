@@ -2,7 +2,12 @@
 
 import posthog from "posthog-js";
 import { useEffect } from "react";
-import { AnalyticsEvent, analyticsEnabled } from "@/lib/analytics";
+import { AnalyticsEvent, type AnalyticsEventName, analyticsEnabled } from "@/lib/analytics";
+
+/** Records an event from a client component (no-op without a PostHog key). */
+export function captureEvent(event: AnalyticsEventName, properties: Record<string, unknown> = {}) {
+  if (analyticsEnabled) posthog.capture(event, properties);
+}
 
 /**
  * One document-level listener for every element tagged with `track(...)` from

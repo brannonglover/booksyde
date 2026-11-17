@@ -3,6 +3,8 @@
 import { goodreadsBatchSchema } from "@booksyde/shared";
 import type { Json } from "@booksyde/types";
 import { revalidateTag } from "next/cache";
+import { AnalyticsEvent } from "@/lib/analytics";
+import { captureServerEvent } from "@/lib/analytics-server";
 import { resolveGoodreadsBook } from "@/lib/goodreads-import";
 import { canImportBooks } from "@/lib/open-library-import";
 import { createClient } from "@/lib/supabase/server";
@@ -86,6 +88,17 @@ export async function importGoodreadsBatch(input: unknown): Promise<BatchResult>
   revalidateTag("catalog-drawers", "max");
   revalidateTag("nightstand", "max");
   for (const m of matched) if (m.item.rating || m.item.review) revalidateTag(`work:${m.item.work_id}`, "max");
+
+  const count = (outcome: RowOutcome) => rows.filter((r) => r.outcome === outcome).length;
+  captureServerEvent(auth.user.id, AnalyticsEvent.GoodreadsBatchImported, {
+    books: books.length,
+    added: count("added"),
+    updated: count("updated"),
+    unchanged: count("unchanged"),
+    not_found: count("not_found"),
+    errors: count("error"),
+    include_reviews: includeReviews,
+  });
 
   return { ok: true, rows };
 }

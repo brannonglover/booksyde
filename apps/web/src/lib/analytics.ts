@@ -21,6 +21,15 @@ export const AnalyticsEvent = {
   MoodChipClicked: "mood_chip_clicked",
   /** A search the reader settled on (not every keystroke). */
   SearchPerformed: "search_performed",
+  /** A book put on a shelf, or moved between shelves (want to read → reading → read). */
+  BookShelved: "book_shelved",
+  BookUnshelved: "book_unshelved",
+  /** Following a reader (a request, for a private profile). */
+  ReaderFollowed: "reader_followed",
+  /** Server-side, once a new club exists. */
+  ClubCreated: "club_created",
+  /** Server-side, per batch of a Goodreads import (a big library arrives in several). */
+  GoodreadsBatchImported: "goodreads_batch_imported",
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];

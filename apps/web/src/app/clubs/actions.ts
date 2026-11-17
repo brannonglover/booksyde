@@ -2,6 +2,8 @@
 
 import { clubInputSchema, createClub, fieldErrors } from "@booksyde/shared";
 import { redirect } from "next/navigation";
+import { AnalyticsEvent } from "@/lib/analytics";
+import { captureServerEvent } from "@/lib/analytics-server";
 import { createClient } from "@/lib/supabase/server";
 
 export type ClubFormState = {
@@ -28,5 +30,6 @@ export async function startClub(_prev: ClubFormState, form: FormData): Promise<C
   } catch {
     return { error: "We couldn’t start your club. Please try again." };
   }
+  captureServerEvent(auth.user.id, AnalyticsEvent.ClubCreated, { is_private: parsed.data.is_private, slug });
   redirect(`/clubs/${slug}`);
 }

@@ -5,6 +5,8 @@ import type { ReadingStatus } from "@booksyde/types";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { captureEvent } from "@/components/analytics";
+import { AnalyticsEvent } from "@/lib/analytics";
 import { createClient } from "@/lib/supabase/client";
 
 const statuses: ReadingStatus[] = ["want_to_read", "reading", "read", "did_not_finish"];
@@ -45,6 +47,10 @@ export function ShelfButton({ workId }: { workId: string }) {
       const client = createClient();
       if (next) await setReadingStatus(client, workId, next);
       else await removeFromShelves(client, workId);
+      if (next !== status) {
+        if (next) captureEvent(AnalyticsEvent.BookShelved, { status: next, previous_status: status, work_id: workId });
+        else captureEvent(AnalyticsEvent.BookUnshelved, { previous_status: status, work_id: workId });
+      }
       setStatus(next);
     } catch (e) {
       setNote(e instanceof Error && /signed in/i.test(e.message) ? "signed-out" : "error");
