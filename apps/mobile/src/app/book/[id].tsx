@@ -1,4 +1,5 @@
 import {
+  bookSeries,
   bookVibe,
   formatRating,
   getMoreLikeThis,
@@ -9,6 +10,7 @@ import {
   getWorkReviews,
   ratingVerdict,
   READING_STATUS_LABELS,
+  seriesEntry,
   setReadingStatus,
 } from '@booksyde/shared';
 import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
@@ -146,6 +148,7 @@ function BookDetail({ data }: { data: BookData }) {
   const paragraphs = (work.description ?? '').split(/\n{2,}/).filter(Boolean);
   const lovedPct = Math.round(verdict.lovedShare * 100);
   const headerHeight = useHeaderHeight();
+  const series = bookSeries(work);
 
   return (
     <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.scroll}>
@@ -164,6 +167,22 @@ function BookDetail({ data }: { data: BookData }) {
         ) : null}
         <Text style={[styles.title, { color: theme.text }]}>{work.title}</Text>
         {work.subtitle ? <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{work.subtitle}</Text> : null}
+        {series ? (
+          <View style={[styles.seriesTag, { borderColor: theme.border, backgroundColor: theme.background }]}>
+            <Text style={{ color: theme.accent }}>❧</Text>
+            <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flexShrink: 1 }}>
+              {series.position != null ? (
+                <>
+                  <Text style={{ fontWeight: '700' }}>Book {series.position}</Text> of {series.name}
+                </>
+              ) : (
+                <>
+                  Part of <Text style={{ fontWeight: '700' }}>{series.name}</Text>
+                </>
+              )}
+            </Text>
+          </View>
+        ) : null}
         <Ornament />
         <Text style={[styles.byline, { color: theme.text }]}>by {authorNames}</Text>
         {work.first_published_year ? (
@@ -309,6 +328,7 @@ function BookDetail({ data }: { data: BookData }) {
           rows={[
             ['AUTHOR', catalogueName(authorNames)],
             ['TITLE', work.title],
+            ['SERIES', series ? seriesEntry(series) : null],
             ['FIRST PRINTED', work.first_published_year?.toString()],
             ['LANGUAGE', work.original_language ? languageNames.of(work.original_language) : null],
             ['PAGES', main?.page_count ? String(main.page_count) : null],
@@ -563,6 +583,16 @@ const styles = StyleSheet.create({
   title: { fontFamily: DisplayFonts.regular, fontSize: 52, lineHeight: 60, textAlign: 'center' },
   subtitle: { fontFamily: DisplayFonts.italic, fontSize: 22, textAlign: 'center', marginTop: -spacing[2] },
   byline: { fontFamily: DisplayFonts.italic, fontSize: 26 },
+  seriesTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    maxWidth: '100%',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing[3] + 2,
+    paddingVertical: spacing[1] + 2,
+  },
   statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[2] },
   avg: { fontFamily: DisplayFonts.regular, fontSize: 22 },
   shelfButtonWrap: { alignSelf: 'stretch', maxWidth: 320, width: '100%', marginHorizontal: 'auto', gap: spacing[2], marginTop: spacing[3] },

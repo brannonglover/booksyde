@@ -9,7 +9,7 @@ export async function searchWorks(client: BooksydeClient, query: string, limit =
   return data ?? [];
 }
 
-/** A work with its authors, editions and top community tags. */
+/** A work with its authors, editions, top community tags and series. */
 export async function getWork(client: BooksydeClient, workId: string) {
   const { data, error } = await client
     .from("works")
@@ -17,7 +17,8 @@ export async function getWork(client: BooksydeClient, workId: string) {
       `*,
        work_contributors ( role, position, authors ( id, name, photo_url, bio, birth_date, death_date ) ),
        editions ( id, isbn_13, format, publisher, published_date, page_count, cover_url ),
-       work_tags ( votes, tags ( slug, name, kind ) )`,
+       work_tags ( votes, tags ( slug, name, kind ) ),
+       series_works ( position, series ( id, name ) )`,
     )
     .eq("id", workId)
     .maybeSingle();

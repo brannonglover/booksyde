@@ -363,14 +363,14 @@ isOneToOne: false
                   ]
                 },"series": {
                   Row: {
-                    "created_at": string,"description": string | null,"id": string,"name": string
+                    "created_at": string,"description": string | null,"id": string,"name": string,"open_library_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"description"?: string | null,"id"?: string,"name": string
+                    "created_at"?: string,"description"?: string | null,"id"?: string,"name": string,"open_library_id"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"description"?: string | null,"id"?: string,"name"?: string
+                    "created_at"?: string,"description"?: string | null,"id"?: string,"name"?: string,"open_library_id"?: string | null
                   }
                   Relationships: [
                     

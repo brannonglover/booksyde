@@ -96,7 +96,10 @@ tens of MB. Check the free tier's 500 MB limit before going above about 100k.
   view) or in a slow background job for the most popular books. Don't bulk-fetch from `covers.openlibrary.org`;
   Open Library asks people not to.
 - `works.embedding` for `similar_works()`: generate it from description + tags after importing.
-- Series, translators and other non-author contributors aren't imported.
+- Series aren't in the dumps. After an import, run `npm run series:backfill` (dry run) and then
+  `npm run series:backfill -- --apply` to file books under their series from Open Library's search API.
+  Books added from search get their series as they're added.
+- Translators and other non-author contributors aren't imported.
 - Author names come from Open Library's author record as-is, so some are in the original script or a
   non-English spelling (太宰 治 rather than Osamu Dazai, Fiódor Dostoievski).
 - `first_published_year` is the earliest year on any edition, so one misdated edition makes it too early.

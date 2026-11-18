@@ -24,7 +24,8 @@ export async function searchCatalog(client: BooksydeClient, { q = "", tags = [],
     .select(
       `id, title, subtitle, description, first_published_year, cover_url, cover_color, avg_rating, ratings_count, shelved_count,
        work_contributors ( role, position, authors ( id, name, birth_date, death_date ) ),
-       work_tags ( votes, tags ( slug, name, kind ) )`,
+       work_tags ( votes, tags ( slug, name, kind ) ),
+       series_works ( position, series ( id, name ) )`,
     );
   if (error) throw error;
   return data ?? [];

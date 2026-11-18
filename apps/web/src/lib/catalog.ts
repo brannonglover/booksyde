@@ -9,6 +9,7 @@ import {
   getMoreLikeThis,
   getNightstand,
   getRatingDistribution,
+  getSeriesShelf,
   getShelfCounts,
   getWork,
   getWiderStacksPicks as getWiderStacksPicksFor,
@@ -43,6 +44,15 @@ export async function getBook(id: string) {
   cacheTag(`work:${id}`);
   if (!UUID.test(id)) return null;
   return getWork(publicClient(), id);
+}
+
+/** The books in a series that we hold, in reading order. Adding a book to the catalogue can add to it. */
+export async function getSeriesBooks(seriesId: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(`series:${seriesId}`, "catalog-search");
+  if (!UUID.test(seriesId)) return [];
+  return getSeriesShelf(publicClient(), seriesId);
 }
 
 /** Ratings, reviews and shelf counts change more often than the book itself. */

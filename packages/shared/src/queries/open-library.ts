@@ -8,7 +8,8 @@ import { isValidIsbn13, isbn10To13, normalizeIsbn } from "../utils/isbn";
  */
 
 const API = "https://openlibrary.org";
-const FIELDS = "key,title,subtitle,author_name,author_key,first_publish_year,cover_i,isbn,number_of_pages_median,subject,edition_count";
+const FIELDS =
+  "key,title,subtitle,author_name,author_key,first_publish_year,cover_i,isbn,number_of_pages_median,subject,edition_count,series_key,series_name,series_position";
 
 export type OpenLibraryBook = {
   /** Work id, e.g. "OL38495W". */
@@ -25,6 +26,16 @@ export type OpenLibraryBook = {
   editionCount: number;
   pages: number | null;
   subjects: string[];
+  /** The series the book belongs to, if Open Library files it in one. */
+  series: OpenLibrarySeries | null;
+};
+
+export type OpenLibrarySeries = {
+  /** Series id, e.g. "OL327572L". */
+  olid: string;
+  name: string;
+  /** Its number in the series (2.5 for a novella between 2 and 3); null for an omnibus ("1-4") or unknown. */
+  position: number | null;
 };
 
 type SearchDoc = {
@@ -39,9 +50,27 @@ type SearchDoc = {
   number_of_pages_median?: number;
   subject?: string[];
   edition_count?: number;
+  series_key?: string[];
+  series_name?: string[];
+  series_position?: string[];
 };
 
 export const OPEN_LIBRARY_WORK_ID = /^OL\d{1,12}W$/;
+export const OPEN_LIBRARY_SERIES_ID = /^OL\d{1,12}L$/;
+
+/**
+ * The first series Open Library files a work under. Positions are free text:
+ * a plain number ("3", "2.5") is kept, anything else ("1-4" for a box set) isn't.
+ */
+function firstSeries(doc: Pick<SearchDoc, "series_key" | "series_name" | "series_position">): OpenLibrarySeries | null {
+  const olid = doc.series_key?.[0];
+  const name = doc.series_name?.[0]?.trim();
+  if (!olid || !name || !OPEN_LIBRARY_SERIES_ID.test(olid)) return null;
+  const raw = doc.series_position?.[0]?.trim() ?? "";
+  const position = /^\d{1,3}(\.\d{1,2})?$/.test(raw) ? Number(raw) : null;
+  return { olid, name, position: position && position > 0 ? position : null };
+}
+
 
 function firstIsbn13(isbns: string[] = []) {
   for (const raw of isbns) {
@@ -81,6 +110,7 @@ function toBook(doc: SearchDoc): OpenLibraryBook | null {
     editionCount: doc.edition_count ?? 0,
     pages: doc.number_of_pages_median ?? null,
     subjects: (doc.subject ?? []).slice(0, 40),
+    series: firstSeries(doc),
   };
 }
 
@@ -375,4 +405,30 @@ export async function browseOpenLibrary(
   ];
   const books = await search({ q: terms.join(" "), sort: "readinglog", limit: String(limit) }, init);
   return books.filter((b) => !BUNDLE.test(b.title));
+}
+
+/**
+ * The series Open Library files each of these works under, by work id (works
+ * in no series are left out). Asks in batches of 100, so a whole catalogue
+ * is a handful of requests. Throws if Open Library can't be read.
+ */
+export async function getOpenLibrarySeries(olids: string[], init?: RequestInit) {
+  const found = new Map<string, OpenLibrarySeries>();
+  const ids = [...new Set(olids)].filter((id) => OPEN_LIBRARY_WORK_ID.test(id));
+  for (let i = 0; i < ids.length; i += 100) {
+    const batch = ids.slice(i, i + 100);
+    const params = new URLSearchParams({
+      q: `key:(${batch.map((id) => `/works/${id}`).join(" OR ")})`,
+      fields: "key,series_key,series_name,series_position",
+      limit: String(batch.length),
+    });
+    const res = await fetch(`${API}/search.json?${params}`, init);
+    if (!res.ok) throw new Error(`Open Library search failed (${res.status})`);
+    const { docs = [] } = (await res.json()) as { docs?: SearchDoc[] };
+    for (const doc of docs) {
+      const series = firstSeries(doc);
+      if (series) found.set(doc.key.replace("/works/", ""), series);
+    }
+  }
+  return found;
 }

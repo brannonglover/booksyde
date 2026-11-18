@@ -1,4 +1,13 @@
-import { type BookLike, type CatalogBook, compactCount, formatRating, heldAlready, lifeYears } from "@booksyde/shared";
+import {
+  type BookLike,
+  bookSeries,
+  type CatalogBook,
+  compactCount,
+  formatRating,
+  heldAlready,
+  lifeYears,
+  seriesLabel,
+} from "@booksyde/shared";
 import { genreColor, palette } from "@booksyde/theme";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -6,6 +15,7 @@ import { Suspense } from "react";
 import { TrackSearch } from "@/components/analytics";
 import { Avatar } from "@/components/avatar";
 import { BookCover } from "@/components/book-cover";
+import { SeriesLine } from "@/components/series-line";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { AnalyticsEvent, track } from "@/lib/analytics";
 import { getDrawers, parseSearch, searchEverything, searchWiderStacks } from "@/lib/catalog";
@@ -290,6 +300,7 @@ function CatalogueCard({ book }: { book: CatalogBook }) {
     .slice(0, 3)
     .map((t) => t.tags);
   const tint = book.cover_color ?? (subjects[0] ? genreColor(subjects[0].slug).dot : null) ?? palette.gilt;
+  const series = bookSeries(book);
 
   return (
     <Link
@@ -322,6 +333,7 @@ function CatalogueCard({ book }: { book: CatalogBook }) {
           <span className="text-muted">by </span>
           <span className="font-medium">{byline}</span>
         </p>
+        {series ? <SeriesLine label={seriesLabel(series)} /> : null}
 
         <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-4">
           {book.ratings_count > 0 ? (

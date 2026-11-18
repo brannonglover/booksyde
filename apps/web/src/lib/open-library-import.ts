@@ -3,9 +3,11 @@ import "server-only";
 import {
   type BookLike,
   createBooksydeClient,
+  fileInSeries,
   getOpenLibraryAuthor,
   getOpenLibraryBook,
   OPEN_LIBRARY_WORK_ID,
+  type OpenLibrarySeries,
   openLibraryTags,
   sameBook,
   titleKey,
@@ -86,6 +88,7 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
   const match = await findCatalogueMatch({ title: book.title, authors: book.authors.map((a) => a.name), isbns: book.isbns });
   if (match) {
     if (!match.open_library_id) await db.from("works").update({ open_library_id: olid }).eq("id", match.id);
+    await fileSeries(db, match.id, book.series, { onlyIfUnfiled: true });
     return match.id;
   }
 
@@ -166,5 +169,29 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
     if (tags?.length) await db.from("work_tags").insert(tags.map((t) => ({ work_id: work.id, tag_id: t.id, votes: 1 })));
   }
 
+  await fileSeries(db, work.id, book.series);
+
   return work.id;
+}
+
+/**
+ * Files the work under its Open Library series. Never fails the import: the
+ * book is on the shelf either way, and the series backfill can catch up later.
+ */
+async function fileSeries(
+  db: ReturnType<typeof adminClient>,
+  workId: string,
+  series: OpenLibrarySeries | null,
+  { onlyIfUnfiled = false } = {},
+) {
+  if (!series) return;
+  try {
+    if (onlyIfUnfiled) {
+      const { count } = await db.from("series_works").select("work_id", { count: "exact", head: true }).eq("work_id", workId);
+      if (count) return;
+    }
+    await fileInSeries(db, workId, series);
+  } catch (e) {
+    console.error("Couldn't file the book under its series", workId, series, e);
+  }
 }

@@ -1,4 +1,4 @@
-import type { OpenLibraryBook } from '@booksyde/shared';
+import { type OpenLibraryBook, seriesEntry } from '@booksyde/shared';
 import { palette, radii, spacing } from '@booksyde/theme';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -44,6 +44,7 @@ export function RequestSlip({ book, tilt = '0deg' }: { book: OpenLibraryBook & {
   const fields: [string, string | number | null][] = [
     ['Title', book.subtitle ? `${book.title}: ${book.subtitle}` : book.title],
     ['Author', byline],
+    ['Series', book.series ? seriesEntry(book.series) : null],
     ['Year', book.year],
   ];
   const body = (

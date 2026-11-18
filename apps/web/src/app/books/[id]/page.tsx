@@ -1,4 +1,4 @@
-import { bookVibe, compactCount, formatRating, ratingVerdict } from "@booksyde/shared";
+import { type BookSeries, bookSeries, bookVibe, compactCount, formatRating, ratingVerdict, seriesEntry, seriesLabel } from "@booksyde/shared";
 import { genreColor } from "@booksyde/theme";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -12,7 +12,7 @@ import { ReviewBody } from "@/components/review-body";
 import { ShelfButton } from "@/components/shelf-button";
 import { Ornament, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { Stars } from "@/components/stars";
-import { getBook, getBookCommunity, getSimilarBooks } from "@/lib/catalog";
+import { getBook, getBookCommunity, getSeriesBooks, getSimilarBooks } from "@/lib/catalog";
 
 /*
  * A book page laid out like a book: a title page, then chapters —
@@ -115,6 +115,7 @@ async function BookDetail({ params }: { params: Params }) {
   const paragraphs = (book.description ?? "").split(/\n{2,}/).filter(Boolean);
   const tint = book.cover_color ?? "var(--bk-green)";
   const avg = Number(book.avg_rating);
+  const series = bookSeries(book);
 
   return (
     <main className="flex flex-1 flex-col">
@@ -156,6 +157,7 @@ async function BookDetail({ params }: { params: Params }) {
                 {book.title}
               </h1>
               {book.subtitle ? <p className="mt-2 font-display text-xl italic text-muted">{book.subtitle}</p> : null}
+              {series ? <SeriesTag series={series} /> : null}
               <p className="mt-5 font-display text-2xl italic">
                 by {authorNames}
                 {book.first_published_year ? (
@@ -308,7 +310,7 @@ async function BookDetail({ params }: { params: Params }) {
         <section className="flex flex-col gap-10">
           <ChapterHeading kicker="Chapter three" title="The catalogue card" />
           <div className="grid items-start gap-8 lg:grid-cols-[1.5fr_1fr]">
-            <CatalogueCard book={book} authorNames={authorNames} main={main} editions={editions} />
+            <CatalogueCard book={book} authorNames={authorNames} main={main} editions={editions} series={series} />
             {authors.map((a) => (
               <figure
                 key={a.id}
@@ -338,6 +340,12 @@ async function BookDetail({ params }: { params: Params }) {
             ))}
           </div>
         </section>
+
+        {series ? (
+          <Suspense fallback={null}>
+            <SeriesInOrder series={series} currentId={book.id} />
+          </Suspense>
+        ) : null}
 
         <Suspense fallback={null}>
           <ShelvedNearby id={book.id} />
@@ -423,20 +431,48 @@ async function MarginNote({ id }: { id: string }) {
   );
 }
 
+/** Under the title: which series this is and where it falls, linking down to the series in order. */
+function SeriesTag({ series }: { series: BookSeries }) {
+  return (
+    <a
+      href="#series"
+      className="mt-4 inline-flex max-w-full items-center gap-2 rounded-full border border-border bg-surface/70 px-3.5 py-1.5 text-sm transition hover:border-text/30"
+    >
+      <span aria-hidden className="text-accent">
+        ❧
+      </span>
+      <span className="truncate">
+        {series.position != null ? (
+          <>
+            <span className="font-semibold">Book {series.position}</span> of {series.name}
+          </>
+        ) : (
+          <>
+            Part of <span className="font-semibold">{series.name}</span>
+          </>
+        )}
+      </span>
+    </a>
+  );
+}
+
 function CatalogueCard({
   book,
   authorNames,
   main,
   editions,
+  series,
 }: {
   book: Book;
   authorNames: string;
   main: Book["editions"][number] | undefined;
   editions: Book["editions"];
+  series: BookSeries | null;
 }) {
   const rows: [string, string | null | undefined][] = [
     ["Author", catalogueName(authorNames)],
     ["Title", book.title],
+    ["Series", series ? seriesEntry(series) : null],
     ["First printed", book.first_published_year?.toString()],
     ["Language", book.original_language ? languageNames.of(book.original_language) : null],
     ["Pages", main?.page_count ? String(main.page_count) : null],
@@ -614,6 +650,76 @@ async function Marginalia({ id, avg }: { id: string; avg: number }) {
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * The books of the series we hold, in reading order, with this one marked.
+ * With nothing else of the series on file it just says where this one falls.
+ */
+async function SeriesInOrder({ series, currentId }: { series: BookSeries; currentId: string }) {
+  const books = await getSeriesBooks(series.id);
+  const others = books.filter((b) => b.id !== currentId);
+  const numbered = books.filter((b) => b.position != null);
+  // Book 1 isn't on file yet: say so, rather than let the shelf suggest it starts here.
+  const startsLater = series.position != null && series.position > 1 && !numbered.some((b) => b.position! <= 1);
+
+  return (
+    <section id="series" className="flex scroll-mt-8 flex-col gap-10">
+      <ChapterHeading kicker="Read in order" title={series.name} />
+      {others.length === 0 ? (
+        <p className="mx-auto max-w-xl text-center text-lg text-muted">
+          {seriesLabel(series)}. The rest of the series isn&rsquo;t on Booksyde yet —{" "}
+          <Link href={`/search?q=${encodeURIComponent(series.name)}`} className="text-text underline decoration-border underline-offset-4 hover:decoration-accent">
+            look for it in the wider stacks
+          </Link>
+          .
+        </p>
+      ) : (
+        <div>
+          <ol className="mx-auto flex w-fit max-w-full snap-x gap-5 overflow-x-auto px-3 pb-1 pt-3 [scrollbar-width:thin] sm:gap-7">
+            {books.map((b) => {
+              const here = b.id === currentId;
+              const author = [...b.work_contributors]
+                .filter((c) => c.role === "author")
+                .sort((x, y) => x.position - y.position)[0]?.authors?.name ?? "";
+              const card = (
+                <>
+                  <span className={`block rounded-[4px] ${here ? "outline-2 outline-offset-4 outline-accent" : ""}`}>
+                    <BookCover title={b.title} author={author} src={b.cover_url} color={b.cover_color} sizes="144px" />
+                  </span>
+                  <span className={`mt-4 block text-xs font-semibold uppercase tracking-[0.2em] ${here ? "text-accent" : "text-muted"}`}>
+                    {b.position != null ? `Book ${b.position}` : "In the series"}
+                    {here ? <span className="sr-only"> (this book)</span> : null}
+                  </span>
+                  <span className="mt-1 block font-display text-lg leading-tight">{b.title}</span>
+                </>
+              );
+              return (
+                <li key={b.id} className="w-28 shrink-0 snap-start text-center sm:w-36" aria-current={here ? "true" : undefined}>
+                  {here ? (
+                    <div>{card}</div>
+                  ) : (
+                    <Link href={`/books/${b.id}`} className="group block transition duration-300 hover:-translate-y-1.5 hover:text-accent">
+                      {card}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+          {startsLater ? (
+            <p className="mt-6 text-center text-sm text-muted">
+              Book 1 isn&rsquo;t on Booksyde yet —{" "}
+              <Link href={`/search?q=${encodeURIComponent(series.name)}`} className="text-text underline decoration-border underline-offset-4 hover:decoration-accent">
+                find it in the wider stacks
+              </Link>
+              .
+            </p>
+          ) : null}
+        </div>
+      )}
+    </section>
   );
 }
 

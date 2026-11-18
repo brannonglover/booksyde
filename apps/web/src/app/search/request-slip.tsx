@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { seriesLabel } from "@booksyde/shared";
 import { BookCover } from "@/components/book-cover";
+import { SeriesLine } from "@/components/series-line";
 import type { WiderStacksBook } from "@/lib/catalog";
 import { addToCatalogue, type ImportState } from "./actions";
 
@@ -65,6 +67,7 @@ export function RequestSlip({ book }: { book: WiderStacksBook }) {
         <span className="text-muted">by </span>
         <span className="font-medium">{byline}</span>
       </p>
+      {book.series ? <SeriesLine label={seriesLabel(book.series)} /> : null}
     </>
   );
 

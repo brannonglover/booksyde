@@ -1,5 +1,6 @@
 import {
   type BookLike,
+  bookSeries,
   type CatalogBook,
   callNumber,
   catalogName,
@@ -12,6 +13,7 @@ import {
   searchCatalog,
   searchOpenLibrary,
   searchReaders,
+  seriesLabel,
 } from '@booksyde/shared';
 import { genreColor, palette, radii, spacing } from '@booksyde/theme';
 import { Link, useLocalSearchParams } from 'expo-router';
@@ -379,6 +381,7 @@ function CatalogueCard({ book, tilt }: { book: CatalogBook; tilt: string }) {
     .sort((a, b) => b.votes - a.votes)
     .slice(0, 4)
     .map((t) => t.tags);
+  const series = bookSeries(book);
 
   return (
     <Link href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
@@ -398,6 +401,9 @@ function CatalogueCard({ book, tilt }: { book: CatalogBook; tilt: string }) {
             <Text style={[styles.mono, { color: c.ink }]}>
               / by {byline}.{book.first_published_year ? ` — First published ${book.first_published_year}.` : ''}
             </Text>
+            {series ? (
+              <Text style={[styles.mono, { color: theme.accent, fontWeight: '600' }]}>— {seriesLabel(series)}.</Text>
+            ) : null}
             {book.ratings_count > 0 ? (
               <View style={styles.ratingRow}>
                 <Stars rating={Number(book.avg_rating)} size={12} />
