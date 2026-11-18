@@ -14,20 +14,31 @@ export function SearchBox({ autoFocus = false }: { autoFocus?: boolean }) {
   const urlQ = params.get("q") ?? "";
   const tags = params.get("tags") ?? "";
 
-  // Follow the URL when it changes from outside (a suggestion link, back button).
   const [value, setValue] = useState(urlQ);
+  // Queries this box has sent to the URL that may not have landed yet. When the
+  // URL catches up to one of them it's our own echo, and the reader has likely
+  // typed on since (or left a trailing space we trimmed), so leave the input be.
+  const [sent, setSent] = useState<string[]>([]);
+  // Follow the URL only when it changes from outside (a suggestion link, back button).
   const [seenUrlQ, setSeenUrlQ] = useState(urlQ);
   if (urlQ !== seenUrlQ) {
     setSeenUrlQ(urlQ);
-    setValue(urlQ);
+    if (sent.includes(urlQ)) {
+      if (urlQ === sent[sent.length - 1]) setSent([urlQ]);
+    } else {
+      setSent([]);
+      setValue(urlQ);
+    }
   }
 
   const [pending, startTransition] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function go(q: string) {
+  function go(raw: string) {
+    const q = raw.trim();
+    setSent((s) => [...s, q]);
     const next = new URLSearchParams();
-    if (q.trim()) next.set("q", q.trim());
+    if (q) next.set("q", q);
     if (tags) next.set("tags", tags);
     const qs = next.toString();
     startTransition(() => router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }));
