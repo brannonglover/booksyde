@@ -9,7 +9,7 @@ import { isValidIsbn13, isbn10To13, normalizeIsbn } from "../utils/isbn";
 
 const API = "https://openlibrary.org";
 const FIELDS =
-  "key,title,subtitle,author_name,author_key,first_publish_year,cover_i,isbn,number_of_pages_median,subject,edition_count,series_key,series_name,series_position";
+  "key,title,subtitle,author_name,author_key,first_publish_year,cover_i,isbn,number_of_pages_median,subject,edition_count,readinglog_count,series_key,series_name,series_position";
 
 export type OpenLibraryBook = {
   /** Work id, e.g. "OL38495W". */
@@ -24,6 +24,8 @@ export type OpenLibraryBook = {
   isbns: string[];
   /** How many editions Open Library knows; 1 often means a stub, audiobook or stray reprint record. */
   editionCount: number;
+  /** Open Library readers who have shelved it (want to read, reading or read). */
+  readers: number;
   pages: number | null;
   subjects: string[];
   /** The series the book belongs to, if Open Library files it in one. */
@@ -50,6 +52,7 @@ type SearchDoc = {
   number_of_pages_median?: number;
   subject?: string[];
   edition_count?: number;
+  readinglog_count?: number;
   series_key?: string[];
   series_name?: string[];
   series_position?: string[];
@@ -108,6 +111,7 @@ function toBook(doc: SearchDoc): OpenLibraryBook | null {
     isbn13: firstIsbn13(doc.isbn),
     isbns: allIsbn13s(doc.isbn),
     editionCount: doc.edition_count ?? 0,
+    readers: doc.readinglog_count ?? 0,
     pages: doc.number_of_pages_median ?? null,
     subjects: (doc.subject ?? []).slice(0, 40),
     series: firstSeries(doc),
@@ -122,13 +126,39 @@ async function search(params: Record<string, string>, init?: RequestInit) {
   return (json.docs ?? []).map(toBook).filter((b): b is OpenLibraryBook => b !== null);
 }
 
-/** Books on Open Library matching a free-text query (title, author or ISBN). */
-export async function searchOpenLibrary(query: string, limit = 8, init?: RequestInit) {
+/** Books from before this year need a following to be offered in the wider stacks. */
+const FORGOTTEN_BEFORE = 1950;
+/** How many Open Library readers an older book needs. Classics have hundreds or thousands. */
+const FORGOTTEN_BELOW_READERS = 25;
+
+/**
+ * An old book hardly anyone reads (H. Rider Haggard's "Morning Star", 1910, 6 readers):
+ * noise in the wider stacks, though Pride and Prejudice and Dracula stay.
+ */
+export function isForgotten(book: Pick<OpenLibraryBook, "year" | "readers">) {
+  return book.year !== null && book.year < FORGOTTEN_BEFORE && book.readers < FORGOTTEN_BELOW_READERS;
+}
+
+/**
+ * Books on Open Library matching a free-text query (title, author or ISBN).
+ * `skipForgotten` leaves out old books hardly anyone reads (see isForgotten), for
+ * showing to readers; leave it off when matching a book someone already has.
+ * An ISBN search is never filtered: it names one exact book.
+ */
+export async function searchOpenLibrary(
+  query: string,
+  limit = 8,
+  init?: RequestInit,
+  { skipForgotten = false }: { skipForgotten?: boolean } = {},
+) {
   const q = query.trim();
   if (q.length < 2) return [];
   const isbn = normalizeIsbn(q);
-  const params: Record<string, string> = isbn.length === 10 || isbn.length === 13 ? { isbn } : { q };
-  return search({ ...params, limit: String(limit) }, init);
+  if (isbn.length === 10 || isbn.length === 13) return search({ isbn, limit: String(limit) }, init);
+  if (!skipForgotten) return search({ q, limit: String(limit) }, init);
+  // Ask for a few extra so filtering doesn't leave the results short.
+  const books = await search({ q, limit: String(limit + 6) }, init);
+  return books.filter((b) => !isForgotten(b)).slice(0, limit);
 }
 
 /** One work with the details we keep, or null if Open Library doesn't know it. */
@@ -404,7 +434,7 @@ export async function browseOpenLibrary(
     ...notSubjects.map((s) => `-subject:${quoted(s)}`),
   ];
   const books = await search({ q: terms.join(" "), sort: "readinglog", limit: String(limit) }, init);
-  return books.filter((b) => !BUNDLE.test(b.title));
+  return books.filter((b) => !BUNDLE.test(b.title) && !isForgotten(b));
 }
 
 /**

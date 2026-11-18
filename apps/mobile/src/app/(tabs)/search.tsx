@@ -114,7 +114,7 @@ export default function SearchScreen() {
     if (!stacksWanted) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      searchOpenLibrary(term, 9)
+      searchOpenLibrary(term, 9, undefined, { skipForgotten: true })
         .then((books) => !cancelled && setStacks({ term, books }))
         .catch(() => !cancelled && setStacks({ term, books: null }));
     }, 450);

@@ -194,7 +194,7 @@ export async function searchWiderStacks(q: string) {
 async function openLibraryMatches(q: string) {
   "use cache";
   cacheLife("hours");
-  return searchOpenLibrary(q, 9, { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } }).catch(() => null);
+  return searchOpenLibrary(q, 9, { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } }, { skipForgotten: true }).catch(() => null);
 }
 
 /** Open Library picks for a reader who has outgrown our shelves (see @booksyde/shared). */
