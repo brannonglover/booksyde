@@ -1,5 +1,6 @@
 import {
   type BookLike,
+  type BrowseDrawer,
   bookSeries,
   type CatalogBook,
   compactCount,
@@ -7,9 +8,11 @@ import {
   heldAlready,
   lifeYears,
   seriesLabel,
+  tagBlurbs,
 } from "@booksyde/shared";
-import { genreColor, palette } from "@booksyde/theme";
+import { genreColor, mixHex, palette } from "@booksyde/theme";
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { TrackSearch } from "@/components/analytics";
@@ -19,7 +22,7 @@ import { SeriesLine } from "@/components/series-line";
 import { ShelfBook } from "@/components/shelf-book";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { AnalyticsEvent, track } from "@/lib/analytics";
-import { getDrawers, parseSearch, searchEverything, searchWiderStacks } from "@/lib/catalog";
+import { getBrowseDrawers, getDrawers, parseSearch, searchEverything, searchWiderStacks } from "@/lib/catalog";
 import { RequestSlip } from "./request-slip";
 import { SearchBox } from "./search-box";
 
@@ -89,9 +92,9 @@ function hrefFor(q: string, tags: string[]) {
 
 async function Results({ searchParams }: { searchParams: Promise<Params> }) {
   const { q, tags } = parseSearch(await searchParams);
-  const drawers = await getDrawers();
+  if (!q && tags.length === 0) return <Browse drawers={await getBrowseDrawers()} />;
 
-  if (!q && tags.length === 0) return <Browse drawers={drawers} />;
+  const drawers = await getDrawers();
 
   const { books, authors, readers } = await searchEverything(q, tags);
   const tagName = (slug: string) => drawers.find((d) => d.slug === slug)?.name ?? slug;
@@ -455,8 +458,8 @@ const suggestions = [
   { label: "gothic", href: hrefFor("gothic", []) },
 ];
 
-/** No query yet: a few things to ask the desk, and the cabinet of subject drawers. */
-function Browse({ drawers }: { drawers: Drawer[] }) {
+/** No query yet: a few things to try, and the moods and genres to browse. */
+function Browse({ drawers }: { drawers: BrowseDrawer[] }) {
   const moods = drawers.filter((d) => d.kind === "mood");
   const genres = drawers.filter((d) => d.kind === "genre");
   return (
@@ -474,66 +477,89 @@ function Browse({ drawers }: { drawers: Drawer[] }) {
         ))}
       </p>
 
-      <div className="mt-16 grid gap-14 lg:grid-cols-2">
-        <Cabinet title="By feeling" blurb="Pull out a drawer for the mood you’re in." drawers={moods} />
-        <Cabinet title="By shelf" blurb="The old-fashioned way: genre by genre." drawers={genres} />
+      <div className="mt-16 space-y-14">
+        <Collection title="Browse by mood" blurb="Start with how you want a book to feel." drawers={moods} />
+        <Collection title="Browse by genre" blurb="Or pick a genre you already love." drawers={genres} />
       </div>
     </div>
   );
 }
 
-function Cabinet({ title, blurb, drawers }: { title: string; blurb: string; drawers: Drawer[] }) {
+function Collection({ title, blurb, drawers }: { title: string; blurb: string; drawers: BrowseDrawer[] }) {
+  if (drawers.length === 0) return null;
   return (
     <section>
-      <h2 className="font-display text-4xl leading-none">{title}</h2>
+      <h2 className="font-display text-3xl leading-none sm:text-4xl">{title}</h2>
       <p className="mt-2 text-muted">{blurb}</p>
-      {/* Walnut cabinet */}
-      <div className="mt-6 rounded-md bg-[#4A3426] p-2.5 shadow-[0_24px_50px_-28px_rgba(31,27,22,0.8),inset_0_1px_0_rgba(255,255,255,0.08)] dark:bg-[#3A2A1F]">
-        <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          {drawers.map((d) => (
-            <li key={d.slug}>
-              <DrawerFront drawer={d} />
-            </li>
-          ))}
-        </ul>
-      </div>
+      <ul className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {drawers.map((d) => (
+          <li key={d.slug}>
+            <BrowseCard drawer={d} />
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
 
-function DrawerFront({ drawer }: { drawer: Drawer }) {
-  const ink = genreColor(drawer.slug);
+/** A mood or genre as a card: a small fan of its best-loved covers, a line on what it's like, and an arrow. */
+function BrowseCard({ drawer }: { drawer: BrowseDrawer }) {
+  const tint = genreColor(drawer.slug).dot;
   const empty = drawer.works === 0;
   const face = (
     <>
-      {/* Brass label holder */}
-      <span className="block rounded-[3px] bg-gradient-to-b from-[#D9B46A] to-[#8E6827] p-[2px] shadow-sm">
-        <span className="flex min-h-8 items-center justify-center gap-1.5 rounded-[2px] bg-[#FFFDF6] px-2 py-1 text-center font-mono text-[0.75rem] leading-tight text-ink">
-          <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: ink.dot }} />
-          <span>{drawer.name}</span>
+      <CoverFan covers={drawer.covers} tint={tint} />
+      <span className="min-w-0 flex-1">
+        <span className="block leading-tight">
+          <span className="font-semibold text-text">{drawer.name}</span>
+          {empty ? null : <span className="ml-1.5 text-xs text-muted">{compactCount(drawer.works)}</span>}
+        </span>
+        <span className="mt-0.5 line-clamp-2 text-sm leading-snug text-muted">
+          {empty ? "Nothing tagged yet" : (tagBlurbs[drawer.slug] ?? `${drawer.works} books`)}
         </span>
       </span>
-      <span aria-hidden className="block h-3 shrink-0" />
-      {/* Pull */}
-      <span
-        aria-hidden
-        className="mx-auto mt-auto block h-3 w-10 rounded-b-full border-2 border-t-0 border-[#C9A35A] transition-transform group-hover:translate-y-0.5"
-      />
-      <span className="mt-2 block text-center text-[0.7rem] uppercase tracking-[0.15em] text-[#E8D9BF]/70">
-        {empty ? "empty" : `${drawer.works} ${drawer.works === 1 ? "card" : "cards"}`}
-      </span>
+      {empty ? null : (
+        <span
+          aria-hidden
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--tag)_16%,transparent)] text-[color-mix(in_srgb,var(--tag)_60%,var(--color-text))] transition-colors group-hover:bg-[var(--tag)] group-hover:text-white"
+        >
+          <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M4 10h11m-4-4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      )}
     </>
   );
-  const shell =
-    "group flex h-full flex-col rounded-[4px] bg-gradient-to-b from-[#7A5534] to-[#5E4026] px-3 pb-2.5 pt-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.15),inset_0_-2px_0_rgba(0,0,0,0.25)]";
-  if (empty) return <div className={`${shell} opacity-55`}>{face}</div>;
+  const shell = "group flex h-full items-center gap-4 rounded-2xl border border-border bg-surface px-4 py-3";
+  const style = { "--tag": tint } as React.CSSProperties;
+  if (empty) return <div className={`${shell} opacity-60`} style={style}>{face}</div>;
   return (
     <Link
       href={hrefFor("", [drawer.slug])}
-      {...track(AnalyticsEvent.MoodChipClicked, { tag: drawer.slug, label: drawer.name, kind: drawer.kind, location: "search_cabinet" })}
-      className={`${shell} transition hover:-translate-y-0.5 hover:from-[#86603C] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_10px_18px_-10px_rgba(0,0,0,0.6)]`}
+      aria-label={`${drawer.name}, ${drawer.works} ${drawer.works === 1 ? "book" : "books"}`}
+      style={style}
+      {...track(AnalyticsEvent.MoodChipClicked, { tag: drawer.slug, label: drawer.name, kind: drawer.kind, location: "search_browse" })}
+      className={`${shell} transition hover:-translate-y-0.5 hover:border-[var(--tag)] hover:shadow-[0_12px_24px_-16px_rgba(31,27,22,0.45)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tag)]`}
     >
       {face}
     </Link>
+  );
+}
+
+/** Three overlapping covers; tinted blanks stand in when a drawer has none. */
+function CoverFan({ covers, tint }: { covers: BrowseDrawer["covers"]; tint: string }) {
+  const slots = [0, 1, 2].map((i) => covers[i] ?? null);
+  return (
+    <span aria-hidden className="flex shrink-0">
+      {slots.map((c, i) => (
+        <span
+          key={c?.id ?? i}
+          className="relative -ml-3 block h-[52px] w-[35px] overflow-hidden rounded-[3px] ring-2 ring-surface first:ml-0"
+          style={{ background: c?.cover_color ? mixHex(c.cover_color, palette.ink, 0.35) : mixHex(tint, palette.paper, i * 0.25), zIndex: 3 - i }}
+        >
+          {c?.cover_url ? <Image src={c.cover_url} alt="" fill sizes="36px" className="object-cover" /> : null}
+        </span>
+      ))}
+    </span>
   );
 }

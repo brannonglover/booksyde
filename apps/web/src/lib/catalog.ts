@@ -14,6 +14,8 @@ import {
   getWork,
   getWiderStacksPicks as getWiderStacksPicksFor,
   getWorkReviews,
+  getBrowseDrawers as getBrowseDrawersFor,
+  getMoodTags,
   getTagDrawers,
   getTrendingWorks,
   searchAuthors,
@@ -166,6 +168,22 @@ export async function getDrawers() {
   cacheLife("hours");
   cacheTag("catalog-drawers");
   return getTagDrawers(publicClient());
+}
+
+/** The moods readers can vote for on a book. */
+export async function getMoods() {
+  "use cache";
+  cacheLife("days");
+  cacheTag("catalog-drawers");
+  return getMoodTags(publicClient());
+}
+
+/** The mood and genre drawers with a few covers each, for the browse cards. */
+export async function getBrowseDrawers() {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("catalog-drawers");
+  return getBrowseDrawersFor(publicClient());
 }
 
 /**

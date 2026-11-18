@@ -19,6 +19,9 @@ export const AnalyticsEvent = {
   DiscoverClicked: "discover_clicked",
   ClubsClicked: "clubs_clicked",
   MoodChipClicked: "mood_chip_clicked",
+  /** A reader saying how a book felt (one mood; up to three per book). */
+  MoodVoted: "mood_voted",
+  MoodUnvoted: "mood_unvoted",
   /** A search the reader settled on (not every keystroke). */
   SearchPerformed: "search_performed",
   /** A book put on a shelf, or moved between shelves (want to read → reading → read). */

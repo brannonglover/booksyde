@@ -5,6 +5,8 @@ import {
   callNumber,
   catalogName,
   compactCount,
+  type BrowseDrawer,
+  getBrowseDrawers,
   getTagDrawers,
   heldAlready,
   lifeYears,
@@ -14,8 +16,11 @@ import {
   searchOpenLibrary,
   searchReaders,
   seriesLabel,
+  tagBlurbs,
 } from '@booksyde/shared';
-import { genreColor, palette, radii, spacing } from '@booksyde/theme';
+import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Image } from 'expo-image';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -77,10 +82,14 @@ export default function SearchScreen() {
   }
 
   const [drawers, setDrawers] = useState<Drawer[]>([]);
+  const [browse, setBrowse] = useState<BrowseDrawer[]>([]);
   useEffect(() => {
     if (!supabase) return;
     getTagDrawers(supabase)
       .then(setDrawers)
+      .catch(() => {});
+    getBrowseDrawers(supabase)
+      .then(setBrowse)
       .catch(() => {});
   }, []);
 
@@ -180,7 +189,7 @@ export default function SearchScreen() {
           </View>
 
           {browsing ? (
-            <Browse drawers={drawers} onAsk={setQ} onDrawer={(slug) => setTags([slug])} />
+            <Browse drawers={browse} onAsk={setQ} onDrawer={(slug) => setTags([slug])} />
           ) : (
             <View style={{ gap: spacing[6] }}>
               <View style={[styles.summary, { borderBottomColor: theme.border }]}>
@@ -502,7 +511,7 @@ function EmptyDrawer({
   );
 }
 
-function Browse({ drawers, onAsk, onDrawer }: { drawers: Drawer[]; onAsk: (q: string) => void; onDrawer: (slug: string) => void }) {
+function Browse({ drawers, onAsk, onDrawer }: { drawers: BrowseDrawer[]; onAsk: (q: string) => void; onDrawer: (slug: string) => void }) {
   const theme = useTheme();
   return (
     <View style={{ gap: spacing[7] }}>
@@ -514,44 +523,102 @@ function Browse({ drawers, onAsk, onDrawer }: { drawers: Drawer[]; onAsk: (q: st
           </Pressable>
         ))}
       </View>
-      <Cabinet title="By feeling" blurb="Pull out a drawer for the mood you’re in." drawers={drawers.filter((d) => d.kind === 'mood')} onDrawer={onDrawer} />
-      <Cabinet title="By shelf" blurb="The old-fashioned way: genre by genre." drawers={drawers.filter((d) => d.kind === 'genre')} onDrawer={onDrawer} />
+      <Collection title="Browse by mood" blurb="Start with how you want a book to feel." drawers={drawers.filter((d) => d.kind === 'mood')} onDrawer={onDrawer} />
+      <Collection title="Browse by genre" blurb="Or pick a genre you already love." drawers={drawers.filter((d) => d.kind === 'genre')} onDrawer={onDrawer} />
     </View>
   );
 }
 
-function Cabinet({ title, blurb, drawers, onDrawer }: { title: string; blurb: string; drawers: Drawer[]; onDrawer: (slug: string) => void }) {
+function Collection({ title, blurb, drawers, onDrawer }: { title: string; blurb: string; drawers: BrowseDrawer[]; onDrawer: (slug: string) => void }) {
   const theme = useTheme();
-  const dark = useColorScheme() === 'dark';
+  if (drawers.length === 0) return null;
   return (
     <View style={{ gap: spacing[2] }}>
       <Text style={[styles.cabinetTitle, { color: theme.text }]}>{title}</Text>
       <Text style={{ color: theme.textSecondary, fontSize: 15 }}>{blurb}</Text>
-      <View style={[styles.cabinet, { backgroundColor: dark ? '#3A2A1F' : '#4A3426' }]}>
-        {drawers.map((d) => {
-          const empty = d.works === 0;
-          return (
-            <Pressable
-              key={d.slug}
-              disabled={empty}
-              onPress={() => onDrawer(d.slug)}
-              accessibilityLabel={`${d.name}, ${d.works} ${d.works === 1 ? 'book' : 'books'}`}
-              style={({ pressed }) => [styles.drawer, { opacity: empty ? 0.55 : 1, transform: [{ translateY: pressed ? 2 : 0 }] }]}
-            >
-              <View style={styles.labelHolder}>
-                <View style={styles.label}>
-                  <View style={[styles.chipDot, { backgroundColor: genreColor(d.slug).dot }]} />
-                  <Text style={[styles.labelText]} numberOfLines={2}>
-                    {d.name}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.pull} />
-              <Text style={styles.drawerCount}>{empty ? 'EMPTY' : `${d.works} ${d.works === 1 ? 'CARD' : 'CARDS'}`}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.browseGrid}>
+        {drawers.map((d) => (
+          <BrowseCard key={d.slug} drawer={d} onPress={() => onDrawer(d.slug)} />
+        ))}
       </View>
+    </View>
+  );
+}
+
+/** A mood or genre as a card: a small fan of its best-loved covers, a line on what it's like, and an arrow. */
+function BrowseCard({ drawer, onPress }: { drawer: BrowseDrawer; onPress: () => void }) {
+  const theme = useTheme();
+  const tint = genreColor(drawer.slug).dot;
+  const empty = drawer.works === 0;
+  return (
+    <Pressable
+      disabled={empty}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${drawer.name}, ${drawer.works} ${drawer.works === 1 ? 'book' : 'books'}`}
+      style={(state) => {
+        // react-native-web adds `hovered`; native only knows `pressed`.
+        const active = state.pressed || (state as { hovered?: boolean }).hovered;
+        return [
+          styles.browseCard,
+          {
+            backgroundColor: theme.backgroundElement,
+            borderColor: active ? tint : theme.border,
+            opacity: empty ? 0.6 : 1,
+            transform: [{ translateY: active ? -2 : 0 }],
+          },
+        ];
+      }}
+    >
+      {(state) => {
+        const active = state.pressed || (state as { hovered?: boolean }).hovered;
+        return (
+          <>
+            <CoverFan covers={drawer.covers} tint={tint} edge={theme.backgroundElement} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600' }}>
+                {drawer.name}
+                {empty ? null : <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '400' }}>{`  ${compactCount(drawer.works)}`}</Text>}
+              </Text>
+              <Text numberOfLines={2} style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 19, marginTop: 2 }}>
+                {empty ? 'Nothing tagged yet' : (tagBlurbs[drawer.slug] ?? `${drawer.works} books`)}
+              </Text>
+            </View>
+            {empty ? null : (
+              <View style={[styles.browseArrow, { backgroundColor: active ? tint : `${tint}29` }]}>
+                <MaterialIcons name="arrow-forward" size={18} color={active ? '#FFFFFF' : mixHex(tint, theme.text, 0.4)} />
+              </View>
+            )}
+          </>
+        );
+      }}
+    </Pressable>
+  );
+}
+
+/** Three overlapping covers; tinted blanks stand in when a drawer has none. */
+function CoverFan({ covers, tint, edge }: { covers: BrowseDrawer['covers']; tint: string; edge: string }) {
+  return (
+    <View style={{ flexDirection: 'row' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {[0, 1, 2].map((i) => {
+        const c = covers[i];
+        return (
+          <View
+            key={c?.id ?? i}
+            style={[
+              styles.fanCover,
+              {
+                marginLeft: i === 0 ? 0 : -12,
+                zIndex: 3 - i,
+                borderColor: edge,
+                backgroundColor: c?.cover_color ? mixHex(c.cover_color, palette.ink, 0.35) : mixHex(tint, palette.paper, i * 0.25),
+              },
+            ]}
+          >
+            {c?.cover_url ? <Image source={c.cover_url} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -682,45 +749,18 @@ const styles = StyleSheet.create({
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: spacing[2] },
   suggestion: { borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: spacing[3], paddingVertical: 4 },
   cabinetTitle: { fontFamily: DisplayFonts.regular, fontSize: 36, lineHeight: 38 },
-  cabinet: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 8, borderRadius: 6, marginTop: spacing[3] },
-  drawer: {
-    flexBasis: '47%',
+  browseGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: spacing[3] },
+  browseCard: {
+    flexBasis: 300,
     flexGrow: 1,
-    borderRadius: 4,
-    backgroundColor: '#6B4A2E',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.15)',
-    borderBottomWidth: 2,
-    borderBottomColor: 'rgba(0,0,0,0.25)',
-    paddingHorizontal: spacing[3],
-    paddingTop: spacing[3],
-    paddingBottom: spacing[2],
-    alignItems: 'stretch',
-  },
-  labelHolder: { borderRadius: 3, padding: 2, backgroundColor: '#B8893A' },
-  label: {
-    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderRadius: 2,
-    backgroundColor: '#FFFDF6',
-    paddingHorizontal: spacing[2],
-    paddingVertical: 4,
+    gap: spacing[3],
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
   },
-  labelText: { fontFamily: mono, fontSize: 12, color: palette.ink, textAlign: 'center', flexShrink: 1 },
-  pull: {
-    alignSelf: 'center',
-    marginTop: spacing[3],
-    width: 40,
-    height: 12,
-    borderWidth: 2,
-    borderTopWidth: 0,
-    borderColor: '#C9A35A',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-
-  drawerCount: { marginTop: spacing[2], textAlign: 'center', fontSize: 10, letterSpacing: 1.5, color: 'rgba(232,217,191,0.7)' },
+  fanCover: { width: 35, height: 52, borderRadius: 3, borderWidth: 2, overflow: 'hidden' },
+  browseArrow: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 });

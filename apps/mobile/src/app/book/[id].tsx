@@ -22,6 +22,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
+import { MoodVote } from '@/components/mood-vote';
 import { Stars } from '@/components/stars';
 import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -223,9 +224,8 @@ function BookDetail({ data }: { data: BookData }) {
           </Text>
         ))}
 
-        {/* Chapter one: the vibe */}
-        {vibe.moods.length > 0 || vibe.pace !== null || vibe.tropes.length > 0 ? (
-          <>
+        {/* Chapter one: the vibe. Always shown, so readers can say how it felt even before anyone has. */}
+        <>
             <ChapterHeading kicker="CHAPTER ONE" title="The vibe" />
             {vibe.bestEnjoyed ? (
               <View style={styles.bestEnjoyed}>
@@ -234,10 +234,12 @@ function BookDetail({ data }: { data: BookData }) {
                 <Text style={styles.bestEnjoyedText}>{vibe.bestEnjoyed}.</Text>
               </View>
             ) : null}
-            {vibe.moods.length > 0 ? (
-              <Card>
-                <Text style={[styles.cardTitle, { color: theme.text }]}>How it feels</Text>
-                {vibe.moods.map((m) => (
+            <Card>
+              <Text style={[styles.cardTitle, { color: theme.text }]}>How it feels</Text>
+              <Text style={{ color: theme.textSecondary, fontSize: 14, marginTop: -spacing[2] }}>
+                {vibe.moods.length > 0 ? 'From readers’ mood votes' : 'No one has said yet. Be the first.'}
+              </Text>
+              {vibe.moods.map((m) => (
                   <View key={m.slug} style={styles.moodRow}>
                     <Text style={[styles.moodName, { color: theme.text }]}>{m.name}</Text>
                     <View style={[styles.track, { backgroundColor: theme.border }]}>
@@ -247,8 +249,10 @@ function BookDetail({ data }: { data: BookData }) {
                     </View>
                   </View>
                 ))}
-              </Card>
-            ) : null}
+              <View style={vibe.moods.length > 0 ? { borderTopWidth: 1, borderTopColor: theme.border, paddingTop: spacing[4], marginTop: spacing[2] } : null}>
+                <MoodVote workId={work.id} />
+              </View>
+            </Card>
             {vibe.pace !== null ? (
               <Card>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>Pace</Text>
@@ -290,8 +294,7 @@ function BookDetail({ data }: { data: BookData }) {
                 </View>
               </Card>
             ) : null}
-          </>
-        ) : null}
+        </>
 
         {/* Chapter two: marginalia */}
         <ChapterHeading kicker="CHAPTER TWO" title="Marginalia" />

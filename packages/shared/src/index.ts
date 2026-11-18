@@ -22,3 +22,4 @@ export * from "./queries/discover";
 export * from "./queries/featured";
 export * from "./queries/avatar";
 export * from "./queries/series";
+export * from "./queries/moods";

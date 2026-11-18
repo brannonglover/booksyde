@@ -7,13 +7,14 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Avatar } from "@/components/avatar";
 import { BookCover } from "@/components/book-cover";
+import { MoodVote } from "@/components/mood-vote";
 import { Bookshelf } from "@/components/bookshelf";
 import { ReviewBody } from "@/components/review-body";
 import { ShelfButton } from "@/components/shelf-button";
 import { Ornament, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { ShelfBook } from "@/components/shelf-book";
 import { Stars } from "@/components/stars";
-import { getBook, getBookCommunity, getSeriesBooks, getSimilarBooks } from "@/lib/catalog";
+import { getBook, getBookCommunity, getMoods, getSeriesBooks, getSimilarBooks } from "@/lib/catalog";
 
 /*
  * A book page laid out like a book: a title page, then chapters —
@@ -111,6 +112,8 @@ async function BookDetail({ params }: { params: Params }) {
   const authors = authorsOf(book);
   const authorNames = authors.map((a) => a.name).join(" & ") || "Unknown author";
   const vibe = bookVibe(book.work_tags);
+  const moodTags = await getMoods();
+  const vibeSide = vibe.pace !== null || vibe.tropes.length > 0;
   const editions = [...book.editions].sort((a, b) => (b.page_count ?? 0) - (a.page_count ?? 0));
   const main = editions.find((e) => e.isbn_13) ?? editions[0];
   const paragraphs = (book.description ?? "").split(/\n{2,}/).filter(Boolean);
@@ -207,7 +210,8 @@ async function BookDetail({ params }: { params: Params }) {
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-28 px-4 pb-24 sm:px-6">
         {/* Chapter one: the vibe */}
-        {vibe.moods.length > 0 || vibe.pace !== null || vibe.tropes.length > 0 ? (
+        {/* Shown even before anyone has voted, so readers can say how it felt. */}
+        {moodTags.length > 0 || vibeSide ? (
           <section id="vibe" className="flex scroll-mt-8 flex-col gap-10">
             <ChapterHeading kicker="Chapter one" title="The vibe" />
             {vibe.bestEnjoyed ? (
@@ -219,11 +223,14 @@ async function BookDetail({ params }: { params: Params }) {
                 </p>
               </div>
             ) : null}
-            <div className="grid gap-5 md:grid-cols-2">
-              {vibe.moods.length > 0 ? (
+            <div className={`grid gap-5 ${vibeSide ? "md:grid-cols-2" : ""}`}>
+              {moodTags.length > 0 ? (
                 <div className="rounded-3xl border border-border bg-surface p-7">
                   <h3 className="font-display text-3xl">How it feels</h3>
-                  <p className="mt-1 text-sm text-muted">From readers&rsquo; mood votes</p>
+                  <p className="mt-1 text-sm text-muted">
+                    {vibe.moods.length > 0 ? "From readers’ mood votes" : "No one has said yet. Be the first."}
+                  </p>
+                  {vibe.moods.length > 0 ? (
                   <ul className="mt-6 space-y-4">
                     {vibe.moods.map((m) => (
                       <li key={m.slug} className="grid grid-cols-[6.5rem_1fr] items-center gap-4">
@@ -242,9 +249,14 @@ async function BookDetail({ params }: { params: Params }) {
                       </li>
                     ))}
                   </ul>
+                  ) : null}
+                  <div className={vibe.moods.length > 0 ? "mt-7 border-t border-border pt-6" : "mt-6"}>
+                    <MoodVote workId={book.id} moods={moodTags} />
+                  </div>
                 </div>
               ) : null}
 
+              {vibeSide ? (
               <div className="flex flex-col gap-5">
                 {vibe.pace !== null ? (
                   <div className="rounded-3xl border border-border bg-surface p-7">
@@ -295,6 +307,7 @@ async function BookDetail({ params }: { params: Params }) {
                   </div>
                 ) : null}
               </div>
+              ) : null}
             </div>
           </section>
         ) : null}
