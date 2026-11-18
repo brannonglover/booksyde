@@ -1,7 +1,7 @@
 import { READING_STATUS_LABELS, type ShelfMove } from '@booksyde/shared';
 import type { ReadingStatus } from '@booksyde/types';
 import { radii, spacing } from '@booksyde/theme';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DisplayFonts } from '@/constants/theme';
@@ -16,26 +16,34 @@ const moves: { move: ShelfMove; label: string }[] = [
 ];
 
 /**
- * A bottom sheet for moving a book between the reader's shelves, opened by
- * long-pressing a cover. `onChoose(null)` means take it off the shelves. With
- * `arrange` (where the book sits on a shelf the reader can order), it also
- * offers moves along that shelf.
+ * A bottom sheet for putting a book on the reader's shelves or moving it
+ * between them, opened by long-pressing a cover. `onChoose(null)` means take it
+ * off the shelves. With `arrange` (where the book sits on a shelf the reader
+ * can order), it also offers moves along that shelf.
+ *
+ * `status` is null for a book that isn't on the reader's shelves, and
+ * undefined while that's still being looked up. With `onSignIn`, the reader is
+ * signed out and the sheet asks them to sign in instead.
  */
 export function ShelfStatusSheet({
   book,
   arrange,
   onChoose,
   onArrange,
+  onSignIn,
   onClose,
 }: {
-  book: { title: string; status: ReadingStatus } | null;
+  book: { title: string; status?: ReadingStatus | null } | null;
   arrange?: { index: number; count: number };
   onChoose: (status: ReadingStatus | null) => void;
   onArrange?: (move: ShelfMove) => void;
+  onSignIn?: () => void;
   onClose: () => void;
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const loading = book !== null && book.status === undefined && !onSignIn;
+  const shelved = Boolean(book?.status);
 
   return (
     <Modal visible={book !== null} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
@@ -48,25 +56,40 @@ export function ShelfStatusSheet({
         accessibilityViewIsModal
       >
         <View style={[styles.grabber, { backgroundColor: theme.border }]} />
-        <Text style={[styles.kicker, { color: theme.textSecondary }]}>MOVE TO A SHELF</Text>
+        <Text style={[styles.kicker, { color: theme.textSecondary }]}>{shelved ? 'MOVE TO A SHELF' : 'PUT ON A SHELF'}</Text>
         <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
           {book?.title}
         </Text>
-        {statuses.map((s) => {
-          const current = book?.status === s;
-          return (
+        {onSignIn ? (
+          <>
+            <Text style={[styles.note, { color: theme.textSecondary }]}>Sign in to keep track of your books.</Text>
             <Pressable
-              key={s}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: current }}
-              onPress={() => onChoose(s)}
+              accessibilityRole="button"
+              onPress={onSignIn}
               style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.backgroundElement }]}
             >
-              <Text style={[styles.rowText, { color: theme.text }]}>{READING_STATUS_LABELS[s]}</Text>
-              {current ? <Text style={[styles.rowText, { color: theme.accent }]}>✓</Text> : null}
+              <Text style={[styles.rowText, { color: theme.accent, fontWeight: '700' }]}>Sign in</Text>
             </Pressable>
-          );
-        })}
+          </>
+        ) : (
+          statuses.map((s) => {
+            const current = book?.status === s;
+            return (
+              <Pressable
+                key={s}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: current, disabled: loading }}
+                disabled={loading}
+                onPress={() => onChoose(s)}
+                style={({ pressed }) => [styles.row, { opacity: loading ? 0.5 : 1 }, pressed && { backgroundColor: theme.backgroundElement }]}
+              >
+                <Text style={[styles.rowText, { color: theme.text }]}>{READING_STATUS_LABELS[s]}</Text>
+                {current ? <Text style={[styles.rowText, { color: theme.accent }]}>✓</Text> : null}
+                {loading && s === statuses[0] ? <ActivityIndicator color={theme.textSecondary} /> : null}
+              </Pressable>
+            );
+          })
+        )}
         {arrange && onArrange && arrange.count > 1 ? (
           <>
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -95,14 +118,18 @@ export function ShelfStatusSheet({
             </View>
           </>
         ) : null}
-        <View style={[styles.divider, { backgroundColor: theme.border }]} />
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onChoose(null)}
-          style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.backgroundElement }]}
-        >
-          <Text style={[styles.rowText, { color: theme.textSecondary }]}>Remove from my shelves</Text>
-        </Pressable>
+        {shelved ? (
+          <>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onChoose(null)}
+              style={({ pressed }) => [styles.row, pressed && { backgroundColor: theme.backgroundElement }]}
+            >
+              <Text style={[styles.rowText, { color: theme.textSecondary }]}>Remove from my shelves</Text>
+            </Pressable>
+          </>
+        ) : null}
       </View>
     </Modal>
   );
@@ -136,6 +163,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
   },
   rowText: { fontSize: 17 },
+  note: { fontSize: 15, paddingHorizontal: spacing[3], paddingBottom: spacing[1] },
   subKicker: { paddingTop: spacing[2], paddingBottom: spacing[2] },
   moveGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], paddingHorizontal: spacing[3], paddingBottom: spacing[2] },
   moveButton: {

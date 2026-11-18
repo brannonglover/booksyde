@@ -29,6 +29,7 @@ import { Stars } from '@/components/stars';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
@@ -59,6 +60,7 @@ function parseTags(raw: string | string[] | undefined) {
 /** The card catalogue: search by title, author, ISBN or feeling, or browse the drawers. */
 export default function SearchScreen() {
   const theme = useTheme();
+  const quick = useQuickShelf();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ q?: string; tags?: string }>();
@@ -236,7 +238,12 @@ export default function SearchScreen() {
               ) : (
                 <>
                   {results.books.map((book, i) => (
-                    <CatalogueCard key={book.id} book={book} tilt={i % 3 === 1 ? '0.5deg' : i % 3 === 2 ? '-0.4deg' : '0deg'} />
+                    <CatalogueCard
+                      key={book.id}
+                      book={book}
+                      tilt={i % 3 === 1 ? '0.5deg' : i % 3 === 2 ? '-0.4deg' : '0deg'}
+                      onLongPress={() => quick.open(book)}
+                    />
                   ))}
                   {results.authors.length ? (
                     <View style={{ gap: spacing[3] }}>
@@ -291,6 +298,7 @@ export default function SearchScreen() {
           )}
         </View>
       </ScrollView>
+      {quick.sheet}
     </ThemedView>
   );
 }
@@ -367,7 +375,7 @@ function useCardColors() {
   };
 }
 
-function CatalogueCard({ book, tilt }: { book: CatalogBook; tilt: string }) {
+function CatalogueCard({ book, tilt, onLongPress }: { book: CatalogBook; tilt: string; onLongPress: () => void }) {
   const theme = useTheme();
   const c = useCardColors();
   const authors = [...book.work_contributors]
@@ -385,7 +393,12 @@ function CatalogueCard({ book, tilt }: { book: CatalogBook; tilt: string }) {
 
   return (
     <Link href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
-      <Pressable style={StyleSheet.flatten([styles.card, { backgroundColor: c.paper, transform: [{ rotate: tilt }] }])}>
+      <Pressable
+        style={StyleSheet.flatten([styles.card, { backgroundColor: c.paper, transform: [{ rotate: tilt }] }])}
+        onLongPress={onLongPress}
+        delayLongPress={400}
+        accessibilityHint="Press and hold to put it on a shelf"
+      >
         <View style={[styles.cardHeading, { borderBottomColor: c.rule }]}>
           <Text style={[styles.callNumber, { color: theme.accent }]}>{callNumber(book, lead?.name)}</Text>
           <Text numberOfLines={1} style={[styles.mono, { color: c.muted, flex: 1 }]}>

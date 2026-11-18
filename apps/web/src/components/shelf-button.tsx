@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { captureEvent } from "@/components/analytics";
+import { SHELF_CHANGED_EVENT, type ShelfChangedDetail } from "@/components/shelf-book";
 import { AnalyticsEvent } from "@/lib/analytics";
 import { createClient } from "@/lib/supabase/client";
 
@@ -28,6 +29,16 @@ export function ShelfButton({ workId }: { workId: string }) {
     return () => {
       cancelled = true;
     };
+  }, [workId]);
+
+  // Keep up when the quick menu on this book's cover (in the series row) changes its shelf.
+  useEffect(() => {
+    const onChanged = (e: Event) => {
+      const { detail } = e as CustomEvent<ShelfChangedDetail>;
+      if (detail.workId === workId) setStatus(detail.status);
+    };
+    window.addEventListener(SHELF_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(SHELF_CHANGED_EVENT, onChanged);
   }, [workId]);
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import { Bookshelf } from "@/components/bookshelf";
 import { ReviewBody } from "@/components/review-body";
 import { ShelfButton } from "@/components/shelf-button";
 import { Ornament, SiteFooter, SiteHeader } from "@/components/site-chrome";
+import { ShelfBook } from "@/components/shelf-book";
 import { Stars } from "@/components/stars";
 import { getBook, getBookCommunity, getSeriesBooks, getSimilarBooks } from "@/lib/catalog";
 
@@ -697,13 +698,14 @@ async function SeriesInOrder({ series, currentId }: { series: BookSeries; curren
               );
               return (
                 <li key={b.id} className="w-28 shrink-0 snap-start text-center sm:w-36" aria-current={here ? "true" : undefined}>
-                  {here ? (
-                    <div>{card}</div>
-                  ) : (
-                    <Link href={`/books/${b.id}`} className="group block transition duration-300 hover:-translate-y-1.5 hover:text-accent">
-                      {card}
-                    </Link>
-                  )}
+                  <ShelfBook
+                    workId={b.id}
+                    title={b.title}
+                    here={here}
+                    linkClassName={here ? "block cursor-pointer" : "group block transition duration-300 hover:-translate-y-1.5 hover:text-accent"}
+                  >
+                    {card}
+                  </ShelfBook>
                 </li>
               );
             })}

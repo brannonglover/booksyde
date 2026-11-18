@@ -16,6 +16,7 @@ import { TrackSearch } from "@/components/analytics";
 import { Avatar } from "@/components/avatar";
 import { BookCover } from "@/components/book-cover";
 import { SeriesLine } from "@/components/series-line";
+import { ShelfBook } from "@/components/shelf-book";
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { AnalyticsEvent, track } from "@/lib/analytics";
 import { getDrawers, parseSearch, searchEverything, searchWiderStacks } from "@/lib/catalog";
@@ -303,9 +304,11 @@ function CatalogueCard({ book }: { book: CatalogBook }) {
   const series = bookSeries(book);
 
   return (
-    <Link
-      href={`/books/${book.id}`}
-      className="group relative isolate flex h-full gap-5 overflow-hidden rounded-2xl border border-border bg-surface p-4 transition duration-300 hover:-translate-y-1 hover:border-text/20 hover:shadow-[0_24px_48px_-28px_rgba(0,0,0,0.55)] sm:p-5"
+    <ShelfBook
+      workId={book.id}
+      title={book.title}
+      className="h-full"
+      linkClassName="group relative isolate flex h-full gap-5 overflow-hidden rounded-2xl border border-border bg-surface p-4 transition duration-300 hover:-translate-y-1 hover:border-text/20 hover:shadow-[0_24px_48px_-28px_rgba(0,0,0,0.55)] sm:p-5"
     >
       {/* A soft wash of the cover's own colour, brighter on hover */}
       <span
@@ -357,7 +360,7 @@ function CatalogueCard({ book }: { book: CatalogBook }) {
           ))}
         </div>
       </div>
-    </Link>
+    </ShelfBook>
   );
 }
 

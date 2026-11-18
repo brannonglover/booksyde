@@ -25,6 +25,7 @@ import { BookCover } from '@/components/book-cover';
 import { Stars } from '@/components/stars';
 import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -133,6 +134,7 @@ export default function BookScreen() {
 
 function BookDetail({ data }: { data: BookData }) {
   const theme = useTheme();
+  const quick = useQuickShelf();
   const { work, distribution, reviews, shelves, similar } = data;
   const authors = [...work.work_contributors]
     .filter((c) => c.role === 'author' && c.authors)
@@ -380,7 +382,12 @@ function BookDetail({ data }: { data: BookData }) {
             <View style={styles.shelfRow}>
               {similar.map((w) => (
                 <Link key={w.id} href={{ pathname: '/book/[id]', params: { id: w.id } }} push asChild>
-                  <Pressable>
+                  <Pressable
+                    onLongPress={() => quick.open(w)}
+                    delayLongPress={400}
+                    accessibilityLabel={w.title}
+                    accessibilityHint="Press and hold to put it on a shelf"
+                  >
                     <BookCover title={w.title} author="" src={w.cover_url} color={w.cover_color} width={104} />
                   </Pressable>
                 </Link>
@@ -402,6 +409,7 @@ function BookDetail({ data }: { data: BookData }) {
           </View>
         </ScrollView>
       ) : null}
+      {quick.sheet}
     </ScrollView>
   );
 }

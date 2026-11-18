@@ -9,6 +9,7 @@ import { FeatureBento } from "@/components/feature-bento";
 import { Stars } from "@/components/stars";
 import { ReadingDesk } from "@/components/reading-desk";
 import { ReadingProgress } from "@/components/reading-progress";
+import { ShelfBook } from "@/components/shelf-book";
 import { Ornament, SectionHeading, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { YearInBooksSection } from "@/components/year-in-books";
 import { AnalyticsEvent, track } from "@/lib/analytics";
@@ -362,7 +363,7 @@ function NightstandShelf({ books }: { books: NightstandBooks }) {
   return (
     <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-5">
       {books.map((book) => (
-        <Link key={book.id} href={`/books/${book.id}`} className="group flex flex-col gap-4">
+        <ShelfBook key={book.id} workId={book.id} title={book.title} linkClassName="group flex flex-col gap-4">
           <BookCover
             title={book.title}
             author={book.author}
@@ -388,7 +389,7 @@ function NightstandShelf({ books }: { books: NightstandBooks }) {
               </p>
             ) : null}
           </div>
-        </Link>
+        </ShelfBook>
       ))}
     </div>
   );

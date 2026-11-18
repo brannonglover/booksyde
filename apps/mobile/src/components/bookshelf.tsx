@@ -7,6 +7,7 @@ import { BookCover } from '@/components/book-cover';
 import { DisplayFonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
+import { useQuickShelf } from '@/hooks/use-quick-shelf';
 
 export type ShelfBook = {
   id: string;
@@ -23,26 +24,36 @@ const COVER = 104;
 export function Bookshelf({ books }: { books: ShelfBook[] }) {
   const theme = useTheme();
   const dark = useColorScheme() === 'dark';
+  const quick = useQuickShelf();
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll} contentContainerStyle={styles.row}>
-      {books.map((w, i) => (
-        <Link key={w.id} href={{ pathname: '/book/[id]', params: { id: w.id } }} asChild>
-          <Pressable style={styles.slot} accessibilityLabel={w.title}>
-            <View style={[styles.standing, { transform: [{ rotate: i % 3 === 1 ? '-2deg' : i % 3 === 2 ? '1deg' : '0deg' }] }]}>
-              <BookCover title={w.title} author="" src={w.cover_url} color={w.cover_color} width={COVER} />
-            </View>
-            {/* Each slot carries its stretch of the plank, so together they make one shelf. */}
-            <View style={[styles.plank, { backgroundColor: dark ? '#6E543B' : '#8A6A4A' }]} />
-            <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
-              {w.title}
-            </Text>
-            {w.ratings_count === 0 ? null : (
-              <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center' }}>★ {formatRating(Number(w.avg_rating))}</Text>
-            )}
-          </Pressable>
-        </Link>
-      ))}
-    </ScrollView>
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll} contentContainerStyle={styles.row}>
+        {books.map((w, i) => (
+          <Link key={w.id} href={{ pathname: '/book/[id]', params: { id: w.id } }} asChild>
+            <Pressable
+              style={styles.slot}
+              accessibilityLabel={w.title}
+              accessibilityHint="Press and hold to put it on a shelf"
+              onLongPress={() => quick.open(w)}
+              delayLongPress={400}
+            >
+              <View style={[styles.standing, { transform: [{ rotate: i % 3 === 1 ? '-2deg' : i % 3 === 2 ? '1deg' : '0deg' }] }]}>
+                <BookCover title={w.title} author="" src={w.cover_url} color={w.cover_color} width={COVER} />
+              </View>
+              {/* Each slot carries its stretch of the plank, so together they make one shelf. */}
+              <View style={[styles.plank, { backgroundColor: dark ? '#6E543B' : '#8A6A4A' }]} />
+              <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+                {w.title}
+              </Text>
+              {w.ratings_count === 0 ? null : (
+                <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center' }}>★ {formatRating(Number(w.avg_rating))}</Text>
+              )}
+            </Pressable>
+          </Link>
+        ))}
+      </ScrollView>
+      {quick.sheet}
+    </>
   );
 }
 

@@ -31,6 +31,7 @@ import { Wordmark } from '@/components/wordmark';
 import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -209,6 +210,7 @@ function YearInBooksSection({ numeral }: { numeral: string }) {
 /** The books the most readers have open right now. */
 function Nightstand() {
   const theme = useTheme();
+  const quick = useQuickShelf();
   // undefined while loading; null if it couldn't load.
   const [books, setBooks] = useState<NightstandBook[] | null | undefined>(supabase ? undefined : null);
   useEffect(() => {
@@ -231,38 +233,46 @@ function Nightstand() {
     );
   }
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf} style={styles.shelfScroll}>
-      {books.map((book) => (
-        <Link key={book.id} href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
-          <Pressable style={styles.book}>
-            <BookCover title={book.title} author={book.author} src={book.cover_url} color={book.cover_color} width={128} />
-            <Text style={[styles.bookTitle, { color: theme.text }]} numberOfLines={1}>
-              {book.title}
-            </Text>
-            <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-              {book.author}
-            </ThemedText>
-            <View style={styles.ratingRow}>
-              {book.ratings_count > 0 ? (
-                <>
-                  <Stars rating={book.avg_rating} />
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf} style={styles.shelfScroll}>
+        {books.map((book) => (
+          <Link key={book.id} href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
+            <Pressable
+              style={styles.book}
+              onLongPress={() => quick.open(book)}
+              delayLongPress={400}
+              accessibilityHint="Press and hold to put it on a shelf"
+            >
+              <BookCover title={book.title} author={book.author} src={book.cover_url} color={book.cover_color} width={128} />
+              <Text style={[styles.bookTitle, { color: theme.text }]} numberOfLines={1}>
+                {book.title}
+              </Text>
+              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                {book.author}
+              </ThemedText>
+              <View style={styles.ratingRow}>
+                {book.ratings_count > 0 ? (
+                  <>
+                    <Stars rating={book.avg_rating} />
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {formatRating(book.avg_rating)}
+                    </ThemedText>
+                  </>
+                ) : (
                   <ThemedText type="small" themeColor="textSecondary">
-                    {formatRating(book.avg_rating)}
+                    No ratings yet
                   </ThemedText>
-                </>
-              ) : (
-                <ThemedText type="small" themeColor="textSecondary">
-                  No ratings yet
-                </ThemedText>
-              )}
-            </View>
-            {book.readers > 0 ? (
-              <Text style={[styles.readers, { color: theme.accent }]}>{compactCount(book.readers)} READING NOW</Text>
-            ) : null}
-          </Pressable>
-        </Link>
-      ))}
-    </ScrollView>
+                )}
+              </View>
+              {book.readers > 0 ? (
+                <Text style={[styles.readers, { color: theme.accent }]}>{compactCount(book.readers)} READING NOW</Text>
+              ) : null}
+            </Pressable>
+          </Link>
+        ))}
+      </ScrollView>
+      {quick.sheet}
+    </>
   );
 }
 

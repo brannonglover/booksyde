@@ -1,6 +1,7 @@
 import { formatRating } from "@booksyde/shared";
 import Link from "next/link";
 import { BookCover } from "@/components/book-cover";
+import { ShelfBook as ShelfMenuBook } from "@/components/shelf-book";
 
 export type ShelfBook = {
   id: string;
@@ -24,11 +25,11 @@ export function Bookshelf({ books }: { books: ShelfBook[] }) {
         <div key={p}>
           <div className="grid grid-cols-3 items-end gap-4 px-3 sm:grid-cols-6 sm:gap-6">
             {plank.map((w, i) => (
-              <Link
+              <ShelfMenuBook
                 key={w.id}
-                href={`/books/${w.id}`}
-                className={`block transition duration-300 hover:-translate-y-2 ${i % 3 === 1 ? "sm:-rotate-2" : i % 3 === 2 ? "sm:rotate-1" : ""}`}
+                workId={w.id}
                 title={w.title}
+                className={`transition duration-300 hover:-translate-y-2 ${i % 3 === 1 ? "sm:-rotate-2" : i % 3 === 2 ? "sm:rotate-1" : ""}`}
               >
                 <BookCover
                   title={w.title}
@@ -37,7 +38,7 @@ export function Bookshelf({ books }: { books: ShelfBook[] }) {
                   color={w.cover_color}
                   sizes="(min-width: 640px) 160px, 30vw"
                 />
-              </Link>
+              </ShelfMenuBook>
             ))}
           </div>
           <div

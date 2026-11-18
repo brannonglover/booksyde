@@ -27,6 +27,7 @@ import { ShelfStatusSheet } from '@/components/shelf-status-sheet';
 import { Stars } from '@/components/stars';
 import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -110,6 +111,7 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
   const first = name.split(' ')[0];
   const isOwn = followState === 'self';
   const [moving, setMoving] = useState<{ id: string; title: string; status: ReadingStatus; index: number } | null>(null);
+  const quick = useQuickShelf();
   // Orders the reader has just made, shown straight away while they save.
   const [arranging, setArranging] = useState<Partial<Record<ReadingStatus, ShelfWork[]>>>({});
   const [seenShelves, setSeenShelves] = useState(shelves);
@@ -183,7 +185,9 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
                 title={title}
                 empty={empty}
                 books={shelfBooks(key)}
-                onLongPress={isOwn ? (w, index) => setMoving({ id: w.id, title: w.title, status: key, index }) : undefined}
+                // On someone else's shelf, the sheet files the book on the viewer's own shelves.
+                onLongPress={isOwn ? (w, index) => setMoving({ id: w.id, title: w.title, status: key, index }) : (w) => quick.open(w)}
+                hint={isOwn ? 'Press and hold to move it to another shelf' : 'Press and hold to put it on a shelf'}
                 onReset={isOwn && shelves?.arranged[key] ? () => saveOrder(key, null) : undefined}
               />
             ))}
@@ -209,6 +213,7 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
         onArrange={moveAlong}
         onClose={() => setMoving(null)}
       />
+      {quick.sheet}
     </ScrollView>
   );
 }
@@ -371,12 +376,14 @@ function ShelfRow({
   empty,
   books,
   onLongPress,
+  hint,
   onReset,
 }: {
   title: string;
   empty: string;
   books: ShelfWork[];
   onLongPress?: (book: ShelfWork, index: number) => void;
+  hint?: string;
   /** Shown when the reader has arranged this shelf: put it back by date added. */
   onReset?: () => void;
 }) {
@@ -405,7 +412,7 @@ function ShelfRow({
                 <Pressable
                   onLongPress={onLongPress ? () => onLongPress(w, index) : undefined}
                   delayLongPress={400}
-                  accessibilityHint={onLongPress ? 'Press and hold to move it to another shelf' : undefined}
+                  accessibilityHint={onLongPress ? hint : undefined}
                   style={({ pressed }) => pressed && onLongPress ? { opacity: 0.7, transform: [{ scale: 0.97 }] } : null}
                 >
                   <BookCover title={w.title} author="" src={w.cover_url} color={w.cover_color} width={88} />

@@ -338,17 +338,12 @@ function ShelvesSection({ shelves, isOwn }: { shelves: Shelves; isOwn: boolean }
               </p>
             ) : (
               <ShelfScroller label={title} className={shelfRowClass} below={plank}>
-                {books.map((w) =>
-                  isOwn ? (
-                    <ShelfBook key={w.id} workId={w.id} title={w.title} status={key} className={shelfBookClass}>
-                      {cover(w)}
-                    </ShelfBook>
-                  ) : (
-                    <Link key={w.id} href={`/books/${w.id}`} title={w.title} className={shelfBookClass}>
-                      {cover(w)}
-                    </Link>
-                  ),
-                )}
+                {books.map((w) => (
+                  // On someone else's shelf, the menu files the book on the viewer's own shelves.
+                  <ShelfBook key={w.id} workId={w.id} title={w.title} status={isOwn ? key : undefined} className={shelfBookClass}>
+                    {cover(w)}
+                  </ShelfBook>
+                ))}
               </ShelfScroller>
             )}
           </div>

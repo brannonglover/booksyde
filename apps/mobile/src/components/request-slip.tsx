@@ -7,6 +7,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BookCover } from '@/components/book-cover';
 import { DisplayFonts, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useQuickShelf } from '@/hooks/use-quick-shelf';
 
 const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
 
@@ -17,6 +18,7 @@ const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
  */
 export function RequestSlip({ book, tilt = '0deg' }: { book: OpenLibraryBook & { workId?: string | null }; tilt?: string }) {
   const router = useRouter();
+  const quick = useQuickShelf();
   const dark = useColorScheme() === 'dark';
   const [state, setState] = useState<'idle' | 'adding' | 'error'>('idle');
   const ink = dark ? palette.paper : palette.ink;
@@ -64,17 +66,27 @@ export function RequestSlip({ book, tilt = '0deg' }: { book: OpenLibraryBook & {
   );
   const card = { backgroundColor: dark ? '#2C3529' : '#EEF3E8', transform: [{ rotate: tilt }] };
 
+  // Already on file: it opens the book, and press and hold puts it on a shelf like any other cover.
   if (book.workId) {
+    const workId = book.workId;
     return (
-      <Link href={{ pathname: '/book/[id]', params: { id: book.workId } }} asChild>
-        <Pressable style={StyleSheet.flatten([styles.card, card])}>
-          <View style={[styles.header, { borderBottomColor: 'rgba(126,154,110,0.6)' }]}>
-            <Text style={[styles.headerText, { color: label }]}>ON FILE</Text>
-          </View>
-          {body}
-          <Text style={{ color: label, fontWeight: '600', fontSize: 14 }}>Open the book →</Text>
-        </Pressable>
-      </Link>
+      <>
+        <Link href={{ pathname: '/book/[id]', params: { id: workId } }} asChild>
+          <Pressable
+            style={StyleSheet.flatten([styles.card, card])}
+            onLongPress={() => quick.open({ id: workId, title: book.title })}
+            delayLongPress={400}
+            accessibilityHint="Press and hold to put it on a shelf"
+          >
+            <View style={[styles.header, { borderBottomColor: 'rgba(126,154,110,0.6)' }]}>
+              <Text style={[styles.headerText, { color: label }]}>ON FILE</Text>
+            </View>
+            {body}
+            <Text style={{ color: label, fontWeight: '600', fontSize: 14 }}>Open the book →</Text>
+          </Pressable>
+        </Link>
+        {quick.sheet}
+      </>
     );
   }
 

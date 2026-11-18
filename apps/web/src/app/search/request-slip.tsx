@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { seriesLabel } from "@booksyde/shared";
 import { BookCover } from "@/components/book-cover";
 import { SeriesLine } from "@/components/series-line";
+import { ShelfBook } from "@/components/shelf-book";
 import type { WiderStacksBook } from "@/lib/catalog";
 import { addToCatalogue, type ImportState } from "./actions";
 
@@ -71,10 +71,10 @@ export function RequestSlip({ book }: { book: WiderStacksBook }) {
     </>
   );
 
-  // Already on file (someone added it earlier): just go to it.
+  // Already on file (someone added it earlier): just go to it, and it can go on a shelf like any other book.
   if (book.workId) {
     return (
-      <Link href={`/books/${book.workId}`} className={shell}>
+      <ShelfBook workId={book.workId} title={book.title} className="h-full" linkClassName={shell}>
         {cover}
         <div className="flex min-w-0 flex-1 flex-col">
           {details}
@@ -82,7 +82,7 @@ export function RequestSlip({ book }: { book: WiderStacksBook }) {
             Now on Booksyde <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
           </span>
         </div>
-      </Link>
+      </ShelfBook>
     );
   }
 
