@@ -206,6 +206,13 @@ function chunks<T>(items: T[], size: number) {
   return out;
 }
 
+// Check the database before spending minutes on the dumps, so a wrong key fails straight away.
+const db = opts["dry-run"] ? null! : connect();
+if (!opts["dry-run"]) {
+  const { error } = await db.from("works").select("id").limit(1);
+  if (error) fail(`Can't read the catalogue (check the URL and SUPABASE_SECRET_KEY): ${JSON.stringify(error)}`);
+}
+
 // ---------------------------------------------------------------------------
 // 1. Popularity: one point per reading-log entry or rating.
 
@@ -567,8 +574,6 @@ if (opts["dry-run"]) {
 
 // ---------------------------------------------------------------------------
 // 5. Write
-
-const db = connect();
 
 /** Every row of a table, 1,000 at a time (PostgREST's page size). */
 async function all<T>(label: string, page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>) {
