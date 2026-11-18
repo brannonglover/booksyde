@@ -310,11 +310,11 @@ const subjectRules: [RegExp, string][] = [
   [/\bfantasy\b|\bmagic\b|\bdragons?\b/i, "fantasy"],
   [/\bromance\b|\blove stories\b/i, "romance"],
   [/\bthriller|\bsuspense\b/i, "thriller"],
-  [/\bmyster|\bdetective\b|\bcrime\b/i, "mystery"],
+  [/\bmyster|\bdetective\b|(?<!true )\bcrime\b/i, "mystery"],
   [/science fiction|\bsci-fi\b|\bdystopia/i, "science-fiction"],
   [/\bhorror\b|\bghost stories\b|\bvampires?\b/i, "horror"],
   [/historical fiction|history.*fiction/i, "historical-fiction"],
-  [/\bbiograph|\bautobiograph|\bmemoir/i, "biography"],
+  [/^(?!.*fiction).*(\bbiograph|\bautobiograph|\bmemoir)/i, "biography"],
   [/young adult|juvenile fiction|\bteen/i, "young-adult"],
   [/\bpoetry\b|\bpoems\b/i, "poetry"],
   [/\bclassic/i, "classics"],
@@ -322,9 +322,19 @@ const subjectRules: [RegExp, string][] = [
   [/literary fiction|\bliterature\b/i, "literary-fiction"],
 ];
 
+/** Subjects that mark a true book: memoir, history, essays, science and the like. */
+const NON_FICTION = /\bnon-?fiction\b|\bbiograph|\bautobiograph|\bmemoir|\bessays?\b|\btrue crime\b|\bself-help\b|\bhistory\b|\bscience\b|\bpsychology\b|\bphilosophy\b|\bpolitic|\beconomics\b|\btravel\b/i;
+/** Subjects that mark a made-up one ("History -- Fiction", "Science fiction", "Juvenile fiction"). */
+const FICTION = /(?<!non-?)\bfiction\b|\bnovel|\bstories\b/i;
+/** Genres that are only ever fiction; a book filed under one isn't non-fiction whatever else it says. */
+export const FICTION_GENRES = new Set(["fantasy", "romance", "thriller", "mystery", "science-fiction", "horror", "historical-fiction", "young-adult", "gothic", "literary-fiction", "poetry"]);
+
 export function openLibraryTags(subjects: string[]) {
   const slugs = new Set<string>();
   for (const subject of subjects) for (const [re, slug] of subjectRules) if (re.test(subject)) slugs.add(slug);
+  const fiction = subjects.some((s) => FICTION.test(s)) || [...slugs].some((s) => FICTION_GENRES.has(s));
+  // Lead with it so the four-tag cap never drops it.
+  if (!fiction && subjects.some((s) => NON_FICTION.test(s))) return ["non-fiction", ...slugs].slice(0, 4);
   return [...slugs].slice(0, 4);
 }
 
@@ -396,6 +406,7 @@ const tagSubjects: Record<string, string> = {
   "literary-fiction": "literary fiction",
   "historical-fiction": "historical fiction",
   biography: "biography",
+  "non-fiction": "nonfiction",
   "young-adult": "young adult fiction",
   poetry: "poetry",
   classics: "classics",
@@ -442,6 +453,31 @@ export async function browseOpenLibrary(
  * in no series are left out). Asks in batches of 100, so a whole catalogue
  * is a handful of requests. Throws if Open Library can't be read.
  */
+/** Open Library's subjects for each work id (up to 100 per request); works it doesn't return are left out. */
+export async function getOpenLibrarySubjects(olids: string[], init?: RequestInit) {
+  const found = new Map<string, string[]>();
+  const ids = [...new Set(olids)].filter((id) => OPEN_LIBRARY_WORK_ID.test(id));
+  // Subject lists make for heavy responses: smaller batches, and a few retries for Open Library's 5xx hiccups.
+  for (let i = 0; i < ids.length; i += 40) {
+    const batch = ids.slice(i, i + 40);
+    const params = new URLSearchParams({
+      q: `key:(${batch.map((id) => `/works/${id}`).join(" OR ")})`,
+      fields: "key,subject",
+      limit: String(batch.length),
+    });
+    let res: Response | null = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+      res = await fetch(`${API}/search.json?${params}`, init).catch(() => null);
+      if (res && res.status < 500) break;
+    }
+    if (!res?.ok) throw new Error(`Open Library search failed (${res?.status ?? "network"})`);
+    const { docs = [] } = (await res.json()) as { docs?: SearchDoc[] };
+    for (const doc of docs) found.set(doc.key.replace("/works/", ""), doc.subject ?? []);
+  }
+  return found;
+}
+
 export async function getOpenLibrarySeries(olids: string[], init?: RequestInit) {
   const found = new Map<string, OpenLibrarySeries>();
   const ids = [...new Set(olids)].filter((id) => OPEN_LIBRARY_WORK_ID.test(id));

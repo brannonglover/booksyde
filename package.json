@@ -21,6 +21,7 @@
     "covers:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-covers.mts",
     "authors:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-authors.mts",
     "series:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-series.mts",
+    "non-fiction:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-non-fiction.mts",
     "posthog:dashboard": "tsx --env-file=apps/web/.env.local apps/web/scripts/posthog-dashboard.mts"
   },
   "devDependencies": {
