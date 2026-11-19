@@ -14,11 +14,15 @@ import { createClient } from "@/lib/supabase/server";
 async function AccountArea() {
   // Request-time only: the Supabase client reads the clock, which can't happen while prerendering.
   await connection();
-  const profile = hasSupabaseEnv ? await getMyProfile(await createClient()).catch(() => null) : null;
-  if (profile) {
+  const supabase = hasSupabaseEnv ? await createClient() : null;
+  const profile = supabase ? await getMyProfile(supabase).catch(() => null) : null;
+  if (profile && supabase) {
+    // From the session token already in hand, so no extra trip to the auth server.
+    const { data } = await supabase.auth.getClaims().catch(() => ({ data: null }));
+    const email = typeof data?.claims.email === "string" ? data.claims.email : undefined;
     return (
       <>
-        <IdentifyReader userId={profile.id} username={profile.username} />
+        <IdentifyReader userId={profile.id} username={profile.username} email={email} />
         <AccountMenu profile={profile} />
       </>
     );

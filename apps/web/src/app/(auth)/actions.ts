@@ -56,7 +56,7 @@ export async function signIn(_prev: AuthFormState, form: FormData): Promise<Auth
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { error: reportAuthError("signIn", error), values };
-  captureServerEvent(data.user.id, AnalyticsEvent.SignedIn, { method: "password" });
+  captureServerEvent(data.user.id, AnalyticsEvent.SignedIn, { method: "password" }, { email: data.user.email });
   redirect(safeNext(form.get("next")));
 }
 
@@ -101,7 +101,7 @@ export async function signUp(_prev: AuthFormState, form: FormData): Promise<Auth
   if (error) return { error: reportAuthError("signUp", error), values };
   // With email confirmation on, there's no session until they click the link.
   if (!data.session) return { sentTo: parsed.data.email };
-  if (data.user) captureServerEvent(data.user.id, AnalyticsEvent.SignedUp, { method: "password" });
+  if (data.user) captureServerEvent(data.user.id, AnalyticsEvent.SignedUp, { method: "password" }, { email: data.user.email });
   redirect(next);
 }
 

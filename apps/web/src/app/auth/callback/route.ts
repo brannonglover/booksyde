@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
           data.user.id,
           isSignup ? AnalyticsEvent.SignedUp : AnalyticsEvent.SignedIn,
           isSignup ? { method: "email_confirmation" } : { method: "email_link" },
+          { email: data.user.email },
         );
       }
       const response = NextResponse.redirect(new URL(next, origin));

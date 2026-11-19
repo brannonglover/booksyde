@@ -40,15 +40,18 @@ export function TrackClicks() {
  * Ties this browser to the signed-in reader (and forgets them on sign-out), so
  * anonymous browsing before sign-in joins their profile.
  */
-export function IdentifyReader({ userId, username }: { userId: string | null; username?: string }) {
+export function IdentifyReader({ userId, username, email }: { userId: string | null; username?: string; email?: string }) {
   useEffect(() => {
     if (!analyticsEnabled) return;
     if (userId) {
-      if (posthog.get_distinct_id() !== userId) posthog.identify(userId, { username });
+      // Also re-run for an already-identified reader: PostHog then just updates their
+      // properties (skipping repeats), so email reaches people identified before it was sent.
+      // Email lets PostHog's internal-user filter leave the team's own accounts out.
+      posthog.identify(userId, { username, ...(email ? { email } : {}) });
     } else if (posthog._isIdentified()) {
       posthog.reset();
     }
-  }, [userId, username]);
+  }, [userId, username, email]);
   return null;
 }
 
