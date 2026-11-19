@@ -2,13 +2,25 @@
  * Product analytics (PostHog). Every event Booksyde sends is named here, so the
  * PostHog dashboard and the code agree on spelling.
  *
- * Analytics is off unless NEXT_PUBLIC_POSTHOG_KEY is set, so local dev and
- * previews without a key send nothing.
+ * Analytics is off unless NEXT_PUBLIC_POSTHOG_KEY is set, and even then only
+ * the live site sends events (see instrumentation-client.ts and
+ * lib/analytics-server.ts): local dev, `next start` and preview deploys stay
+ * out of the data even with the real key in .env.local.
  */
 export const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "";
 /** The PostHog region the /ingest proxy forwards to (see next.config.ts). */
 export const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com";
 export const analyticsEnabled = POSTHOG_KEY !== "";
+
+/** Hosts whose visits count. Anywhere else, PostHog never starts. */
+export const ANALYTICS_HOSTS = ["www.booksyde.co", "booksyde.co"];
+
+/**
+ * Opening any page with `?notrack` stops analytics in that browser for good:
+ * for the team's own devices and Claude's test browsers. `?notrack=off` undoes it.
+ */
+export const NO_TRACK_PARAM = "notrack";
+export const NO_TRACK_STORAGE_KEY = "booksyde:notrack";
 
 export const AnalyticsEvent = {
   /** Server-side, once a password or email-link sign-in succeeds. */

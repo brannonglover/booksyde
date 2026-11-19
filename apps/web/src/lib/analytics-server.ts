@@ -2,6 +2,7 @@ import "server-only";
 import { after } from "next/server";
 import { PostHog } from "posthog-node";
 import { type AnalyticsEventName, analyticsEnabled, POSTHOG_HOST, POSTHOG_KEY } from "@/lib/analytics";
+import { isProduction } from "@/lib/site";
 
 /**
  * Records an event from a server action or route handler, after the response
@@ -9,6 +10,9 @@ import { type AnalyticsEventName, analyticsEnabled, POSTHOG_HOST, POSTHOG_KEY } 
  * user id, the same id the browser identifies with (components/analytics.tsx),
  * so these join the reader's client-side events. `person` is saved on the
  * reader's PostHog profile (e.g. their email, for the internal-user filter).
+ *
+ * Production deploys only, matching the browser side: local dev and previews
+ * send nothing even with the real key.
  */
 export function captureServerEvent(
   distinctId: string,
@@ -16,7 +20,7 @@ export function captureServerEvent(
   properties: Record<string, unknown> = {},
   person?: Record<string, unknown>,
 ) {
-  if (!analyticsEnabled) return;
+  if (!analyticsEnabled || !isProduction) return;
   after(async () => {
     // Serverless functions can freeze between requests, so send right away and close.
     const client = new PostHog(POSTHOG_KEY, { host: POSTHOG_HOST, flushAt: 1, flushInterval: 0 });

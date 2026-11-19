@@ -2,11 +2,17 @@
 
 import posthog from "posthog-js";
 import { useEffect } from "react";
-import { AnalyticsEvent, type AnalyticsEventName, analyticsEnabled } from "@/lib/analytics";
+import { AnalyticsEvent, type AnalyticsEventName } from "@/lib/analytics";
 
-/** Records an event from a client component (no-op without a PostHog key). */
+/**
+ * Whether PostHog started in this browser: it only does on the live site, with
+ * a key, and not after `?notrack` (see instrumentation-client.ts).
+ */
+const tracking = () => posthog.__loaded;
+
+/** Records an event from a client component (no-op when not tracking). */
 export function captureEvent(event: AnalyticsEventName, properties: Record<string, unknown> = {}) {
-  if (analyticsEnabled) posthog.capture(event, properties);
+  if (tracking()) posthog.capture(event, properties);
 }
 
 /**
@@ -16,8 +22,8 @@ export function captureEvent(event: AnalyticsEventName, properties: Record<strin
  */
 export function TrackClicks() {
   useEffect(() => {
-    if (!analyticsEnabled) return;
     const onClick = (e: MouseEvent) => {
+      if (!tracking()) return;
       const el = (e.target as Element | null)?.closest<HTMLElement>("[data-track]");
       const event = el?.dataset.track;
       if (!el || !event) return;
@@ -42,7 +48,7 @@ export function TrackClicks() {
  */
 export function IdentifyReader({ userId, username, email }: { userId: string | null; username?: string; email?: string }) {
   useEffect(() => {
-    if (!analyticsEnabled) return;
+    if (!tracking()) return;
     if (userId) {
       // Also re-run for an already-identified reader: PostHog then just updates their
       // properties (skipping repeats), so email reaches people identified before it was sent.
@@ -62,7 +68,7 @@ export function IdentifyReader({ userId, username, email }: { userId: string | n
 export function TrackSearch({ query, tags, books, authors, readers }: { query: string; tags: string[]; books: number; authors: number; readers: number }) {
   const tagKey = tags.join(",");
   useEffect(() => {
-    if (!analyticsEnabled) return;
+    if (!tracking()) return;
     // Results follow keystrokes; wait for a pause so "har", "harr", "harry" count once.
     const timer = setTimeout(() => {
       posthog.capture(AnalyticsEvent.SearchPerformed, {
