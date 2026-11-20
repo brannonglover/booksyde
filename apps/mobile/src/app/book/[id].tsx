@@ -16,7 +16,7 @@ import {
 import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
 import { Image } from 'expo-image';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useHeaderHeight } from '@react-navigation/elements';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -46,8 +46,8 @@ type BookData = {
   similar: Awaited<ReturnType<typeof getMoreLikeThis>>;
 };
 
-// Hermes on React Native 0.81 (Expo SDK 54) has no Intl.DisplayNames, so fall back to
-// a short table of common languages, then to the code itself.
+// Not every Hermes build has Intl.DisplayNames, so fall back to a short table of
+// common languages, then to the code itself.
 const FALLBACK_LANGUAGE_NAMES: Record<string, string> = {
   ar: 'Arabic', da: 'Danish', de: 'German', el: 'Greek', en: 'English', es: 'Spanish',
   fi: 'Finnish', fr: 'French', he: 'Hebrew', hi: 'Hindi', it: 'Italian', ja: 'Japanese',

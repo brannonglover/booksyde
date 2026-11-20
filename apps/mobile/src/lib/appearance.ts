@@ -15,7 +15,7 @@ const listeners = new Set<() => void>();
 
 function apply(next: ThemePreference) {
   preference = next;
-  if (Platform.OS !== 'web') Appearance.setColorScheme(next === 'system' ? null : next);
+  if (Platform.OS !== 'web') Appearance.setColorScheme(next === 'system' ? 'unspecified' : next);
   listeners.forEach((listener) => listener());
 }
 

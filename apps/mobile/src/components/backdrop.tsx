@@ -63,12 +63,12 @@ export function BackdropStage({ work, cover }: { work: BackdropWork; cover: Reac
 function BlurredCover({ work }: { work: BackdropWork }) {
   const cloth = mixHex(work.cover_color ?? palette.green, palette.ink, 0.35);
   return (
-    <View style={[StyleSheet.absoluteFillObject, { backgroundColor: cloth }]}>
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: cloth }]}>
       {work.cover_url ? (
         <Image source={work.cover_url} blurRadius={40} contentFit="cover" style={styles.blur} />
       ) : null}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(31,27,22,0.2)' }]} />
-      <Svg style={StyleSheet.absoluteFillObject} viewBox="0 0 400 500" preserveAspectRatio="none">
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(31,27,22,0.2)' }]} />
+      <Svg style={StyleSheet.absoluteFill} viewBox="0 0 400 500" preserveAspectRatio="none">
         <Defs>
           <RadialGradient id="vignette" cx="50%" cy="55%" rx="70%" ry="55%">
             <Stop offset="0" stopColor="#1F1B16" stopOpacity="0" />
@@ -98,7 +98,7 @@ const PETALS = scatter(26, 23).filter((p) => p.x < 110 || p.x > 290 || p.y < 110
 function MotifArt({ motif, tint }: { motif: Motif; tint?: string | null }) {
   const Scene = scenes[motif];
   return (
-    <Svg style={StyleSheet.absoluteFillObject} viewBox="0 0 400 500" preserveAspectRatio="xMidYMid slice">
+    <Svg style={StyleSheet.absoluteFill} viewBox="0 0 400 500" preserveAspectRatio="xMidYMid slice">
       <Scene tint={tint} />
     </Svg>
   );

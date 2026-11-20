@@ -3,8 +3,7 @@ import {
   InstrumentSerif_400Regular_Italic,
   useFonts,
 } from '@expo-google-fonts/instrument-serif';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { ThemeTransitionOverlay } from '@/components/theme-transition';
