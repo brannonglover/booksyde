@@ -8,6 +8,7 @@ import { Garland, HollySprig } from "@/components/holly";
 import { LeafStrip, MapleLeaf } from "@/components/leaves";
 import { IdentifyReader } from "@/components/analytics";
 import { AnalyticsEvent, track } from "@/lib/analytics";
+import { SiteMenu } from "@/components/site-menu";
 import { ThemePicker } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -93,6 +94,7 @@ export function SiteHeader({ showSearch = true }: { showSearch?: boolean }) {
             >
               Clubs
             </Link>
+            <SiteMenu />
             {showSearch && (
               <Link
                 href="/search"
