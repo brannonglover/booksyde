@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { AccountMenu } from "@/components/account-menu";
 import { IdentifyReader } from "@/components/analytics";
 import { AnalyticsEvent, track } from "@/lib/analytics";
-import { ThemePicker, ThemeToggleButton } from "@/components/theme-toggle";
+import { ThemePicker } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -77,7 +77,6 @@ export function SiteHeader() {
               <path d="m20 20-3.5-3.5" strokeLinecap="round" />
             </svg>
           </Link>
-          <ThemeToggleButton />
           <Suspense fallback={<span aria-hidden className="ml-1 h-9 w-24 animate-pulse rounded-full bg-border/50" />}>
             <AccountArea />
           </Suspense>

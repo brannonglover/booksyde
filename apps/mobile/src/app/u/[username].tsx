@@ -21,6 +21,7 @@ import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { AppearancePicker } from '@/components/appearance-picker';
 import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
 import { ShelfStatusSheet } from '@/components/shelf-status-sheet';
@@ -263,11 +264,18 @@ function Bookplate({
           ))}
         </View>
         {followState === 'self' ? (
-          <Link href="/settings/profile" asChild>
-            <Pressable style={StyleSheet.flatten([styles.outlineButton, { borderColor: theme.border }])}>
-              <Text style={{ color: text, fontWeight: '700' }}>Edit your bookplate</Text>
-            </Pressable>
-          </Link>
+          <>
+            <Link href="/settings/profile" asChild>
+              <Pressable style={StyleSheet.flatten([styles.outlineButton, { borderColor: theme.border }])}>
+                <Text style={{ color: text, fontWeight: '700' }}>Edit your bookplate</Text>
+              </Pressable>
+            </Link>
+            {/* Your settings live with your profile; signed-out readers have the picker at the foot of Home. */}
+            <View style={styles.appearance}>
+              <Text style={[styles.appearanceLabel, { color: theme.textSecondary }]}>APPEARANCE</Text>
+              <AppearancePicker center />
+            </View>
+          </>
         ) : (
           <FollowButton userId={profile.id} state={followState} isPrivate={profile.is_private} onChange={onChange} />
         )}
@@ -480,6 +488,8 @@ const styles = StyleSheet.create({
   factValue: { fontFamily: DisplayFonts.regular, fontSize: 22 },
   factLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1.2 },
   followButton: { alignSelf: 'stretch', alignItems: 'center', borderRadius: radii.pill, paddingVertical: spacing[3], marginTop: spacing[3] },
+  appearance: { alignItems: 'center', gap: spacing[2], marginTop: spacing[4] },
+  appearanceLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.8 },
   outlineButton: { alignSelf: 'stretch', alignItems: 'center', borderRadius: radii.pill, borderWidth: 1, paddingVertical: spacing[3], marginTop: spacing[3] },
   card: { borderWidth: 1, borderRadius: radii.xl, padding: spacing[5], gap: spacing[2] },
   cardTitle: { fontFamily: DisplayFonts.regular, fontSize: 30 },

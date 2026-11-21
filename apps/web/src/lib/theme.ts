@@ -37,10 +37,6 @@ function getPreference(): ThemePreference {
   return theme === "light" || theme === "dark" ? theme : "system";
 }
 
-function systemPrefersDark() {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
 function subscribe(onChange: () => void) {
   const media = window.matchMedia("(prefers-color-scheme: dark)");
   // Keep other open tabs in sync.
@@ -62,11 +58,4 @@ function subscribe(onChange: () => void) {
 /** The reader's choice: "system" until hydrated. */
 export function useThemePreference(): ThemePreference {
   return useSyncExternalStore(subscribe, getPreference, () => "system");
-}
-
-/** Toggle to the opposite of whatever is showing right now, as an explicit choice. */
-export function toggleTheme() {
-  const preference = getPreference();
-  const showingDark = preference === "dark" || (preference === "system" && systemPrefersDark());
-  setThemePreference(showingDark ? "light" : "dark");
 }

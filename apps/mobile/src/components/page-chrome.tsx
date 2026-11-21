@@ -28,7 +28,8 @@ export function SectionHeading({ numeral, children, aside }: { numeral?: string;
         {numeral ? <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.sectionNumeral, { color: theme.highlight }]}>{numeral}. </Text> : null}
         {children}
       </Text>
-      {aside}
+      {/* On a phone a link beside the title squeezes it into a narrow column, so it gets its own line. */}
+      {aside ? <View style={styles.sectionAside}>{aside}</View> : null}
     </View>
   );
 }
@@ -127,15 +128,13 @@ const styles = StyleSheet.create({
   ornament: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   ornamentRule: { height: StyleSheet.hairlineWidth * 2, width: 36, opacity: 0.6 },
   sectionHeading: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: spacing[3],
+    gap: spacing[2],
     paddingBottom: spacing[3],
     borderBottomWidth: StyleSheet.hairlineWidth,
     marginBottom: -spacing[2],
   },
-  sectionTitle: { flexShrink: 1, fontFamily: DisplayFonts.regular, fontSize: 34, lineHeight: 38 },
+  sectionAside: { alignSelf: 'flex-end' },
+  sectionTitle: { fontFamily: DisplayFonts.regular, fontSize: 34, lineHeight: 38 },
   sectionNumeral: { fontFamily: DisplayFonts.italic, fontSize: 24 },
   header: { alignItems: 'center', gap: spacing[3], paddingTop: spacing[4] },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 3, textAlign: 'center' },

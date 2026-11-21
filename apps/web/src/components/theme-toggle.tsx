@@ -1,7 +1,7 @@
 "use client";
 
 import type { ThemePreference } from "@booksyde/theme";
-import { setThemePreference, toggleTheme, useThemePreference } from "@/lib/theme";
+import { setThemePreference, useThemePreference } from "@/lib/theme";
 
 function SunIcon({ className = "" }: { className?: string }) {
   return (
@@ -26,25 +26,6 @@ function SystemIcon({ className = "" }: { className?: string }) {
       <rect x="3" y="4.5" width="18" height="12" rx="2" />
       <path d="M9 20h6M12 16.5V20" />
     </svg>
-  );
-}
-
-/**
- * One-tap switch for the header. The icon is chosen by CSS (the `dark:`
- * variant), so it is correct on first paint with no hydration flicker.
- */
-export function ThemeToggleButton() {
-  return (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className="grid size-9 place-items-center rounded-full text-text hover:bg-surface"
-      aria-label="Switch between light and dark"
-      title="Switch between light and dark"
-    >
-      <MoonIcon className="dark:hidden" />
-      <SunIcon className="hidden dark:block" />
-    </button>
   );
 }
 

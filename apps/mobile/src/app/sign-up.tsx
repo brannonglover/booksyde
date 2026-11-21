@@ -127,6 +127,13 @@ export default function SignUpScreen() {
           accent="shelf"
           body="Track what you read, find your next favorite by mood, and swap notes with readers like you."
         />
+        {/* Up top, so a reader who joined on the web sees the way in before the form. */}
+        <View style={styles.switchRow}>
+          <Text style={{ color: theme.textSecondary }}>Already a member?</Text>
+          <Link href="/sign-in" replace style={{ color: theme.accent, fontWeight: '700' }}>
+            Sign in
+          </Link>
+        </View>
 
         {/* Their profile card fills itself in as they type, as their profile will show it. */}
         <View style={styles.plateOuter}>
@@ -197,12 +204,6 @@ export default function SignUpScreen() {
         <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 12 }}>
           Free forever. No ads, no selling your reading history.
         </Text>
-        <View style={styles.switchRow}>
-          <Text style={{ color: theme.textSecondary }}>Already a member?</Text>
-          <Link href="/sign-in" replace style={{ color: theme.accent, fontWeight: '700' }}>
-            Sign in
-          </Link>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

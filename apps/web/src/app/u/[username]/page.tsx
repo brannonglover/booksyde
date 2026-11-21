@@ -24,6 +24,7 @@ import { ShelfBook } from "@/components/shelf-book";
 import { ShelfScroller } from "@/components/shelf-scroller";
 import { Ornament, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { Stars } from "@/components/stars";
+import { ThemePicker } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 
 /*
@@ -220,12 +221,19 @@ function Bookplate({
 
         <div className="mt-6 flex justify-center">
           {followState === "self" ? (
-            <Link
-              href="/settings/profile"
-              className="rounded-full border border-current/30 px-6 py-2.5 font-semibold transition hover:border-accent hover:text-accent"
-            >
-              Edit your bookplate
-            </Link>
+            <div className="flex flex-col items-center gap-6">
+              <Link
+                href="/settings/profile"
+                className="rounded-full border border-current/30 px-6 py-2.5 font-semibold transition hover:border-accent hover:text-accent"
+              >
+                Edit your bookplate
+              </Link>
+              {/* Your settings live with your profile; everyone also has the picker in the footer. */}
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] opacity-70">Appearance</span>
+                <ThemePicker />
+              </div>
+            </div>
           ) : (
             <FollowButton userId={profile.id} initial={followState} isPrivate={profile.is_private} />
           )}

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ThemeToggleButton } from "@/components/theme-toggle";
 
 /**
  * Split layout for the sign-in / sign-up pages: a green "reading room" panel
@@ -47,7 +46,6 @@ export function AuthShell({
             <Link href={switchPrompt.href} className="rounded-full px-3 py-2 font-semibold text-accent hover:bg-surface">
               {switchPrompt.label}
             </Link>
-            <ThemeToggleButton />
           </div>
         </div>
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-12">{children}</div>

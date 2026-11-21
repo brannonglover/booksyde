@@ -6,10 +6,21 @@ import {
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { CloseButton } from '@/components/close-button';
 import { ThemeTransitionOverlay } from '@/components/theme-transition';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { loadThemePreference } from '@/lib/appearance';
+
+/**
+ * An ✕ on screens that slide up as a sheet. On iOS it goes in as a header item without the
+ * glass bubble iOS 26 puts behind header buttons, which made it louder than the screen's title.
+ */
+const closeable = {
+  // A render function: the header calls it, so handing it the component itself would run its hooks out of place.
+  headerRight: () => <CloseButton />,
+  unstable_headerRightItems: () => [{ type: 'custom' as const, element: <CloseButton />, hidesSharedBackground: true }],
+};
 
 SplashScreen.preventAutoHideAsync();
 loadThemePreference();
@@ -32,16 +43,19 @@ export default function RootLayout() {
           headerTintColor: colors.text,
           headerBackButtonDisplayMode: 'minimal',
           contentStyle: { backgroundColor: colors.background },
+          // iOS lets each screen set the status bar, so the stack must follow a theme switch;
+          // the StatusBar components alone only take effect at launch.
+          statusBarStyle: colorScheme === 'dark' ? 'light' : 'dark',
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="book/[id]" options={{ title: '' }} />
         <Stack.Screen name="u/[username]" options={{ title: '' }} />
         <Stack.Screen name="clubs/[slug]" options={{ title: '' }} />
-        <Stack.Screen name="clubs/new" options={{ presentation: 'modal', title: 'Start a club' }} />
-        <Stack.Screen name="settings/profile" options={{ presentation: 'modal', title: 'Edit your bookplate' }} />
-        <Stack.Screen name="sign-in" options={{ presentation: 'modal', title: 'Sign in' }} />
-        <Stack.Screen name="sign-up" options={{ presentation: 'modal', title: 'Join Booksyde' }} />
+        <Stack.Screen name="clubs/new" options={{ presentation: 'modal', title: 'Start a club', ...closeable }} />
+        <Stack.Screen name="settings/profile" options={{ presentation: 'modal', title: 'Edit your bookplate', ...closeable }} />
+        <Stack.Screen name="sign-in" options={{ presentation: 'modal', title: 'Sign in', ...closeable }} />
+        <Stack.Screen name="sign-up" options={{ presentation: 'modal', title: 'Join Booksyde', ...closeable }} />
       </Stack>
       <ThemeTransitionOverlay />
     </ThemeProvider>

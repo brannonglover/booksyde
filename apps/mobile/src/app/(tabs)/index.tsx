@@ -17,11 +17,11 @@ import { coverUrl, genreColor, radii, spacing } from '@booksyde/theme';
 import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
-import { AppearancePicker, ThemeToggleButton } from '@/components/appearance-picker';
+import { AppearancePicker } from '@/components/appearance-picker';
 import { BookCover } from '@/components/book-cover';
 import { BookObject } from '@/components/book-object';
 import { Ornament, SectionHeading } from '@/components/page-chrome';
@@ -319,30 +319,31 @@ function YearInBooksSection({ numeral }: { numeral: string }) {
 }
 
 /** The books the most readers have open right now. */
-function Nightstand() {
-  const theme = useTheme();
-  const quick = useQuickShelf();
-  // undefined while loading; null if it couldn't load.
-  const [books, setBooks] = useState<NightstandBook[] | null | undefined>(supabase ? undefined : null);
+/**
+ * The books the most readers have open right now, or null while there's no such
+ * shelf to show. Until enough different readers have a book open, nightstand_works
+ * sends catalogue books with no reader counts, and the section stays hidden (as on
+ * the web); it stays hidden while loading or if it can't load, too.
+ */
+function useNightstandBooks() {
+  const [books, setBooks] = useState<NightstandBook[] | null>(null);
   useEffect(() => {
     if (!supabase) return;
     let live = true;
     getNightstand(supabase, 8)
-      .then((b) => live && setBooks(b))
+      .then((b) => live && setBooks(b.some((book) => book.readers > 0) ? b : null))
       .catch(() => live && setBooks(null));
     return () => {
       live = false;
     };
   }, []);
+  return books;
+}
 
-  if (books === undefined) return <ActivityIndicator color={theme.textSecondary} style={styles.shelfLoading} />;
-  if (!books?.length) {
-    return (
-      <ThemedText themeColor="textSecondary" style={[styles.shelfEmpty, { borderColor: theme.border }]}>
-        {books === null ? 'Couldn’t reach the nightstands just now.' : 'The nightstands are bare for now. Start a book and yours will be the first.'}
-      </ThemedText>
-    );
-  }
+/** "On everyone's nightstand": a sideways shelf of the books readers have open. */
+function Nightstand({ books }: { books: NightstandBook[] }) {
+  const theme = useTheme();
+  const quick = useQuickShelf();
   return (
     <>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf} style={styles.shelfScroll}>
@@ -403,6 +404,7 @@ export default function HomeScreen() {
   const { profile } = useSession();
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const nightstand = useNightstandBooks();
   const search = () => router.navigate({ pathname: '/search', params: query.trim() ? { q: query.trim() } : {} });
   return (
     <ThemedView style={styles.container}>
@@ -414,7 +416,6 @@ export default function HomeScreen() {
         <View style={[styles.masthead, { borderBottomColor: theme.border }]}>
           <Wordmark />
           <View style={styles.mastheadActions}>
-            <ThemeToggleButton />
             {profile ? (
               <Link href={{ pathname: '/u/[username]', params: { username: profile.username } }} asChild>
                 <Pressable
@@ -425,11 +426,19 @@ export default function HomeScreen() {
                 </Pressable>
               </Link>
             ) : (
-              <Link href="/sign-up" asChild>
-                <Pressable style={StyleSheet.flatten([styles.joinButton, { backgroundColor: theme.primary }])}>
-                  <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.buttonLabel, { color: theme.primaryText }]}>Join free</Text>
-                </Pressable>
-              </Link>
+              <>
+                {/* As on the web: a quiet way back in for readers who joined there, beside the way to join. */}
+                <Link href="/sign-in" asChild>
+                  <Pressable hitSlop={6} style={styles.signInButton}>
+                    <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.signInLabel, { color: theme.text }]}>Sign in</Text>
+                  </Pressable>
+                </Link>
+                <Link href="/sign-up" asChild>
+                  <Pressable style={StyleSheet.flatten([styles.joinButton, { backgroundColor: theme.primary }])}>
+                    <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.buttonLabel, { color: theme.primaryText }]}>Join free</Text>
+                  </Pressable>
+                </Link>
+              </>
             )}
           </View>
         </View>
@@ -482,12 +491,17 @@ export default function HomeScreen() {
             ))}
           </View>
 
-          <SectionHeading numeral="II" aside={<AsideLink href="/search" label="See all →" />}>
-            On everyone’s nightstand
-          </SectionHeading>
-          <Nightstand />
+          {/* Only once readers have books open; the numbering after it follows, as on the web. */}
+          {nightstand ? (
+            <>
+              <SectionHeading numeral="II" aside={<AsideLink href="/search" label="See all →" />}>
+                On everyone’s nightstand
+              </SectionHeading>
+              <Nightstand books={nightstand} />
+            </>
+          ) : null}
 
-          <YearInBooksSection numeral="III" />
+          <YearInBooksSection numeral={nightstand ? 'III' : 'II'} />
 
           <View style={styles.quote}>
             <Ornament center />
@@ -499,7 +513,7 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <SectionHeading numeral="IV">A few things you’ll love</SectionHeading>
+          <SectionHeading numeral={nightstand ? 'IV' : 'III'}>A few things you’ll love</SectionHeading>
           <View style={[styles.features, { borderColor: theme.border, backgroundColor: theme.border }]}>
             {features.map((f) => (
               <View key={f.title} style={[styles.feature, { backgroundColor: theme.backgroundElement }]}>
@@ -557,6 +571,8 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   signedInRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[3] },
   joinButton: { borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
+  signInButton: { paddingHorizontal: spacing[2], paddingVertical: spacing[2] },
+  signInLabel: { fontWeight: '600', fontSize: 14 },
   buttonLabel: { fontWeight: '700', fontSize: 14 },
   content: {
     width: '100%',
@@ -613,8 +629,6 @@ const styles = StyleSheet.create({
   bookTitle: { fontFamily: DisplayFonts.regular, fontSize: 19, lineHeight: 22, marginTop: spacing[3] },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   readers: { fontSize: 10, fontWeight: '700', letterSpacing: 1.4, marginTop: 2 },
-  shelfLoading: { paddingVertical: spacing[7] },
-  shelfEmpty: { borderWidth: 1, borderStyle: 'dashed', borderRadius: radii.md, padding: spacing[5], textAlign: 'center' },
   year: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg, padding: spacing[5], gap: spacing[4] },
   yearStats: { flexDirection: 'row', gap: spacing[6] },
   yearValue: { fontFamily: DisplayFonts.regular, fontSize: 44, lineHeight: 52 },
