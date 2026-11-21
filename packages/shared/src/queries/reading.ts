@@ -1,5 +1,6 @@
 import type { ReadingStatus } from "@booksyde/types";
 import type { BooksydeClient } from "../client";
+import { pageCountSchema } from "../schemas/club";
 import { reviewInputSchema, type ReviewInput } from "../schemas/review";
 
 async function requireUserId(client: BooksydeClient) {
@@ -44,8 +45,12 @@ export type DeskBook = {
   author: string | null;
   /** The page they've logged in their open read-through, or null if they're not tracking it. */
   page: number | null;
-  /** Pages in the edition they're holding, else the longest edition we know of. */
+  /** Pages in their copy: the count they set, else their edition's, else the longest edition we know of. */
   pages: number | null;
+  /** What `pages` would be from the catalog alone, without the count they set. */
+  catalogPages: number | null;
+  /** True when `pages` is a count the reader set for their own copy. */
+  pagesAreMine: boolean;
   /** When they last logged a page. */
   updatedAt: string | null;
 };
@@ -60,7 +65,7 @@ export async function getMyReadingDesk(client: BooksydeClient): Promise<DeskBook
   const { data: books, error } = await client
     .from("user_books")
     .select(
-      "work_id, editions ( page_count ), works ( id, title, cover_url, cover_color, editions ( page_count ), work_contributors ( role, position, authors ( name ) ) )",
+      "work_id, page_count, editions ( page_count ), works ( id, title, cover_url, cover_color, editions ( page_count ), work_contributors ( role, position, authors ( name ) ) )",
     )
     .match({ user_id: userId, status: "reading" })
     .order("position", { ascending: true, nullsFirst: true })
@@ -94,16 +99,36 @@ export async function getMyReadingDesk(client: BooksydeClient): Promise<DeskBook
         .sort((x, y) => x.position - y.position)[0]?.authors?.name ?? null;
     const longest = Math.max(0, ...(w.editions ?? []).map((e) => e.page_count ?? 0)) || null;
     const session = latest.get(b.work_id);
+    const catalogPages = b.editions?.page_count || longest;
     return [
       {
         work: { id: w.id, title: w.title, cover_url: w.cover_url, cover_color: w.cover_color },
         author,
         page: session?.page ?? null,
-        pages: b.editions?.page_count || longest,
+        pages: b.page_count ?? catalogPages,
+        catalogPages,
+        pagesAreMine: b.page_count != null,
         updatedAt: session?.page != null ? session.updatedAt : null,
       },
     ];
   });
+}
+
+/**
+ * Set how many pages the reader's copy has, so their progress matches the book
+ * in their hands. Pass null to go back to the catalog's count. The book must be
+ * on one of their shelves.
+ */
+export async function setMyPageCount(client: BooksydeClient, workId: string, pages: number | null) {
+  const count = pages == null ? null : pageCountSchema.parse(pages);
+  const userId = await requireUserId(client);
+  const { data, error } = await client
+    .from("user_books")
+    .update({ page_count: count })
+    .match({ user_id: userId, work_id: workId })
+    .select("work_id");
+  if (error) throw error;
+  if (!data?.length) throw new Error("Put this book on a shelf first.");
 }
 
 /** The shelves a reader can put in their own order. Every other shelf is newest first. */

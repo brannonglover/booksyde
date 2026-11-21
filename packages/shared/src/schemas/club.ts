@@ -62,3 +62,6 @@ export const clubPostInputSchema = z.object({
 export type ClubPostInput = z.input<typeof clubPostInputSchema>;
 
 export const readingPageSchema = z.number().int().min(0, "Pages start at 0").max(100000, "That’s a very long book");
+
+/** How many pages the reader's own copy has. */
+export const pageCountSchema = z.number().int().min(1, "A book has at least 1 page").max(100000, "That’s a very long book");

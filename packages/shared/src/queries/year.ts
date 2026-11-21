@@ -42,7 +42,7 @@ export async function getYearInBooks(
   let query = client
     .from("user_books")
     .select(
-      "user_id, finished_at, works ( id, title, editions ( page_count ), work_tags ( votes, tags ( slug, kind ) ) )",
+      "user_id, finished_at, page_count, works ( id, title, editions ( page_count ), work_tags ( votes, tags ( slug, kind ) ) )",
       { count: "exact" },
     )
     .eq("status", "read")
@@ -57,13 +57,14 @@ export async function getYearInBooks(
     return { year, scope: "everyone", books: 0, pages: 0, spines: [] };
   }
 
-  const finished = (data ?? []).flatMap((row) => (row.works ? [row.works] : []));
+  // A reader's own count for their copy beats the catalog's.
+  const finished = (data ?? []).flatMap((row) => (row.works ? [{ ...row.works, mine: row.page_count }] : []));
   const spines: YearSpine[] = finished.map((w) => {
     const counts = w.editions.map((e) => e.page_count).filter((n): n is number => n != null);
     const genre = w.work_tags
       .filter((t) => t.votes > 0 && t.tags.kind === "genre")
       .sort((a, b) => b.votes - a.votes)[0]?.tags.slug;
-    return { workId: w.id, title: w.title, pages: counts.length ? Math.max(...counts) : null, genre: genre ?? null };
+    return { workId: w.id, title: w.title, pages: w.mine ?? (counts.length ? Math.max(...counts) : null), genre: genre ?? null };
   });
 
   return {

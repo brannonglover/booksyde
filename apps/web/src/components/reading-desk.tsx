@@ -1,6 +1,6 @@
 "use client";
 
-import { type DeskBook, finishReading, setReadingPage } from "@booksyde/shared";
+import { type DeskBook, finishReading, setMyPageCount, setReadingPage } from "@booksyde/shared";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -32,16 +32,20 @@ export function ReadingDesk({ books }: { books: (DeskBook & { updatedLabel: stri
 }
 
 function DeskCard({ book }: { book: DeskBook & { updatedLabel: string | null } }) {
-  const { work, author, pages } = book;
+  const { work, author, catalogPages } = book;
   const [page, setPage] = useState(book.page);
+  // The length of their copy: their own count if they've set one, else ours.
+  const [pages, setPages] = useState(book.pages);
+  const [pagesAreMine, setPagesAreMine] = useState(book.pagesAreMine);
   const [updated, setUpdated] = useState(book.updatedLabel);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const [pagesDraft, setPagesDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [finished, setFinished] = useState(false);
   const [pending, startTransition] = useTransition();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const saved = useRef(book.page);
+  const saved = useRef({ page: book.page, pages: book.pages, pagesAreMine: book.pagesAreMine });
   const router = useRouter();
 
   // Fill the bar from empty on first paint, so it reads as a little flourish.
@@ -55,17 +59,28 @@ function DeskCard({ book }: { book: DeskBook & { updatedLabel: string | null } }
   const percent = page != null && pages ? Math.min(100, Math.round((page / pages) * 100)) : null;
   const tracking = page != null;
 
-  const persist = (next: number) => {
+  /** Save their page, and their copy's length when `length` is given (null goes back to ours). */
+  const persist = (next: number, length?: { mine: number | null }) => {
     setError(null);
     startTransition(async () => {
       try {
-        await setReadingPage(createClient(), work.id, next);
-        saved.current = next;
-        setUpdated("Just now");
+        const client = createClient();
+        if (length) await setMyPageCount(client, work.id, length.mine);
+        if (next !== saved.current.page) {
+          await setReadingPage(client, work.id, next);
+          setUpdated("Just now");
+        }
+        saved.current = {
+          page: next,
+          pages: length ? (length.mine ?? catalogPages) : saved.current.pages,
+          pagesAreMine: length ? length.mine != null : saved.current.pagesAreMine,
+        };
         // So the hero's bookmark keeps up.
         router.refresh();
       } catch {
-        setPage(saved.current);
+        setPage(saved.current.page);
+        setPages(saved.current.pages);
+        setPagesAreMine(saved.current.pagesAreMine);
         setError("That didn’t save. Try again?");
       }
     });
@@ -81,6 +96,7 @@ function DeskCard({ book }: { book: DeskBook & { updatedLabel: string | null } }
 
   const openEditor = () => {
     setDraft(page?.toString() ?? "");
+    setPagesDraft(pages?.toString() ?? "");
     setError(null);
     setEditing(true);
   };
@@ -92,14 +108,26 @@ function DeskCard({ book }: { book: DeskBook & { updatedLabel: string | null } }
       setError("Enter the page you’re on, like 142.");
       return;
     }
-    if (pages && n > pages) {
-      setError(`This edition has ${pages} pages.`);
+    // A blank length means "use Booksyde's count".
+    const typed = pagesDraft.trim() === "" ? null : Number(pagesDraft);
+    if (typed != null && (!Number.isInteger(typed) || typed < 1)) {
+      setError("Enter how many pages your copy has, like 609.");
       return;
     }
+    // Typing our own count back in is the same as not setting one.
+    const mine = typed === catalogPages ? null : typed;
+    const length = mine ?? catalogPages;
+    if (length && n > length) {
+      setError(`Your copy has ${length} pages. Change that if yours is longer.`);
+      return;
+    }
+    const lengthChanged = mine !== (pagesAreMine ? pages : null);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setPage(n);
+    setPages(length);
+    setPagesAreMine(mine != null);
     setEditing(false);
-    persist(n);
+    persist(n, lengthChanged ? { mine } : undefined);
   };
 
   const finish = () => {
@@ -176,36 +204,67 @@ function DeskCard({ book }: { book: DeskBook & { updatedLabel: string | null } }
             <p className="text-muted">
               {percent != null && pages && page != null
                 ? `Page ${page} of ${pages} · ${pages - page} to go`
-                : "We don’t know how long this edition is"}
+                : "We don’t know how long your copy is"}
             </p>
           </>
         )}
       </div>
 
       {editing ? (
-        <form onSubmit={submit} className="mt-3 flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-sm text-muted">
-            Page
-            <input
-              autoFocus
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={pages ?? undefined}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="0"
-              aria-label={`Page you're on in ${work.title}`}
-              className="w-20 rounded-xl border border-border bg-surface-raised px-3 py-1.5 text-text outline-none focus:border-text/40 focus:ring-4 focus:ring-highlight/20"
-            />
-            {pages ? <span>of {pages}</span> : null}
-          </label>
-          <button type="submit" className="rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-text hover:opacity-90">
-            Save
-          </button>
-          <button type="button" onClick={() => setEditing(false)} className="px-2 py-1.5 text-sm font-semibold text-muted hover:text-text">
-            Cancel
-          </button>
+        <form onSubmit={submit} className="mt-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-muted">
+              Page
+              <input
+                autoFocus
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="0"
+                aria-label={`Page you're on in ${work.title}`}
+                className={numberField}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-muted">
+              of
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={pagesDraft}
+                onChange={(e) => setPagesDraft(e.target.value)}
+                placeholder={catalogPages?.toString() ?? "pages"}
+                aria-label={`How many pages your copy of ${work.title} has`}
+                aria-describedby={`${work.id}-pages-note`}
+                className={numberField}
+              />
+            </label>
+            <button type="submit" className="rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-text hover:opacity-90">
+              Save
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="px-2 py-1.5 text-sm font-semibold text-muted hover:text-text">
+              Cancel
+            </button>
+          </div>
+          <p id={`${work.id}-pages-note`} className="mt-2 text-xs leading-relaxed text-muted">
+            Page counts vary between editions, so ours may not match your copy. Change it to match yours.
+            {" "}On a Kindle, the percent goes by how much text you&rsquo;ve read, not by pages, so it can still be a point or two
+            off.
+            {pagesAreMine && catalogPages ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={() => setPagesDraft(catalogPages.toString())}
+                  className="font-semibold text-text underline-offset-4 hover:text-accent hover:underline"
+                >
+                  Use ours ({catalogPages})
+                </button>
+              </>
+            ) : null}
+          </p>
         </form>
       ) : (
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -240,6 +299,9 @@ function DeskCard({ book }: { book: DeskBook & { updatedLabel: string | null } }
     </div>
   );
 }
+
+const numberField =
+  "w-20 rounded-xl border border-border bg-surface-raised px-3 py-1.5 text-text outline-none focus:border-text/40 focus:ring-4 focus:ring-highlight/20";
 
 function Cover({ book }: { book: DeskBook }) {
   return (

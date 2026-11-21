@@ -495,14 +495,14 @@ isOneToOne: false
                   ]
                 },"user_books": {
                   Row: {
-                    "created_at": string,"edition_id": string | null,"finished_at": string | null,"position": number | null,"shelved_at": string,"started_at": string | null,"status": Database["public"]['Enums']["reading_status"],"updated_at": string,"user_id": string,"work_id": string
+                    "created_at": string,"edition_id": string | null,"finished_at": string | null,"page_count": number | null,"position": number | null,"shelved_at": string,"started_at": string | null,"status": Database["public"]['Enums']["reading_status"],"updated_at": string,"user_id": string,"work_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"edition_id"?: string | null,"finished_at"?: string | null,"position"?: number | null,"shelved_at"?: string,"started_at"?: string | null,"status": Database["public"]['Enums']["reading_status"],"updated_at"?: string,"user_id": string,"work_id": string
+                    "created_at"?: string,"edition_id"?: string | null,"finished_at"?: string | null,"page_count"?: number | null,"position"?: number | null,"shelved_at"?: string,"started_at"?: string | null,"status": Database["public"]['Enums']["reading_status"],"updated_at"?: string,"user_id": string,"work_id": string
                   }
                   Update: {
-                    "created_at"?: string,"edition_id"?: string | null,"finished_at"?: string | null,"position"?: number | null,"shelved_at"?: string,"started_at"?: string | null,"status"?: Database["public"]['Enums']["reading_status"],"updated_at"?: string,"user_id"?: string,"work_id"?: string
+                    "created_at"?: string,"edition_id"?: string | null,"finished_at"?: string | null,"page_count"?: number | null,"position"?: number | null,"shelved_at"?: string,"started_at"?: string | null,"status"?: Database["public"]['Enums']["reading_status"],"updated_at"?: string,"user_id"?: string,"work_id"?: string
                   }
                   Relationships: [
                     {
