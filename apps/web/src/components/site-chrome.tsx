@@ -1,10 +1,11 @@
 import { getMyProfile } from "@booksyde/shared";
-import { christmas } from "@booksyde/theme";
+import { christmas, thanksgiving } from "@booksyde/theme";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AccountMenu } from "@/components/account-menu";
 import { Garland, HollySprig } from "@/components/holly";
+import { LeafStrip, MapleLeaf } from "@/components/leaves";
 import { IdentifyReader } from "@/components/analytics";
 import { AnalyticsEvent, track } from "@/lib/analytics";
 import { ThemePicker } from "@/components/theme-toggle";
@@ -64,6 +65,11 @@ export function SiteHeader({ showSearch = true }: { showSearch?: boolean }) {
     <>
       <header className="border-b border-border">
         {/* December: a thin green-and-gilt ribbon along the top of the page, like the ribbon on a gift. */}
+        {/* November: the same rule in harvest rust and amber. */}
+        <div aria-hidden className="hidden thanksgiving:block">
+          <div className="h-[3px] bg-[#8A3B1E]" />
+          <div className="h-px bg-[#D9A441]/80" />
+        </div>
         <div aria-hidden className="hidden christmas:block">
           <div className="h-[3px] bg-green" />
           <div className="h-px bg-gilt/70" />
@@ -123,6 +129,8 @@ export function SiteHeader({ showSearch = true }: { showSearch?: boolean }) {
       {/* December: a garland hung along the foot of the header, swagged between little bows. It
         takes its own room (the page starts below it), so it never hangs over the page's words. */}
       <Garland className="relative -mt-[10px]" />
+      {/* November: fallen leaves along the foot of the header, likewise in their own room. */}
+      <LeafStrip className="mt-1" />
     </>
   );
 }
@@ -137,6 +145,7 @@ export function SiteFooter() {
           <Wordmark className="self-start text-2xl text-text" />
           <span className="italic">
             Set in Instrument Serif &amp; Plus Jakarta Sans. Made for readers.
+            <span className="hidden thanksgiving:inline"> {thanksgiving.greeting}</span>
             <span className="hidden christmas:inline">
               {" "}
               {christmas.greeting}
@@ -157,7 +166,8 @@ export function Ornament({ className = "" }: { className?: string }) {
       className={`flex items-center gap-3 text-highlight ${className}`}
     >
       <span className="h-px w-10 bg-current opacity-60" />
-      <span className="text-lg leading-none christmas:hidden">❦</span>
+      <span className="text-lg leading-none christmas:hidden thanksgiving:hidden">❦</span>
+      <MapleLeaf className="hidden -rotate-12 text-[1.4rem] text-accent thanksgiving:block" />
       <HollySprig className="hidden text-[1.35rem] christmas:block" />
       <span className="h-px w-10 bg-current opacity-60" />
     </div>

@@ -12,8 +12,10 @@
   }
 }
 
-/* `christmas:` applies through December (<html data-season>, set by the script in
-   lib/theme-script.ts); pair `christmas:hidden` with `hidden christmas:block` to swap. */
+/* Seasons (<html data-season>, set by the script in lib/theme-script.ts):
+   `thanksgiving:` through November, `christmas:` through December. Pair
+   `christmas:hidden` with `hidden christmas:block` to swap something in. */
+@custom-variant thanksgiving (&:where([data-season="thanksgiving"] *));
 @custom-variant christmas (&:where([data-season="christmas"] *));
 
 /* Tailwind v4 dropped the hand cursor on buttons; bring it back everywhere. */

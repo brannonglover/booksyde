@@ -1,4 +1,4 @@
-import { christmasColors } from "./season";
+import { SEASONS, seasonColors } from "./season";
 
 /**
  * Booksyde design tokens — the single source of truth for colour, type,
@@ -185,17 +185,20 @@ export function toCssVariables(): string {
       .map(([k, v]) => `--bk-${kebab(k)}: ${v};`)
       .join(" ");
   const dark = `${toVars(colors.dark)} color-scheme: dark;`;
-  // December (<html data-season="christmas">): the season's tokens win over light and dark alike.
-  const xmas = ':root[data-season="christmas"]';
+  // A season (<html data-season="…">, see season.ts) wins over light and dark alike.
+  const season = (name: string) => `:root[data-season="${name}"]`;
   return [
     `:root { ${toVars(palette)} ${toVars(colors.light)} color-scheme: light; }`,
-    `${xmas} { ${toVars(christmasColors.light)} }`,
+    ...SEASONS.map((s) => `${season(s)} { ${toVars(seasonColors[s].light)} }`),
     `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${dark} } }`,
     `:root[data-theme="dark"] { ${dark} }`,
-    `@media (prefers-color-scheme: dark) { ${xmas}:not([data-theme="light"]) { ${toVars(christmasColors.dark)} } }`,
-    `${xmas}[data-theme="dark"] { ${toVars(christmasColors.dark)} }`,
+    ...SEASONS.flatMap((s) => [
+      `@media (prefers-color-scheme: dark) { ${season(s)}:not([data-theme="light"]) { ${toVars(seasonColors[s].dark)} } }`,
+      `${season(s)}[data-theme="dark"] { ${toVars(seasonColors[s].dark)} }`,
+    ]),
   ].join("\n");
 }
 
 export * from "./season";
 export * from "./garland";
+export * from "./leaves";

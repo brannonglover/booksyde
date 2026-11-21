@@ -1,25 +1,86 @@
 import type { SchemeColors } from "./index";
 
 /**
- * Seasonal dressing that comes back every year: a holly sprig on the logo and
- * in place of the fleuron, a holly-red accent, a ribbon rule, today's pick
- * gift-wrapped, and seasonal words. The layout never changes. Both apps decide
- * the season from the reader's own clock, so it starts at midnight wherever they are.
+ * Seasonal dressing that comes back every year. Both apps decide the season
+ * from the reader's own clock, so it starts at midnight wherever they are, and
+ * the layout never changes.
+ *
+ * - Thanksgiving, all of November: harvest colours (rust, amber, cinnamon) and
+ *   autumn leaves on the logo, the ornaments and a strip under the header.
+ * - Christmas, all of December: holly on the logo and ornaments, a holly-red
+ *   accent, an evergreen garland, today's pick gift-wrapped, and December's
+ *   bestseller-and-Christmas-book pair on the home page.
  */
 
-export type Season = "christmas";
+export type Season = "thanksgiving" | "christmas";
 
-/** The season on a given day: Christmas through all of December. */
+export const SEASONS: readonly Season[] = ["thanksgiving", "christmas"];
+
+/** The season on a given day: Thanksgiving through November, Christmas through December. */
 export function seasonOn(date: Date = new Date()): Season | null {
-  return date.getMonth() === 11 ? "christmas" : null;
+  const month = date.getMonth();
+  return month === 10 ? "thanksgiving" : month === 11 ? "christmas" : null;
 }
 
-/** Accepts "christmas" or "off" to force a season (for previewing), anything else means follow the calendar. */
+/** Accepts a season's name or "off" to force it (for previewing); anything else means follow the calendar. */
 export function resolveSeason(override: string | null | undefined, date: Date = new Date()): Season | null {
-  if (override === "christmas") return "christmas";
   if (override === "off") return null;
+  if (SEASONS.includes(override as Season)) return override as Season;
   return seasonOn(date);
 }
+
+export const thanksgiving = {
+  kicker: "Thankful for good books · Happy Thanksgiving",
+  /** The hero headline, with its italic accent word. */
+  headline: { before: "Settle in with a book to be", accent: "thankful", after: "for." },
+  greeting: "Happy Thanksgiving & happy reading.",
+  quote: {
+    text: "Every leaf speaks bliss to me, fluttering from the autumn tree.",
+    author: "Emily Brontë",
+    work: "Fall, Leaves, Fall",
+  },
+  /** The logo's full stop: a fallen-leaf rust. */
+  rust: "#B4532A",
+  /** Autumn leaf colours: rust, amber, cinnamon, gold and olive. */
+  leaves: ["#B4532A", "#C4862C", "#8A3B1E", "#D9A441", "#7C7A35"],
+} as const;
+
+/** November's palette: harvest colours throughout, warmer paper and walnut. */
+export const thanksgivingColors: { light: Partial<SchemeColors>; dark: Partial<SchemeColors> } = {
+  light: {
+    background: "#F4E9D8",
+    surface: "#FBF4E8",
+    surfaceRaised: "#FFFAF1",
+    border: "#E2CDB0",
+    primary: "#7A3B1E",
+    primaryText: "#FBF4E8",
+    accent: "#B4532A",
+    highlight: "#C4862C",
+  },
+  dark: {
+    background: "#2D231B",
+    surface: "#372B21",
+    surfaceRaised: "#413328",
+    border: "#54412F",
+    primary: "#EDB98A",
+    primaryText: "#2A1E15",
+    accent: "#F09A62",
+    highlight: "#E9B562",
+  },
+};
+
+/**
+ * Leaf artwork (viewBox 0 0 24 24), stem at the bottom: a maple leaf and a
+ * plain oval leaf with its midrib. Plain path data so web and mobile draw the same leaves.
+ */
+export const leafArt = {
+  viewBox: "0 0 24 24",
+  maple:
+    "M12 1.5 13.6 4.9 15.8 3.9 15.4 7.5 18.4 5.7 17.8 8.3 21 8.9 18.4 11.5 19.8 12.7 15.2 13.9 15.8 15.9 12.6 15.2 12.6 22 11.4 22 11.4 15.2 8.2 15.9 8.8 13.9 4.2 12.7 5.6 11.5 3 8.9 6.2 8.3 5.6 5.7 8.6 7.5 8.2 3.9 10.4 4.9Z",
+  oval: "M12 2C6.8 7 6.2 13.4 11.4 18.4V22h1.2v-3.6C17.8 13.4 17.2 7 12 2Z",
+  /** The oval leaf's midrib, drawn over it in a darker shade. */
+  ovalVein: "M12 5.5V18",
+} as const;
 
 export const christmas = {
   kicker: "Season’s readings · Happy holidays from Booksyde",
@@ -38,7 +99,7 @@ export const christmas = {
   ribbonShade: "#741E1B",
 } as const;
 
-/** Colour tokens that change through December: the accent turns holly red. */
+/** December's palette: the accent turns holly red. */
 export const christmasColors: { light: Partial<SchemeColors>; dark: Partial<SchemeColors> } = {
   light: { accent: "#A3262A" },
   dark: { accent: "#EC7B6E" },
@@ -78,3 +139,12 @@ export const bowArt = {
   shade: ["M48 30C38 19 24 14 16 17 12 20 14 27 21 29 30 32 40 32 48 30Z", "M52 30C62 19 76 14 84 17 88 20 86 27 79 29 70 32 60 32 52 30Z"],
   knot: { cx: 50, cy: 31, rx: 7.5, ry: 8 },
 } as const;
+
+/** Each season's colour tokens, over the light and dark defaults. */
+export const seasonColors: Record<Season, { light: Partial<SchemeColors>; dark: Partial<SchemeColors> }> = {
+  thanksgiving: thanksgivingColors,
+  christmas: christmasColors,
+};
+
+/** Each season's words (kicker, headline, greeting, quote), for code that picks by season. */
+export const seasonCopy = { thanksgiving, christmas } satisfies Record<Season, unknown>;

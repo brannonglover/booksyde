@@ -39,7 +39,8 @@ export function FeatureBento() {
   return (
     <div className="grid gap-4 lg:grid-cols-6">
       {/* Read by mood: a scatter of mood stickers */}
-      <Tile className="bg-green text-paper lg:col-span-6">
+      {/* November turns the green card a deep harvest brown. */}
+      <Tile className="bg-green text-paper thanksgiving:bg-[#5C2E16] lg:col-span-6">
         <TileText
           title="Read by mood"
           body="Tell us what you’re in the mood for and we’ll find the book to match."

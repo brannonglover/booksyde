@@ -1,9 +1,10 @@
 import { Platform, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { christmas } from '@booksyde/theme';
+import { christmas, thanksgiving } from '@booksyde/theme';
 
 import { HollySprig } from '@/components/holly';
+import { MapleLeaf } from '@/components/leaves';
 import { DisplayFonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSeason } from '@/hooks/use-season';
@@ -12,13 +13,15 @@ import { useTheme } from '@/hooks/use-theme';
 /**
  * The Booksyde wordmark: the "oo" is a pair of reading glasses (matches the web
  * header). Frames are ink on the light theme and gilt on the dark theme; the
- * closing period is gilt. Through December a sprig of holly sits on the bridge
- * and the period turns berry red.
+ * closing period is gilt. Through November a maple leaf rests on the bridge and
+ * the period turns rust; through December it's a sprig of holly and a red berry.
  */
 export function Wordmark({ size = 30 }: { size?: number }) {
   const theme = useTheme();
   const dark = useColorScheme() === 'dark';
-  const isChristmas = useSeason() === 'christmas';
+  const season = useSeason();
+  const isChristmas = season === 'christmas';
+  const leaf = size * 0.6;
   const sprig = size * 0.46;
   return (
     <Text
@@ -38,8 +41,14 @@ export function Wordmark({ size = 30 }: { size?: number }) {
             <HollySprig color={dark ? '#8DB88F' : '#2F5D46'} height={sprig} />
           </View>
         ) : null}
+        {season === 'thanksgiving' ? (
+          <View style={{ position: 'absolute', top: -size * 0.44, left: (size * 1.09 - leaf) / 2, transform: [{ rotate: '18deg' }] }}>
+            <MapleLeaf color={dark ? '#F09A62' : thanksgiving.rust} size={leaf} />
+          </View>
+        ) : null}
       </View>
-      ksyde<Text style={{ color: isChristmas ? christmas.berry : theme.highlight }}>.</Text>
+      ksyde
+      <Text style={{ color: isChristmas ? christmas.berry : season === 'thanksgiving' ? thanksgiving.rust : theme.highlight }}>.</Text>
     </Text>
   );
 }

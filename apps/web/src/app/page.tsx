@@ -2,7 +2,7 @@ import { compactCount, describeNextRead, formatRating, getMyReadingDesk, getNext
 import Link from "next/link";
 import { connection } from "next/server";
 import { cache, Suspense } from "react";
-import { christmas, coverUrl, genreColor } from "@booksyde/theme";
+import { christmas, coverUrl, genreColor, thanksgiving } from "@booksyde/theme";
 import { BookCover } from "@/components/book-cover";
 import { BookObject } from "@/components/book-object";
 import { FeatureBento } from "@/components/feature-bento";
@@ -39,15 +39,20 @@ export default function Home() {
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-24 px-4 pb-24 sm:px-6">
         {/* Hero */}
-        <section className="grid items-center gap-14 pt-14 christmas:pt-6 sm:pt-20 sm:christmas:pt-10 lg:grid-cols-[1.25fr_1fr]">
+        <section className="grid items-center gap-14 pt-14 thanksgiving:pt-10 christmas:pt-6 sm:pt-20 sm:thanksgiving:pt-14 sm:christmas:pt-10 lg:grid-cols-[1.25fr_1fr]">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
-              <span className="christmas:hidden">Est. 2026 &middot; A reading room for everyone</span>
+              <span className="christmas:hidden thanksgiving:hidden">Est. 2026 &middot; A reading room for everyone</span>
+              <span className="hidden thanksgiving:inline">{thanksgiving.kicker}</span>
               <span className="hidden christmas:inline">{christmas.kicker}</span>
             </p>
             <h1 className="mt-5 font-display text-6xl leading-[0.95] tracking-tight sm:text-8xl">
-              <span className="christmas:hidden">
+              <span className="christmas:hidden thanksgiving:hidden">
                 Settle in with your next <em className="text-accent">favorite</em> book.
+              </span>
+              <span className="hidden thanksgiving:inline">
+                {thanksgiving.headline.before} <em className="text-accent">{thanksgiving.headline.accent}</em>{" "}
+                {thanksgiving.headline.after}
               </span>
               <span className="hidden christmas:inline">
                 {christmas.headline.before} <em className="text-accent">{christmas.headline.accent}</em>{" "}
@@ -367,13 +372,21 @@ function LaterSections({ nightstand }: { nightstand: NightstandBooks | null }) {
 
       <figure className="mx-auto max-w-2xl text-center">
         <Ornament className="justify-center" />
-        {/* Austen most of the year; Dickens through December. */}
-        <div className="christmas:hidden">
+        {/* Austen most of the year; Brontë's falling leaves through November; Dickens through December. */}
+        <div className="christmas:hidden thanksgiving:hidden">
           <blockquote className="mt-6 font-display text-3xl italic leading-snug sm:text-4xl">
             &ldquo;I declare after all there is no enjoyment like reading!&rdquo;
           </blockquote>
           <figcaption className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
             Jane Austen, <span className="normal-case italic tracking-normal">Pride and Prejudice</span>
+          </figcaption>
+        </div>
+        <div className="hidden thanksgiving:block">
+          <blockquote className="mt-6 font-display text-3xl italic leading-snug sm:text-4xl">
+            &ldquo;{thanksgiving.quote.text}&rdquo;
+          </blockquote>
+          <figcaption className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+            {thanksgiving.quote.author}, <span className="normal-case italic tracking-normal">{thanksgiving.quote.work}</span>
           </figcaption>
         </div>
         <div className="hidden christmas:block">

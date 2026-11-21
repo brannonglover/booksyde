@@ -13,7 +13,7 @@ import {
   toFeatured,
   type YearInBooks,
 } from '@booksyde/shared';
-import { christmas, coverUrl, genreColor, palette, radii, spacing } from '@booksyde/theme';
+import { coverUrl, seasonCopy, genreColor, palette, radii, spacing } from '@booksyde/theme';
 import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -25,6 +25,7 @@ import { AppearancePicker } from '@/components/appearance-picker';
 import { BookCover } from '@/components/book-cover';
 import { BookObject } from '@/components/book-object';
 import { Garland, HollySprig } from '@/components/holly';
+import { LeafStrip } from '@/components/leaves';
 import { Ornament, SectionHeading } from '@/components/page-chrome';
 import { SeasonPicksSection } from '@/components/season-picks';
 import { Stars } from '@/components/stars';
@@ -410,7 +411,10 @@ export default function HomeScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const nightstand = useNightstandBooks();
-  const isChristmas = useSeason() === 'christmas';
+  const season = useSeason();
+  const isChristmas = season === 'christmas';
+  // The season's kicker, headline, quote and greeting (seasonCopy in @booksyde/theme); null for the rest of the year.
+  const copy = season ? seasonCopy[season] : null;
   const search = () => router.navigate({ pathname: '/search', params: query.trim() ? { q: query.trim() } : {} });
   return (
     <ThemedView style={styles.container}>
@@ -420,6 +424,12 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* December: a thin green-and-gilt ribbon above the masthead, like the ribbon on a gift (as on the web). */}
+        {season === 'thanksgiving' ? (
+          <View accessible={false}>
+            <View style={{ height: 3, backgroundColor: '#8A3B1E' }} />
+            <View style={{ height: 1, backgroundColor: '#D9A441', opacity: 0.8 }} />
+          </View>
+        ) : null}
         {isChristmas ? (
           <View accessible={false}>
             <View style={{ height: 3, backgroundColor: palette.green }} />
@@ -458,17 +468,19 @@ export default function HomeScreen() {
         {/* December: a garland hung along the foot of the masthead, as on the web. It takes its own
             room (the hero starts below it), so it never hangs over words. */}
         {isChristmas ? <Garland style={styles.mastheadGarland} /> : null}
+        {/* November: fallen leaves along the foot of the masthead, likewise in their own room. */}
+        {season === 'thanksgiving' ? <LeafStrip style={styles.mastheadLeaves} /> : null}
 
         <View style={styles.content}>
           {/* Hero */}
           {/* In December the garland above already makes room, so the hero starts a little closer. */}
-          <View style={[styles.hero, isChristmas && { paddingTop: spacing[5] }]}>
-            <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>{isChristmas ? christmas.kicker.toUpperCase() : 'EST. 2026 · A READING ROOM FOR EVERYONE'}</Text>
+          <View style={[styles.hero, season && { paddingTop: spacing[5] }]}>
+            <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>{copy ? copy.kicker.toUpperCase() : 'EST. 2026 · A READING ROOM FOR EVERYONE'}</Text>
             <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.heroTitle, { color: theme.text }]}>
-              {isChristmas ? (
+              {copy ? (
                 <>
-                  {christmas.headline.before} <Text style={[styles.italic, { color: theme.accent }]}>{christmas.headline.accent}</Text>{' '}
-                  {christmas.headline.after}
+                  {copy.headline.before} <Text style={[styles.italic, { color: theme.accent }]}>{copy.headline.accent}</Text>{' '}
+                  {copy.headline.after}
                 </>
               ) : (
                 <>
@@ -544,12 +556,12 @@ export default function HomeScreen() {
           <View style={styles.quote}>
             <Ornament center />
             <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.quoteText, { color: theme.text }]}>
-              {/* Austen most of the year; Dickens through December. */}
-              {isChristmas ? `“${christmas.quote.text}”` : '“I declare after all there is no enjoyment like reading!”'}
+              {/* Austen most of the year; Brontë in November; Dickens in December. */}
+              {copy ? `“${copy.quote.text}”` : '“I declare after all there is no enjoyment like reading!”'}
             </Text>
             <Text style={[styles.label, { color: theme.textSecondary, textAlign: 'center' }]}>
-              {isChristmas ? christmas.quote.author.toUpperCase() : 'JANE AUSTEN'},{' '}
-              <Text style={styles.italicSmall}>{isChristmas ? christmas.quote.work : 'Pride and Prejudice'}</Text>
+              {copy ? copy.quote.author.toUpperCase() : 'JANE AUSTEN'},{' '}
+              <Text style={styles.italicSmall}>{copy ? copy.quote.work : 'Pride and Prejudice'}</Text>
             </Text>
           </View>
 
@@ -572,7 +584,7 @@ export default function HomeScreen() {
             {isChristmas ? <Garland style={styles.colophonGarland} /> : null}
             <Wordmark size={24} />
             <Text style={[styles.colophonText, { color: theme.textSecondary }]}>
-              Made for readers.{isChristmas ? ` ${christmas.greeting}` : ''}
+              Made for readers.{copy ? ` ${copy.greeting}` : ''}
             </Text>
             <Text style={[styles.label, { color: theme.textSecondary, marginTop: spacing[3] }]}>APPEARANCE</Text>
             <AppearancePicker />
@@ -610,6 +622,7 @@ const styles = StyleSheet.create({
   },
   // Tucked up over the masthead's bottom rule, as on the web.
   mastheadGarland: { marginTop: -8 },
+  mastheadLeaves: { marginTop: spacing[1] },
   colophonGarlanded: { paddingTop: spacing[7] + spacing[3] },
   // Hangs into the colophon's own top padding, clear of its words.
   colophonGarland: { position: 'absolute', left: -spacing[4], right: -spacing[4], top: -8 },
