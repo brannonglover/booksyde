@@ -36,7 +36,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
 export default function SearchPage({ searchParams }: { searchParams: Promise<Params> }) {
   return (
     <div className="flex flex-1 flex-col">
-      <SiteHeader />
+      <SiteHeader showSearch={false} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 sm:px-6">
         <section className="mx-auto max-w-3xl pt-12 text-center sm:pt-16">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">The card catalogue</p>

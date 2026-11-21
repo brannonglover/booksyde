@@ -33,7 +33,7 @@ const moods = [
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
-      <SiteHeader />
+      <SiteHeader showSearch={false} />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-24 px-4 pb-24 sm:px-6">
         {/* Hero */}

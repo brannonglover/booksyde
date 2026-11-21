@@ -44,7 +44,8 @@ async function AccountArea() {
   );
 }
 
-export function SiteHeader() {
+/** `showSearch={false}` on pages that already have a search box of their own. */
+export function SiteHeader({ showSearch = true }: { showSearch?: boolean }) {
   return (
     <header className="border-b border-border">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
@@ -66,17 +67,19 @@ export function SiteHeader() {
           >
             Clubs
           </Link>
-          <Link
-            href="/search"
-            aria-label="Search the catalogue"
-            title="Search the catalogue"
-            className="grid size-9 place-items-center rounded-full text-muted hover:bg-surface hover:text-text"
-          >
-            <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-            </svg>
-          </Link>
+          {showSearch && (
+            <Link
+              href="/search"
+              aria-label="Search the catalogue"
+              title="Search the catalogue"
+              className="grid size-9 place-items-center rounded-full text-muted hover:bg-surface hover:text-text"
+            >
+              <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+              </svg>
+            </Link>
+          )}
           <Suspense fallback={<span aria-hidden className="ml-1 h-9 w-24 animate-pulse rounded-full bg-border/50" />}>
             <AccountArea />
           </Suspense>
