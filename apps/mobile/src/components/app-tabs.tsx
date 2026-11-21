@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-na
 import Animated, { useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TabBarHeight } from '@/constants/theme';
+import { ChromeMaxScale, TabBarHeight } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /*
@@ -110,7 +110,7 @@ function TabButton({ label, icon, isFocused, ...props }: TabTriggerSlotProps & {
           fallback={<MaterialIcons name={icon.material} size={24} color={color} />}
         />
       </View>
-      <Text style={[styles.label, { color, fontWeight: isFocused ? '600' : '500' }]} numberOfLines={1}>
+      <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.label, { color, fontWeight: isFocused ? '600' : '500' }]} numberOfLines={1}>
         {label}
       </Text>
     </Pressable>

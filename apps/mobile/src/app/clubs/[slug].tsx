@@ -30,7 +30,7 @@ import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
 import { confirm, EmptyNote, Loading, notify, Ornament, Pill, SectionHeading } from '@/components/page-chrome';
 import { DEFAULT_INK } from '@/constants/inks';
-import { DisplayFonts, MaxContentWidth } from '@/constants/theme';
+import { DisplayFonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
@@ -93,7 +93,7 @@ export default function ClubScreen() {
   if (!supabase || error || data === null) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.sideTitle, { color: theme.text, textAlign: 'center' }]}>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.sideTitle, { color: theme.text, textAlign: 'center' }]}>
           {data === null ? 'No club by that name.' : 'Something went wrong.'}
         </Text>
         <Text style={{ color: theme.textSecondary, textAlign: 'center' }}>
@@ -135,7 +135,7 @@ function ClubView({ data, viewerId, onChange }: { data: Data; viewerId: string |
             <Text style={[styles.kicker, { color: mixHex(ink, theme.text, 0.3) }]}>
               {club.is_private ? '🔒 PRIVATE CLUB' : 'BOOK CLUB'}
             </Text>
-            <Text style={[styles.clubName, { color: theme.text }]}>{club.name}</Text>
+            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.clubName, { color: theme.text }]}>{club.name}</Text>
             <Ornament center />
             {club.description ? <Text style={[styles.description, { color: theme.textSecondary }]}>{club.description}</Text> : null}
             <Text style={{ color: theme.textSecondary, fontSize: 14, textAlign: 'center' }}>
@@ -243,7 +243,7 @@ function SideHeading({ children, aside }: { children: string; aside?: string }) 
   const theme = useTheme();
   return (
     <View style={[styles.sideHeading, { borderBottomColor: theme.border }]}>
-      <Text style={[styles.sideTitle, { color: theme.text }]}>{children}</Text>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.sideTitle, { color: theme.text }]}>{children}</Text>
       {aside ? <Text style={{ color: theme.textSecondary }}>{aside}</Text> : null}
     </View>
   );

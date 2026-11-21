@@ -19,7 +19,6 @@ import {
   tagBlurbs,
 } from '@booksyde/shared';
 import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -32,7 +31,7 @@ import { BookCover } from '@/components/book-cover';
 import { RequestSlip } from '@/components/request-slip';
 import { Stars } from '@/components/stars';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth } from '@/constants/theme';
+import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useTheme } from '@/hooks/use-theme';
@@ -154,8 +153,9 @@ export default function SearchScreen() {
       >
         <View style={styles.content}>
           <Text style={[styles.kicker, { color: theme.accent }]}>THE CARD CATALOGUE</Text>
-          <Text style={[styles.title, { color: theme.text }]}>
-            What are you <Text style={{ fontFamily: DisplayFonts.italic, color: theme.accent }}>looking for</Text>?
+          <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]}>
+            {/* A no-break space keeps "looking for" together: on a phone it drops to the second line whole. */}
+            What are you <Text style={{ fontFamily: DisplayFonts.italic, color: theme.accent }}>{'looking for'}</Text>?
           </Text>
           <Text style={[styles.lede, { color: theme.textSecondary }]}>
             A title, an author, an ISBN off the back cover, or just a feeling. We forgive typos.
@@ -338,7 +338,7 @@ function WiderStacks({
     <View style={[{ gap: spacing[4] }, !headline && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border, paddingTop: spacing[6] }]}>
       <View style={{ gap: spacing[1] }}>
         <Text style={[styles.summaryText, { color: theme.textSecondary }]}>NOT ON FILE YET</Text>
-        <Text style={[styles.cabinetTitle, { color: theme.text }]}>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cabinetTitle, { color: theme.text }]}>
           From the <Text style={{ fontFamily: DisplayFonts.italic, color: theme.accent }}>wider stacks</Text>
         </Text>
         <Text style={{ color: theme.textSecondary, fontSize: 15, lineHeight: 22 }}>
@@ -418,7 +418,7 @@ function CatalogueCard({ book, tilt, onLongPress }: { book: CatalogBook; tilt: s
         </View>
         <View style={styles.cardBody}>
           <View style={{ flex: 1, gap: spacing[2] }}>
-            <Text style={[styles.cardTitle, { color: c.ink }]}>{book.title}</Text>
+            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cardTitle, { color: c.ink }]}>{book.title}</Text>
             {book.subtitle ? <Text style={[styles.mono, { color: c.muted }]}>{book.subtitle}</Text> : null}
             <Text style={[styles.mono, { color: c.ink }]}>
               / by {byline}.{book.first_published_year ? ` — First published ${book.first_published_year}.` : ''}
@@ -490,11 +490,11 @@ function EmptyDrawer({
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.fan}>
         <View style={[styles.fanSide, { backgroundColor: 'rgba(139,58,43,0.7)', transform: [{ translateX: 12 }, { rotate: '-12deg' }] }]} />
         <View style={styles.fanMiddle}>
-          <Text style={styles.fanMark}>?</Text>
+          <Text maxFontSizeMultiplier={DisplayMaxScale} style={styles.fanMark}>?</Text>
         </View>
         <View style={[styles.fanSide, { backgroundColor: 'rgba(184,137,58,0.8)', transform: [{ translateX: -12 }, { rotate: '12deg' }] }]} />
       </View>
-      <Text style={[styles.emptyTitle, { color: theme.text }]}>{error ? 'The catalogue is stuck' : 'Nothing turned up'}</Text>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.emptyTitle, { color: theme.text }]}>{error ? 'The catalogue is stuck' : 'Nothing turned up'}</Text>
       <Text style={[styles.emptyBody, { color: theme.textSecondary }]}>
         {error
           ? 'We couldn’t reach the catalogue. Check your connection and try again.'
@@ -523,30 +523,35 @@ function Browse({ drawers, onAsk, onDrawer }: { drawers: BrowseDrawer[]; onAsk: 
           </Pressable>
         ))}
       </View>
-      <Collection title="Browse by mood" blurb="Start with how you want a book to feel." drawers={drawers.filter((d) => d.kind === 'mood')} onDrawer={onDrawer} />
-      <Collection title="Browse by genre" blurb="Or pick a genre you already love." drawers={drawers.filter((d) => d.kind === 'genre')} onDrawer={onDrawer} />
+      <ShelfRow title="Browse by mood" blurb="Start with how you want a book to feel." drawers={drawers.filter((d) => d.kind === 'mood')} onDrawer={onDrawer} />
+      <ShelfRow title="Browse by genre" blurb="Or pick a genre you already love." drawers={drawers.filter((d) => d.kind === 'genre')} onDrawer={onDrawer} />
     </View>
   );
 }
 
-function Collection({ title, blurb, drawers, onDrawer }: { title: string; blurb: string; drawers: BrowseDrawer[]; onDrawer: (slug: string) => void }) {
+/**
+ * A mood or genre shelf: one row of cards that scrolls sideways, so the whole
+ * catalogue of moods and genres fits on a phone in about one screen. Each card
+ * is the web's browse card stood upright: a fan of covers, the name and count,
+ * and a line on what it's like.
+ */
+function ShelfRow({ title, blurb, drawers, onDrawer }: { title: string; blurb: string; drawers: BrowseDrawer[]; onDrawer: (slug: string) => void }) {
   const theme = useTheme();
   if (drawers.length === 0) return null;
   return (
     <View style={{ gap: spacing[2] }}>
-      <Text style={[styles.cabinetTitle, { color: theme.text }]}>{title}</Text>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cabinetTitle, { color: theme.text }]}>{title}</Text>
       <Text style={{ color: theme.textSecondary, fontSize: 15 }}>{blurb}</Text>
-      <View style={styles.browseGrid}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shelfScroll} contentContainerStyle={styles.shelfRow}>
         {drawers.map((d) => (
-          <BrowseCard key={d.slug} drawer={d} onPress={() => onDrawer(d.slug)} />
+          <ShelfCard key={d.slug} drawer={d} onPress={() => onDrawer(d.slug)} />
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
-/** A mood or genre as a card: a small fan of its best-loved covers, a line on what it's like, and an arrow. */
-function BrowseCard({ drawer, onPress }: { drawer: BrowseDrawer; onPress: () => void }) {
+function ShelfCard({ drawer, onPress }: { drawer: BrowseDrawer; onPress: () => void }) {
   const theme = useTheme();
   const tint = genreColor(drawer.slug).dot;
   const empty = drawer.works === 0;
@@ -560,7 +565,7 @@ function BrowseCard({ drawer, onPress }: { drawer: BrowseDrawer; onPress: () => 
         // react-native-web adds `hovered`; native only knows `pressed`.
         const active = state.pressed || (state as { hovered?: boolean }).hovered;
         return [
-          styles.browseCard,
+          styles.shelfCard,
           {
             backgroundColor: theme.backgroundElement,
             borderColor: active ? tint : theme.border,
@@ -570,28 +575,15 @@ function BrowseCard({ drawer, onPress }: { drawer: BrowseDrawer; onPress: () => 
         ];
       }}
     >
-      {(state) => {
-        const active = state.pressed || (state as { hovered?: boolean }).hovered;
-        return (
-          <>
-            <CoverFan covers={drawer.covers} tint={tint} edge={theme.backgroundElement} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600' }}>
-                {drawer.name}
-                {empty ? null : <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '400' }}>{`  ${compactCount(drawer.works)}`}</Text>}
-              </Text>
-              <Text numberOfLines={2} style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 19, marginTop: 2 }}>
-                {empty ? 'Nothing tagged yet' : (tagBlurbs[drawer.slug] ?? `${drawer.works} books`)}
-              </Text>
-            </View>
-            {empty ? null : (
-              <View style={[styles.browseArrow, { backgroundColor: active ? tint : `${tint}29` }]}>
-                <MaterialIcons name="arrow-forward" size={18} color={active ? '#FFFFFF' : mixHex(tint, theme.text, 0.4)} />
-              </View>
-            )}
-          </>
-        );
-      }}
+      <CoverFan covers={drawer.covers} tint={tint} edge={theme.backgroundElement} />
+      {/* Up to two lines, so "Historical Fiction 340" isn't cut short; the row's cards stretch to match. */}
+      <Text numberOfLines={2} style={{ color: theme.text, fontSize: 16, fontWeight: '600', marginTop: spacing[3] }}>
+        {drawer.name}
+        {empty ? null : <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '400' }}>{`  ${compactCount(drawer.works)}`}</Text>}
+      </Text>
+      <Text numberOfLines={2} style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 17, marginTop: 2 }}>
+        {empty ? 'Nothing tagged yet' : (tagBlurbs[drawer.slug] ?? `${drawer.works} books`)}
+      </Text>
     </Pressable>
   );
 }
@@ -749,18 +741,8 @@ const styles = StyleSheet.create({
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: spacing[2] },
   suggestion: { borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: spacing[3], paddingVertical: 4 },
   cabinetTitle: { fontFamily: DisplayFonts.regular, fontSize: 36, lineHeight: 38 },
-  browseGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: spacing[3] },
-  browseCard: {
-    flexBasis: 300,
-    flexGrow: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[3],
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
-  },
+  shelfScroll: { marginHorizontal: -spacing[5] },
+  shelfRow: { gap: 10, paddingHorizontal: spacing[5], paddingTop: spacing[3], paddingBottom: spacing[1] },
+  shelfCard: { width: 156, borderWidth: 1, borderRadius: 16, padding: spacing[3] },
   fanCover: { width: 35, height: 52, borderRadius: 3, borderWidth: 2, overflow: 'hidden' },
-  browseArrow: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 });

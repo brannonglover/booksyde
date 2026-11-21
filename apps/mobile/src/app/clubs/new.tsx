@@ -7,7 +7,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Swit
 import { FormError, FormField, PrimaryButton } from '@/components/auth-form';
 import { ClubCardFace } from '@/components/club-card';
 import { DEFAULT_INK } from '@/constants/inks';
-import { DisplayFonts } from '@/constants/theme';
+import { DisplayFonts, DisplayMaxScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -53,7 +53,7 @@ export default function NewClubScreen() {
   if (!loading && !session) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.title, { color: theme.text, textAlign: 'center' }]}>Sign in to start a club.</Text>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text, textAlign: 'center' }]}>Sign in to start a club.</Text>
         <PrimaryButton label="Sign in" onPress={() => router.replace('/sign-in')} />
       </View>
     );

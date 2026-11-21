@@ -19,7 +19,7 @@ import { Bookshelf, type ShelfBook } from '@/components/bookshelf';
 import { EmptyNote, Loading, PageHeader, Pill, SectionHeading } from '@/components/page-chrome';
 import { RequestSlip } from '@/components/request-slip';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
+import { BottomTabInset, DisplayFonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
@@ -259,7 +259,7 @@ function SignedOutNote() {
   const theme = useTheme();
   return (
     <View style={[styles.signedOut, { backgroundColor: theme.backgroundElement, borderColor: theme.border }]}>
-      <Text style={[styles.signedOutTitle, { color: theme.text }]}>Want picks of your own?</Text>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.signedOutTitle, { color: theme.text }]}>Want picks of your own?</Text>
       <Text style={{ color: theme.textSecondary, textAlign: 'center', lineHeight: 21 }}>
         Sign in and we’ll pull suggestions from the books on your shelves.
       </Text>
@@ -321,7 +321,7 @@ function PublicShelves() {
               <View style={styles.moodHeading}>
                 <View style={styles.moodName}>
                   <View style={[styles.dot, { width: 10, height: 10, backgroundColor: genreColor(drawer.slug).dot }]} />
-                  <Text style={[styles.moodTitle, { color: theme.text }]}>{drawer.name}</Text>
+                  <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.moodTitle, { color: theme.text }]}>{drawer.name}</Text>
                 </View>
                 <Link href={{ pathname: '/search', params: { tags: drawer.slug } }} style={[styles.asideLink, { color: theme.accent }]}>
                   All {drawer.works} →
@@ -350,7 +350,7 @@ function ChipGroup({ title, blurb, drawers }: { title: string; blurb: string; dr
   const theme = useTheme();
   return (
     <View style={{ gap: spacing[2] }}>
-      <Text style={[styles.moodTitle, { color: theme.text }]}>{title}</Text>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.moodTitle, { color: theme.text }]}>{title}</Text>
       <Text style={{ color: theme.textSecondary }}>{blurb}</Text>
       <View style={styles.chips}>
         {drawers.map((d) => (

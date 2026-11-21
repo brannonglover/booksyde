@@ -8,8 +8,7 @@ import { BookCover } from '@/components/book-cover';
 import { DisplayFonts, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
-
-const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
+import { webUrl } from '@/lib/web-url';
 
 /**
  * An Open Library book we don't hold yet, as a library request slip: "Add to
@@ -26,7 +25,6 @@ export function RequestSlip({ book, tilt = '0deg' }: { book: OpenLibraryBook & {
   const byline = book.authors.map((a) => a.name).join(', ') || 'Unknown';
 
   async function add() {
-    if (!webUrl) return setState('error');
     setState('adding');
     try {
       const res = await fetch(`${webUrl}/api/books/import`, {
@@ -99,7 +97,7 @@ export function RequestSlip({ book, tilt = '0deg' }: { book: OpenLibraryBook & {
       {body}
       {state === 'error' ? (
         <Text style={{ color: palette.oxblood, fontSize: 13 }}>
-          {webUrl ? 'The stacks are stuck right now. Try again in a moment.' : 'Set EXPO_PUBLIC_WEB_URL to add books.'}
+          The stacks are stuck right now. Try again in a moment.
         </Text>
       ) : null}
       <Pressable

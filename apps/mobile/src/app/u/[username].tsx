@@ -25,7 +25,7 @@ import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
 import { ShelfStatusSheet } from '@/components/shelf-status-sheet';
 import { Stars } from '@/components/stars';
-import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
+import { BottomTabInset, DisplayFonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useTheme } from '@/hooks/use-theme';
@@ -85,7 +85,7 @@ export default function ProfileScreen() {
   if (error || data === null) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.chapterTitle, { color: theme.text, textAlign: 'center' }]}>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.chapterTitle, { color: theme.text, textAlign: 'center' }]}>
           {data === null ? 'No reader by that name.' : 'Something went wrong.'}
         </Text>
         {error ? <Text style={{ color: theme.textSecondary, textAlign: 'center' }}>{error}</Text> : null}
@@ -162,7 +162,7 @@ function ProfileDetail({ data, onChange }: { data: Data; onChange: () => void })
         {!canSee ? (
           <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.border, alignItems: 'center' }]}>
             <Text style={{ fontSize: 40 }}>🔒</Text>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>A private profile</Text>
+            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cardTitle, { color: theme.text }]}>A private profile</Text>
             <Text style={{ color: theme.textSecondary, textAlign: 'center', lineHeight: 21 }}>
               {followState === 'pending'
                 ? `Your request is with ${first}. Once they say yes, you’ll see their shelves and notes here.`
@@ -246,7 +246,7 @@ function Bookplate({
       <View style={[styles.plateInner, { borderColor: ink }]}>
         <Text style={[styles.plateLabel, { color: ink }]}>READER</Text>
         <Avatar name={name} src={profile.avatar_url} ink={ink} size={72} style={styles.monogram} />
-        <Text style={[styles.name, { color: text }]}>{name}</Text>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.name, { color: text }]}>{name}</Text>
         <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
           @{profile.username}
           {profile.is_private ? ' · 🔒 Private' : ''}
@@ -258,7 +258,7 @@ function Bookplate({
         <View style={[styles.facts, { borderColor: theme.border }]}>
           {facts.map(([value, label]) => (
             <Text key={label} style={{ color: text }}>
-              <Text style={styles.factValue}>{value}</Text> <Text style={[styles.factLabel, { color: theme.textSecondary }]}>{label}</Text>
+              <Text maxFontSizeMultiplier={DisplayMaxScale} style={styles.factValue}>{value}</Text> <Text style={[styles.factLabel, { color: theme.textSecondary }]}>{label}</Text>
             </Text>
           ))}
         </View>
@@ -329,7 +329,7 @@ function ChapterHeading({ kicker, title }: { kicker: string; title: string }) {
   return (
     <View style={styles.chapter}>
       <Text style={[styles.kicker, { color: theme.accent }]}>{kicker}</Text>
-      <Text style={[styles.chapterTitle, { color: theme.text }]}>{title}</Text>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.chapterTitle, { color: theme.text }]}>{title}</Text>
       <Text style={{ color: theme.highlight }}>❦</Text>
     </View>
   );
@@ -343,7 +343,7 @@ function ReadingPalette({ first, stats }: { first: string; stats: ProfileStats }
   return (
     <>
       <ChapterHeading kicker="READING PALETTE" title="What they reach for" />
-      <Text style={[styles.paletteText, { color: theme.text }]}>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.paletteText, { color: theme.text }]}>
         {first} reads mostly <Text style={{ color: theme.accent }}>{top.join(' and ')}</Text> books
         {genres.length ? (
           <>
@@ -391,7 +391,7 @@ function ShelfRow({
   return (
     <View style={{ gap: spacing[3] }}>
       <View style={styles.shelfHeader}>
-        <Text style={[styles.shelfTitle, { color: theme.text }]}>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.shelfTitle, { color: theme.text }]}>
           {title} <Text style={{ fontFamily: undefined, fontSize: 14, color: theme.textSecondary }}>{books.length}</Text>
         </Text>
         {onReset ? (

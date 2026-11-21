@@ -13,11 +13,10 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AuthHeading, FormError, FormField, PrimaryButton } from '@/components/auth-form';
-import { DisplayFonts, MaxContentWidth } from '@/constants/theme';
+import { DisplayFonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
-
-const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
+import { webUrl } from '@/lib/web-url';
 
 /** "Margot Okafor" → "margot_okafor" (fits the username rules). */
 function suggestUsername(name: string) {
@@ -80,7 +79,7 @@ export default function SignUpScreen() {
         options: {
           data: { username: parsed.data.username, display_name: parsed.data.displayName },
           // The link opens in a browser, so land on the website, which says "Email confirmed".
-          emailRedirectTo: webUrl ? `${webUrl}/?from=app` : undefined,
+          emailRedirectTo: `${webUrl}/?from=app`,
         },
       });
       if (authError) return setError(authErrorMessage(authError));
@@ -96,7 +95,7 @@ export default function SignUpScreen() {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
         <Text style={{ fontSize: 44 }}>✉️</Text>
-        <Text style={[styles.inboxTitle, { color: theme.text }]}>Check your inbox</Text>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.inboxTitle, { color: theme.text }]}>Check your inbox</Text>
         <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 16 }}>
           We sent a link to {sentTo}. Tap it to confirm your email, then come back here and sign in.
         </Text>
@@ -134,9 +133,9 @@ export default function SignUpScreen() {
           <View style={styles.plateInner}>
             <Text style={styles.plateLabel}>READER</Text>
             <View style={styles.monogram}>
-              <Text style={styles.monogramText}>{(displayName.trim() || '?').charAt(0).toUpperCase()}</Text>
+              <Text maxFontSizeMultiplier={DisplayMaxScale} style={styles.monogramText}>{(displayName.trim() || '?').charAt(0).toUpperCase()}</Text>
             </View>
-            <Text numberOfLines={1} style={[styles.plateName, !displayName && styles.placeholder]}>
+            <Text maxFontSizeMultiplier={DisplayMaxScale} numberOfLines={1} style={[styles.plateName, !displayName && styles.placeholder]}>
               {displayName || 'Your name here'}
             </Text>
             <Text numberOfLines={1} style={[styles.plateHandle, !username && styles.placeholder]}>

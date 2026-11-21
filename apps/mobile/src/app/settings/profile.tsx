@@ -10,7 +10,7 @@ import { AvatarPicker } from '@/components/avatar-picker';
 import { InkPicker } from '@/components/ink-picker';
 import { Loading } from '@/components/page-chrome';
 import { inks } from '@/constants/inks';
-import { DisplayFonts } from '@/constants/theme';
+import { DisplayFonts, DisplayMaxScale } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
@@ -50,14 +50,14 @@ export default function EditProfileScreen() {
   if (!sessionLoading && !userId) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Sign in to edit your bookplate.</Text>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]}>Sign in to edit your bookplate.</Text>
       </View>
     );
   }
   if (error) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Couldn’t load your profile.</Text>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]}>Couldn’t load your profile.</Text>
       </View>
     );
   }
@@ -167,7 +167,7 @@ function ProfileForm({ profile }: { profile: Profile }) {
           <View style={[styles.plateInner, { borderColor: ink }]}>
             <Text style={[styles.plateLabel, { color: ink }]}>READER</Text>
             <Avatar name={shown} src={avatar} ink={ink} size={56} style={styles.monogram} />
-            <Text style={[styles.plateName, { color: dark ? palette.paper : palette.ink }]}>{shown}</Text>
+            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.plateName, { color: dark ? palette.paper : palette.ink }]}>{shown}</Text>
             <Text style={{ color: theme.textSecondary, fontSize: 12 }}>
               @{username}
               {isPrivate ? ' · 🔒 Private' : ''}

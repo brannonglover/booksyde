@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/book-cover';
 import { DEFAULT_INK } from '@/constants/inks';
-import { DisplayFonts } from '@/constants/theme';
+import { DisplayFonts, DisplayMaxScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /** A club as a cloth-bound card: its colour, its name, what it's reading and how many are in it. */
@@ -57,7 +57,7 @@ export function ClubCardFace({
             {isPrivate ? ' · 🔒 PRIVATE' : ''}
             {role && role !== 'member' ? <Text style={{ color: theme.accent }}> · {role.toUpperCase()}</Text> : null}
           </Text>
-          <Text style={[styles.name, { color: theme.text }]}>{name}</Text>
+          <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.name, { color: theme.text }]}>{name}</Text>
           {description ? (
             <Text numberOfLines={2} style={{ color: theme.textSecondary, fontSize: 14, marginTop: spacing[1] }}>
               {description}

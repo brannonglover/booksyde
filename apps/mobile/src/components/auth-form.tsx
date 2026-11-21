@@ -2,7 +2,7 @@ import { radii, spacing } from '@booksyde/theme';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
-import { DisplayFonts } from '@/constants/theme';
+import { DisplayFonts, DisplayMaxScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type FieldProps = TextInputProps & {
@@ -87,7 +87,7 @@ export function AuthHeading({ kicker, title, accent, body }: { kicker: string; t
   return (
     <View style={{ gap: spacing[2], marginBottom: spacing[2] }}>
       <Text style={[styles.kicker, { color: theme.accent }]}>{kicker.toUpperCase()}</Text>
-      <Text style={[styles.title, { color: theme.text }]}>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]}>
         {title} <Text style={[styles.titleAccent, { color: theme.accent }]}>{accent}</Text>.
       </Text>
       <Text style={{ color: theme.textSecondary, fontSize: 16, lineHeight: 23 }}>{body}</Text>

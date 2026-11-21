@@ -4,7 +4,7 @@ import { radii, spacing } from '@booksyde/theme';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DisplayFonts } from '@/constants/theme';
+import { DisplayFonts, DisplayMaxScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 const statuses: ReadingStatus[] = ['want_to_read', 'reading', 'read', 'did_not_finish'];
@@ -57,7 +57,7 @@ export function ShelfStatusSheet({
       >
         <View style={[styles.grabber, { backgroundColor: theme.border }]} />
         <Text style={[styles.kicker, { color: theme.textSecondary }]}>{shelved ? 'MOVE TO A SHELF' : 'PUT ON A SHELF'}</Text>
-        <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]} numberOfLines={2}>
           {book?.title}
         </Text>
         {onSignIn ? (

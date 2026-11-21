@@ -24,7 +24,7 @@ import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
 import { MoodVote } from '@/components/mood-vote';
 import { Stars } from '@/components/stars';
-import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth } from '@/constants/theme';
+import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useTheme } from '@/hooks/use-theme';
@@ -116,7 +116,7 @@ export default function BookScreen() {
   if (error || data === null) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.emptyTitle, { color: theme.text }]}>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.emptyTitle, { color: theme.text }]}>
           {data === null ? 'This book seems to have been misshelved.' : 'Something went wrong.'}
         </Text>
         <Text style={{ color: theme.textSecondary, textAlign: 'center' }}>{error ?? 'We couldn’t find it.'}</Text>
@@ -168,8 +168,8 @@ function BookDetail({ data }: { data: BookData }) {
             {vibe.genres.map((g) => g.name.toUpperCase()).join(' · ')}
           </Text>
         ) : null}
-        <Text style={[styles.title, { color: theme.text }]}>{work.title}</Text>
-        {work.subtitle ? <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{work.subtitle}</Text> : null}
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]}>{work.title}</Text>
+        {work.subtitle ? <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.subtitle, { color: theme.textSecondary }]}>{work.subtitle}</Text> : null}
         {series ? (
           <View style={[styles.seriesTag, { borderColor: theme.border, backgroundColor: theme.background }]}>
             <Text style={{ color: theme.accent }}>❧</Text>
@@ -187,7 +187,7 @@ function BookDetail({ data }: { data: BookData }) {
           </View>
         ) : null}
         <Ornament />
-        <Text style={[styles.byline, { color: theme.text }]}>by {authorNames}</Text>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.byline, { color: theme.text }]}>by {authorNames}</Text>
         {work.first_published_year ? (
           <Text style={[styles.kicker, { color: theme.textSecondary, letterSpacing: 1.6 }]}>
             FIRST PRINTED IN {work.first_published_year}
@@ -195,7 +195,7 @@ function BookDetail({ data }: { data: BookData }) {
         ) : null}
         <View style={styles.statsRow}>
           <Stars rating={avg} size={16} />
-          <Text style={[styles.avg, { color: theme.text }]}>{formatRating(avg)}</Text>
+          <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.avg, { color: theme.text }]}>{formatRating(avg)}</Text>
           {verdict.total > 0 ? (
             <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
               · loved by {lovedPct}% of {plural(verdict.total, 'reader')}
@@ -219,7 +219,7 @@ function BookDetail({ data }: { data: BookData }) {
         {/* The blurb */}
         {paragraphs.map((p, i) => (
           <Text key={i} style={[styles.body, { color: theme.text }]}>
-            {i === 0 ? <Text style={[styles.dropCap, { color: theme.accent }]}>{p.charAt(0)}</Text> : null}
+            {i === 0 ? <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.dropCap, { color: theme.accent }]}>{p.charAt(0)}</Text> : null}
             {i === 0 ? p.slice(1) : p}
           </Text>
         ))}
@@ -231,11 +231,11 @@ function BookDetail({ data }: { data: BookData }) {
               <View style={styles.bestEnjoyed}>
                 <View style={styles.bestEnjoyedBorder} />
                 <Text style={[styles.kicker, { color: palette.gilt }]}>BEST ENJOYED</Text>
-                <Text style={styles.bestEnjoyedText}>{vibe.bestEnjoyed}.</Text>
+                <Text maxFontSizeMultiplier={DisplayMaxScale} style={styles.bestEnjoyedText}>{vibe.bestEnjoyed}.</Text>
               </View>
             ) : null}
             <Card>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>How it feels</Text>
+              <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cardTitle, { color: theme.text }]}>How it feels</Text>
               <Text style={{ color: theme.textSecondary, fontSize: 14, marginTop: -spacing[2] }}>
                 {vibe.moods.length > 0 ? 'From readers’ mood votes' : 'No one has said yet. Be the first.'}
               </Text>
@@ -255,7 +255,7 @@ function BookDetail({ data }: { data: BookData }) {
             </Card>
             {vibe.pace !== null ? (
               <Card>
-                <Text style={[styles.cardTitle, { color: theme.text }]}>Pace</Text>
+                <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cardTitle, { color: theme.text }]}>Pace</Text>
                 <View style={[styles.paceTrack, { backgroundColor: theme.border }]}>
                   <View style={[styles.paceMarker, { left: `${vibe.pace * 50}%`, backgroundColor: theme.accent }]}>
                     <Text style={{ color: palette.paper, fontSize: 12 }}>✦</Text>
@@ -281,7 +281,7 @@ function BookDetail({ data }: { data: BookData }) {
             ) : null}
             {vibe.tropes.length > 0 ? (
               <Card>
-                <Text style={[styles.cardTitle, { color: theme.text }]}>You’ll find</Text>
+                <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cardTitle, { color: theme.text }]}>You’ll find</Text>
                 <View style={styles.stickers}>
                   {vibe.tropes.map((t, i) => {
                     const s = stickerStyles[i % stickerStyles.length];
@@ -298,7 +298,7 @@ function BookDetail({ data }: { data: BookData }) {
 
         {/* Chapter two: marginalia */}
         <ChapterHeading kicker="CHAPTER TWO" title="Marginalia" />
-        <Text style={[styles.verdict, { color: theme.text }]}>{verdict.headline}.</Text>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.verdict, { color: theme.text }]}>{verdict.headline}.</Text>
         {verdict.total > 0 ? (
           <>
             <Text style={{ color: theme.textSecondary, textAlign: 'center' }}>
@@ -350,7 +350,7 @@ function BookDetail({ data }: { data: BookData }) {
         {authors.map((a) => (
           <Card key={a.id} style={{ alignItems: 'center' }}>
             <View style={styles.cameo}>
-              <Text style={styles.cameoInitial}>{a.name.charAt(0)}</Text>
+              <Text maxFontSizeMultiplier={DisplayMaxScale} style={styles.cameoInitial}>{a.name.charAt(0)}</Text>
               {/* The portrait sits over the initial, so a photo that fails to load still leaves the monogram. */}
               {a.photo_url ? (
                 <Image
@@ -365,7 +365,7 @@ function BookDetail({ data }: { data: BookData }) {
               ) : null}
             </View>
             <Text style={[styles.kicker, { color: theme.textSecondary }]}>ABOUT THE AUTHOR</Text>
-            <Text style={[styles.authorName, { color: theme.text }]}>{a.name}</Text>
+            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.authorName, { color: theme.text }]}>{a.name}</Text>
             {a.birth_date || a.death_date ? (
               <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
                 {a.birth_date?.slice(0, 4) ?? '?'}–{a.death_date?.slice(0, 4) ?? ''}
@@ -433,7 +433,7 @@ function ChapterHeading({ kicker, title }: { kicker: string; title: string }) {
   return (
     <View style={styles.chapter}>
       <Text style={[styles.kicker, { color: theme.accent, letterSpacing: 3 }]}>{kicker}</Text>
-      <Text style={[styles.chapterTitle, { color: theme.text }]}>{title}</Text>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.chapterTitle, { color: theme.text }]}>{title}</Text>
       <Ornament />
     </View>
   );

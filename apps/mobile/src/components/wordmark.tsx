@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { DisplayFonts } from '@/constants/theme';
@@ -17,11 +17,14 @@ export function Wordmark({ size = 30 }: { size?: number }) {
     <Text
       accessible
       accessibilityLabel="Booksyde"
+      // The logo is artwork: the glasses are drawn at `size`, so the letters must not grow with the reader's text size.
+      allowFontScaling={false}
       style={{ fontFamily: DisplayFonts.regular, fontSize: size, color: theme.text }}
     >
       B
-      {/* Inline views sit on the text baseline, which is where the lenses' bottoms belong. */}
-      <View style={{ width: size * 1.09, height: size * 0.52, marginHorizontal: size * 0.03 }}>
+      {/* React Native drops inline views about 0.18em below the baseline (measured on iOS); lift the
+          lenses so their bottoms sit on it. On the web they already do. */}
+      <View style={{ width: size * 1.09, height: size * 0.52, marginHorizontal: size * 0.03, transform: [{ translateY: Platform.OS === 'web' ? 0 : -size * 0.18 }] }}>
         <ReadingGlasses color={dark ? theme.highlight : theme.text} />
       </View>
       ksyde<Text style={{ color: theme.highlight }}>.</Text>

@@ -1,7 +1,7 @@
 import { radii, spacing } from '@booksyde/theme';
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { DisplayFonts } from '@/constants/theme';
+import { ChromeMaxScale, DisplayFonts, DisplayMaxScale } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /*
@@ -24,8 +24,8 @@ export function SectionHeading({ numeral, children, aside }: { numeral?: string;
   const theme = useTheme();
   return (
     <View style={[styles.sectionHeading, { borderBottomColor: theme.border }]}>
-      <Text style={[styles.sectionTitle, { color: theme.text }]}>
-        {numeral ? <Text style={[styles.sectionNumeral, { color: theme.highlight }]}>{numeral}. </Text> : null}
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.sectionTitle, { color: theme.text }]}>
+        {numeral ? <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.sectionNumeral, { color: theme.highlight }]}>{numeral}. </Text> : null}
         {children}
       </Text>
       {aside}
@@ -50,8 +50,8 @@ export function PageHeader({
   const theme = useTheme();
   return (
     <View style={styles.header}>
-      <Text style={[styles.kicker, { color: theme.accent }]}>{kicker.toUpperCase()}</Text>
-      <Text style={[styles.title, { color: theme.text }]}>
+      <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>{kicker.toUpperCase()}</Text>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]}>
         {before} <Text style={{ fontFamily: DisplayFonts.italic, color: theme.accent }}>{accent}</Text>
         {after}
       </Text>

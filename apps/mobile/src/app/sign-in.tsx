@@ -8,8 +8,7 @@ import { AuthHeading, FormError, FormField, PrimaryButton } from '@/components/a
 import { MaxContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
-
-const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
+import { webUrl } from '@/lib/web-url';
 
 export default function SignInScreen() {
   const theme = useTheme();
@@ -65,11 +64,9 @@ export default function SignInScreen() {
           onSubmitEditing={submit}
           error={errors.password}
           aside={
-            webUrl ? (
-              <Pressable onPress={() => Linking.openURL(`${webUrl}/forgot-password`)} hitSlop={8}>
-                <Text style={{ color: theme.accent, fontWeight: '700' }}>Forgot it?</Text>
-              </Pressable>
-            ) : null
+            <Pressable onPress={() => Linking.openURL(`${webUrl}/forgot-password`)} hitSlop={8}>
+              <Text style={{ color: theme.accent, fontWeight: '700' }}>Forgot it?</Text>
+            </Pressable>
           }
         />
         <PrimaryButton label="Sign in" busy={busy} onPress={submit} />

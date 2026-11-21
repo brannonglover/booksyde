@@ -84,3 +84,13 @@ export const TabBarHeight = 56;
 /** Room to leave at the foot of a tab screen so its last item clears the bar (add the safe-area inset). */
 export const BottomTabInset = Platform.select({ ios: TabBarHeight, android: TabBarHeight }) ?? 0;
 export const MaxContentWidth = 800;
+
+/**
+ * How far display headings may grow with the reader's iOS/Android text size.
+ * Body text scales fully; the big serif headings are already large, so they
+ * grow only a little (as iOS's own large titles do). Pass as
+ * `maxFontSizeMultiplier` on display Text.
+ */
+export const DisplayMaxScale = 1.15;
+/** Small UI chrome in fixed-height bars (tab labels, pill buttons). */
+export const ChromeMaxScale = 1.2;

@@ -4,6 +4,7 @@ import {
   type FeaturedBook,
   formatRating,
   getFeaturedBook,
+  getMyReadingDesk,
   getNextRead,
   getNightstand,
   getWork,
@@ -16,25 +17,26 @@ import { coverUrl, genreColor, radii, spacing } from '@booksyde/theme';
 import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { AppearancePicker, ThemeToggleButton } from '@/components/appearance-picker';
-import { BackdropStage } from '@/components/backdrop';
 import { BookCover } from '@/components/book-cover';
+import { BookObject } from '@/components/book-object';
 import { Ornament, SectionHeading } from '@/components/page-chrome';
 import { Stars } from '@/components/stars';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Wordmark } from '@/components/wordmark';
-import { BottomTabInset, DisplayFonts, MaxContentWidth } from '@/constants/theme';
+import { BottomTabInset, ChromeMaxScale, DisplayFonts, DisplayMaxScale, MaxContentWidth } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+import { webUrl } from '@/lib/web-url';
 
 // On web the tab bar floats over the top of the screen; start the masthead below it.
 const WebTabBarHeight = 72;
@@ -70,65 +72,174 @@ const fallbackPick: FeaturedBook = {
   tags: [],
 };
 
-type Pick = { book: FeaturedBook; caption: { label: string; why: string | null } };
-
-/** The signed-in reader's next read; for everyone else, one of the most-shelved books, a different one each day. */
-async function loadFeaturedPick(signedIn: boolean): Promise<Pick | null> {
-  const client = supabase;
-  if (!client) return null;
-  if (signedIn) {
-    // e.g. the next_read migration hasn't run yet: fall back to today's pick.
-    const pick = await getNextRead(client).catch(() => null);
-    const work = pick ? await getWork(client, pick.work.id).catch(() => null) : null;
-    if (pick && work) return { book: toFeatured(work), caption: describeNextRead(pick) };
+/**
+ * Today's pick, the same one the web home page shows. Before Booksyde has a
+ * crowd the web picks from the bestseller list, which needs its server key, so
+ * ask it; if the web can't be reached, work out the pick here (a classic, then).
+ */
+async function loadTodaysPick(): Promise<FeaturedBook | null> {
+  // Don't hold the hero up for long on a slow connection.
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 6000);
+  try {
+    const res = await fetch(`${webUrl}/api/featured`, { signal: abort.signal });
+    if (res.ok) {
+      const { book } = (await res.json()) as { book: FeaturedBook | null };
+      if (book) return book;
+    }
+  } catch {
+    // Offline or the web is down: fall through.
+  } finally {
+    clearTimeout(timer);
   }
-  const book = await getFeaturedBook(client);
-  return book ? { book, caption: { label: 'Today’s pick', why: null } } : null;
+  return supabase ? getFeaturedBook(supabase).catch(() => null) : null;
 }
 
-/** Your next read (or today's pick), staged on a backdrop drawn from the book itself. */
+type Pick = {
+  book: FeaturedBook;
+  /** Null for today's pick; the reader's own next read otherwise. */
+  personal: {
+    caption: { label: string; why: string | null };
+    reading: boolean;
+    page: number | null;
+    pages: number | null;
+  } | null;
+};
+
+/** The signed-in reader's next read, with their place in it if they've started; null when signed out or nothing fits. */
+async function loadPersonalPick(): Promise<Pick | null> {
+  const client = supabase;
+  if (!client) return null;
+  try {
+    const pick = await getNextRead(client);
+    if (!pick) return null;
+    const reading = pick.reason === 'reading';
+    const [work, desk] = await Promise.all([getWork(client, pick.work.id), reading ? getMyReadingDesk(client).catch(() => null) : null]);
+    if (!work) return null;
+    const onDesk = desk?.find((b) => b.work.id === pick.work.id);
+    return {
+      book: toFeatured(work),
+      personal: {
+        caption: describeNextRead(pick),
+        reading,
+        page: onDesk?.page ?? null,
+        // The longest edition's count unless we know which edition they're holding.
+        pages: onDesk?.pages ?? (Math.max(0, ...work.editions.map((e) => e.page_count ?? 0)) || null),
+      },
+    };
+  } catch {
+    // e.g. the next_read migration hasn't run yet: show today's pick instead.
+    return null;
+  }
+}
+
+async function loadFeaturedPick(signedIn: boolean): Promise<Pick> {
+  const personal = signedIn ? await loadPersonalPick() : null;
+  if (personal) return personal;
+  return { book: (await loadTodaysPick()) ?? fallbackPick, personal: null };
+}
+
+/** How wide the featured book is drawn: 58% of the web's 384pt figure, or of the screen when narrower. */
+function useFeaturedWidth() {
+  const { width } = useWindowDimensions();
+  return Math.round(Math.min(384, width - spacing[4] * 2) * 0.58);
+}
+
+/** Your next read (or today's pick when signed out), drawn as a book; with a bookmark if you've started it. As on the web. */
 function FeaturedPick() {
   const theme = useTheme();
+  const bookWidth = useFeaturedWidth();
   const { session, loading: sessionLoading } = useSession();
   const userId = session?.user.id ?? null;
   const { data, loading } = useAsync(sessionLoading ? null : () => loadFeaturedPick(userId !== null), [userId, sessionLoading]);
   if (sessionLoading || (loading && !data)) {
     return (
-      <View>
-        <View style={[styles.stageSkeleton, { backgroundColor: theme.border }]} />
-        <View style={[styles.caption, { borderBottomColor: theme.border, height: 48 }]} />
+      <View style={styles.figure}>
+        <View style={styles.art}>
+          <View style={[styles.bookSkeleton, { width: bookWidth, backgroundColor: theme.border }]} />
+        </View>
+        <View style={[styles.captionSkeleton, { backgroundColor: theme.border }]} />
       </View>
     );
   }
-  const { book, caption } = data ?? { book: fallbackPick, caption: { label: 'Today’s pick', why: null } };
-  const stage = (
-    <BackdropStage
-      work={book}
-      cover={<BookCover title={book.title} author={book.author} src={book.cover_url} color={book.cover_color} width={150} />}
-    />
+  const { book, personal } = data ?? { book: fallbackPick, personal: null };
+  const reading = personal?.reading ?? false;
+  const label = (text: string) => (
+    <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.label, { color: theme.textSecondary }]}>
+      {text.toUpperCase()}
+    </Text>
   );
+  const titleLine = (
+    <Text style={[styles.captionText, { color: theme.text }]} numberOfLines={1}>
+      <Text style={styles.captionTitle}>{book.title}</Text>
+      {book.author ? <Text style={{ color: theme.textSecondary }}> · {book.author}</Text> : null}
+    </Text>
+  );
+  const percent = personal?.page != null && personal.pages ? Math.min(100, Math.round((personal.page / personal.pages) * 100)) : null;
+
   return (
-    <View>
-      {book.id ? (
-        <Link href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
-          <Pressable accessibilityLabel={`${book.title} by ${book.author}`}>{stage}</Pressable>
-        </Link>
-      ) : (
-        stage
-      )}
+    <View style={styles.figure}>
+      {/* A pick that isn't in the catalogue yet goes to search, where it can be found and added. */}
+      <Link
+        href={
+          book.id
+            ? { pathname: '/book/[id]', params: { id: book.id } }
+            : { pathname: '/search', params: { q: `${book.title} ${book.author}`.trim() } }
+        }
+        asChild
+      >
+        {/* Link's slot drops a style function, so the layout lives on a plain View inside. */}
+        <Pressable accessibilityLabel={`${book.title} by ${book.author}`}>
+          {({ pressed }) => (
+            <View style={[styles.art, pressed && { opacity: 0.85 }]}>
+              <View style={{ transform: [{ rotate: '-2deg' }, { translateY: pressed ? -4 : 0 }] }}>
+                <BookObject
+                  width={bookWidth}
+                  ribbon={reading}
+                  cover={<BookCover title={book.title} author={book.author} src={book.cover_url} color={book.cover_color} width={bookWidth} />}
+                />
+              </View>
+            </View>
+          )}
+        </Pressable>
+      </Link>
       <View style={[styles.caption, { borderBottomColor: theme.border }]}>
-        <View style={styles.captionRow}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>{caption.label.toUpperCase()}</Text>
-          <Text style={[styles.captionText, { color: theme.text }]} numberOfLines={1}>
-            <Text style={styles.captionTitle}>{book.title}</Text>
-            {book.year ? <Text style={{ color: theme.textSecondary }}> · {book.year}</Text> : null}
-          </Text>
-        </View>
-        {caption.why ? (
-          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1} style={styles.captionWhy}>
-            {caption.why}
-          </ThemedText>
-        ) : null}
+        {personal && reading ? (
+          <>
+            <View style={styles.captionRow}>
+              {label(personal.caption.label)}
+              {percent != null ? <Text style={[styles.captionTitle, { color: theme.accent }]}>{percent}%</Text> : null}
+            </View>
+            <View style={{ marginTop: spacing[1] }}>{titleLine}</View>
+            {percent != null ? (
+              <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
+                <View style={[styles.progressFill, { width: `${percent}%`, backgroundColor: theme.accent }]} />
+              </View>
+            ) : null}
+            <ThemedText type="small" themeColor="textSecondary" style={{ marginTop: spacing[2] }}>
+              {personal.page != null ? (personal.pages ? `Page ${personal.page} of ${personal.pages}` : `Page ${personal.page}`) : 'Pick up where you left off'}
+            </ThemedText>
+          </>
+        ) : personal ? (
+          // A book they haven't started: why it's next is the news.
+          <>
+            {label(personal.caption.label)}
+            {personal.caption.why ? (
+              <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.captionWhy, { color: theme.text }]}>
+                {personal.caption.why}
+              </Text>
+            ) : null}
+            <View style={{ marginTop: spacing[1] }}>{titleLine}</View>
+          </>
+        ) : (
+          <View style={styles.captionRow}>
+            {label('Today’s pick')}
+            <Text style={[styles.captionText, { color: theme.text, textAlign: 'right' }]} numberOfLines={1}>
+              <Text style={styles.captionTitle}>{book.title}</Text>
+              {book.year ? <Text style={{ color: theme.textSecondary }}> · {book.year}</Text> : null}
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -175,7 +286,7 @@ function YearInBooksSection({ numeral }: { numeral: string }) {
           ].map(([name, value]) => (
             <View key={name}>
               <Text style={[styles.label, { color: theme.textSecondary }]}>{name}</Text>
-              <Text style={[styles.yearValue, { color: theme.text }]}>{value}</Text>
+              <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.yearValue, { color: theme.text }]}>{value}</Text>
             </View>
           ))}
         </View>
@@ -316,7 +427,7 @@ export default function HomeScreen() {
             ) : (
               <Link href="/sign-up" asChild>
                 <Pressable style={StyleSheet.flatten([styles.joinButton, { backgroundColor: theme.primary }])}>
-                  <Text style={[styles.buttonLabel, { color: theme.primaryText }]}>Join free</Text>
+                  <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.buttonLabel, { color: theme.primaryText }]}>Join free</Text>
                 </Pressable>
               </Link>
             )}
@@ -326,8 +437,8 @@ export default function HomeScreen() {
         <View style={styles.content}>
           {/* Hero */}
           <View style={styles.hero}>
-            <Text style={[styles.kicker, { color: theme.accent }]}>EST. 2026 · A READING ROOM FOR EVERYONE</Text>
-            <Text style={[styles.heroTitle, { color: theme.text }]}>
+            <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>EST. 2026 · A READING ROOM FOR EVERYONE</Text>
+            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.heroTitle, { color: theme.text }]}>
               Settle in with your next <Text style={[styles.italic, { color: theme.accent }]}>favorite</Text> book.
             </Text>
             <Ornament />
@@ -341,12 +452,13 @@ export default function HomeScreen() {
                 onSubmitEditing={search}
                 returnKeyType="search"
                 autoCapitalize="none"
-                placeholder="Search titles, authors, ISBNs…"
+                placeholder="Title, author or ISBN"
+                maxFontSizeMultiplier={ChromeMaxScale}
                 placeholderTextColor={theme.textSecondary}
                 style={[styles.searchInput, { color: theme.text }]}
               />
               <Pressable onPress={search} style={[styles.searchButton, { backgroundColor: theme.primary }]}>
-                <Text style={[styles.buttonLabel, { color: theme.primaryText }]}>Search</Text>
+                <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.buttonLabel, { color: theme.primaryText }]}>Search</Text>
               </Pressable>
             </View>
           </View>
@@ -379,7 +491,7 @@ export default function HomeScreen() {
 
           <View style={styles.quote}>
             <Ornament center />
-            <Text style={[styles.quoteText, { color: theme.text }]}>
+            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.quoteText, { color: theme.text }]}>
               “I declare after all there is no enjoyment like reading!”
             </Text>
             <Text style={[styles.label, { color: theme.textSecondary, textAlign: 'center' }]}>
@@ -391,9 +503,9 @@ export default function HomeScreen() {
           <View style={[styles.features, { borderColor: theme.border, backgroundColor: theme.border }]}>
             {features.map((f) => (
               <View key={f.title} style={[styles.feature, { backgroundColor: theme.backgroundElement }]}>
-                <Text style={[styles.featureNumeral, { color: theme.highlight }]}>{f.numeral}.</Text>
+                <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.featureNumeral, { color: theme.highlight }]}>{f.numeral}.</Text>
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[styles.featureTitle, { color: theme.text }]}>{f.title}</Text>
+                  <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.featureTitle, { color: theme.text }]}>{f.title}</Text>
                   <ThemedText type="small" themeColor="textSecondary">
                     {f.body}
                   </ThemedText>
@@ -470,18 +582,18 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, minWidth: 0, fontSize: 16, paddingVertical: spacing[2] },
   searchButton: { borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] + 2 },
-  stageSkeleton: { aspectRatio: 4 / 5, width: '100%', maxWidth: 360, alignSelf: 'center', borderRadius: 28, opacity: 0.5 },
-  caption: {
-    maxWidth: 360,
-    width: '100%',
-    alignSelf: 'center',
-    paddingVertical: spacing[3],
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
+  // As on the web: a 384pt-wide figure, the book centred with room above and a shadow below.
+  figure: { width: '100%', maxWidth: 384, alignSelf: 'center' },
+  art: { alignItems: 'center', paddingTop: spacing[5], paddingBottom: spacing[7] + spacing[2] },
+  bookSkeleton: { aspectRatio: 2 / 3, borderRadius: 3, opacity: 0.5 },
+  captionSkeleton: { height: 24, borderRadius: 4, opacity: 0.4, marginTop: spacing[3] },
+  caption: { paddingBottom: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth },
   captionRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[4] },
-  captionText: { flexShrink: 1, textAlign: 'right' },
+  captionText: { flexShrink: 1, fontSize: 14 },
   captionTitle: { fontFamily: DisplayFonts.italic, fontSize: 18 },
-  captionWhy: { marginTop: spacing[1], textAlign: 'right' },
+  captionWhy: { marginTop: spacing[2], fontFamily: DisplayFonts.regular, fontSize: 24, lineHeight: 30 },
+  progressTrack: { marginTop: spacing[3], height: 3, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2 },
   label: { fontSize: 11, fontWeight: '700', letterSpacing: 1.8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   chip: {
