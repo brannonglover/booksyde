@@ -1,19 +1,23 @@
 import type { ReactNode } from "react";
+import { GiftWrap } from "@/components/holly";
 
 /*
  * A cover drawn as a physical book lying on the page: a crease down the
  * spine, a sliver of page edges along the fore-edge and foot, and a soft
  * shadow underneath. With `ribbon`, a bookmark ribbon hangs out of the
- * bottom: the book you're partway through.
+ * bottom: the book you're partway through. With `gift`, through December it's
+ * tied up with a ribbon and bow instead.
  */
 export function BookObject({
   cover,
   ribbon = false,
+  gift = false,
   className = "",
 }: {
   /** A BookCover sized to fill its parent (w-full). */
   cover: ReactNode;
   ribbon?: boolean;
+  gift?: boolean;
   className?: string;
 }) {
   return (
@@ -56,6 +60,7 @@ export function BookObject({
               "linear-gradient(90deg, rgba(0,0,0,0.28), rgba(255,255,255,0.14) 30%, rgba(0,0,0,0.22) 55%, rgba(255,255,255,0.06) 75%, transparent)",
           }}
         />
+        {gift ? <GiftWrap /> : null}
       </div>
     </div>
   );

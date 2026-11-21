@@ -92,14 +92,17 @@ export async function getFeaturedBook(): Promise<FeaturedBook | null> {
     beforeCrowd: async (day) => {
       const pick = await bestsellerOfTheDay(day);
       if (!pick) return null;
-      if (pick.isbn13) {
-        const { data } = await client.from("editions").select("work_id").eq("isbn_13", pick.isbn13).maybeSingle();
-        const work = data ? await getBook(data.work_id) : null;
-        if (work?.cover_url) return toFeatured(work);
-      }
-      return bestsellerAsFeatured(pick);
+      return (await findInCatalogue(pick.isbn13 ? [pick.isbn13] : [])) ?? bestsellerAsFeatured(pick);
     },
   });
+}
+
+/** A book we hold with a cover, by any of its ISBN-13s, so a pick can link to its own page; null if we don't. */
+export async function findInCatalogue(isbns: string[]): Promise<FeaturedBook | null> {
+  if (!isbns.length) return null;
+  const { data } = await publicClient().from("editions").select("work_id").in("isbn_13", isbns.slice(0, 40)).limit(1);
+  const work = data?.[0] ? await getBook(data[0].work_id) : null;
+  return work?.cover_url ? toFeatured(work) : null;
 }
 
 /** The most-shelved books, as candidates to try in the hero preview. */

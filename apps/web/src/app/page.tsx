@@ -2,13 +2,15 @@ import { compactCount, describeNextRead, formatRating, getMyReadingDesk, getNext
 import Link from "next/link";
 import { connection } from "next/server";
 import { cache, Suspense } from "react";
-import { coverUrl, genreColor } from "@booksyde/theme";
+import { christmas, coverUrl, genreColor } from "@booksyde/theme";
 import { BookCover } from "@/components/book-cover";
 import { BookObject } from "@/components/book-object";
 import { FeatureBento } from "@/components/feature-bento";
+import { HollySprig } from "@/components/holly";
 import { Stars } from "@/components/stars";
 import { ReadingDesk } from "@/components/reading-desk";
 import { ReadingProgress } from "@/components/reading-progress";
+import { SeasonPicksSection } from "@/components/season-picks";
 import { ShelfBook } from "@/components/shelf-book";
 import { Ornament, SectionHeading, SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { YearInBooksSection } from "@/components/year-in-books";
@@ -37,13 +39,20 @@ export default function Home() {
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-24 px-4 pb-24 sm:px-6">
         {/* Hero */}
-        <section className="grid items-center gap-14 pt-14 sm:pt-20 lg:grid-cols-[1.25fr_1fr]">
+        <section className="grid items-center gap-14 pt-14 christmas:pt-6 sm:pt-20 sm:christmas:pt-10 lg:grid-cols-[1.25fr_1fr]">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
-              Est. 2026 &middot; A reading room for everyone
+              <span className="christmas:hidden">Est. 2026 &middot; A reading room for everyone</span>
+              <span className="hidden christmas:inline">{christmas.kicker}</span>
             </p>
             <h1 className="mt-5 font-display text-6xl leading-[0.95] tracking-tight sm:text-8xl">
-              Settle in with your next <em className="text-accent">favorite</em> book.
+              <span className="christmas:hidden">
+                Settle in with your next <em className="text-accent">favorite</em> book.
+              </span>
+              <span className="hidden christmas:inline">
+                {christmas.headline.before} <em className="text-accent">{christmas.headline.accent}</em>{" "}
+                {christmas.headline.after}
+              </span>
             </h1>
             <Ornament className="mt-7" />
             <p className="mt-6 max-w-md text-lg text-muted">
@@ -95,6 +104,11 @@ export default function Home() {
           <WhereYouLeftOff />
         </Suspense>
 
+        {/* December: a bestseller and a Christmas book, side by side. */}
+        <Suspense fallback={null}>
+          <SeasonPicksSection />
+        </Suspense>
+
         <section id="discover" className="flex flex-col gap-6">
           <SectionHeading
             numeral="I"
@@ -111,6 +125,15 @@ export default function Home() {
             What are you in the mood for?
           </SectionHeading>
           <div className="flex flex-wrap gap-2.5">
+            {/* December: Christmas books first. */}
+            <Link
+              href="/search?q=christmas"
+              className="hidden items-center gap-2 rounded-full border border-accent/40 bg-surface px-4 py-2 font-medium transition hover:border-accent hover:bg-surface-raised christmas:inline-flex"
+              {...track(AnalyticsEvent.MoodChipClicked, { tag: "christmas", label: "Christmas", location: "home" })}
+            >
+              <HollySprig className="text-sm text-highlight" />
+              Christmas
+            </Link>
             {moods.map(([slug, label]) => (
               <Link
                 key={slug}
@@ -232,6 +255,7 @@ async function FeaturedPick() {
     <div className="grid place-items-center pt-6 pb-14">
       <BookObject
         ribbon={reading}
+        gift={!reading}
         className="w-[58%] -rotate-2 transition duration-300 group-hover:-translate-y-1 group-hover:-rotate-1"
         cover={
           <BookCover
@@ -343,12 +367,23 @@ function LaterSections({ nightstand }: { nightstand: NightstandBooks | null }) {
 
       <figure className="mx-auto max-w-2xl text-center">
         <Ornament className="justify-center" />
-        <blockquote className="mt-6 font-display text-3xl italic leading-snug sm:text-4xl">
-          &ldquo;I declare after all there is no enjoyment like reading!&rdquo;
-        </blockquote>
-        <figcaption className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-          Jane Austen, <span className="normal-case italic tracking-normal">Pride and Prejudice</span>
-        </figcaption>
+        {/* Austen most of the year; Dickens through December. */}
+        <div className="christmas:hidden">
+          <blockquote className="mt-6 font-display text-3xl italic leading-snug sm:text-4xl">
+            &ldquo;I declare after all there is no enjoyment like reading!&rdquo;
+          </blockquote>
+          <figcaption className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+            Jane Austen, <span className="normal-case italic tracking-normal">Pride and Prejudice</span>
+          </figcaption>
+        </div>
+        <div className="hidden christmas:block">
+          <blockquote className="mt-6 font-display text-3xl italic leading-snug sm:text-4xl">
+            &ldquo;{christmas.quote.text}&rdquo;
+          </blockquote>
+          <figcaption className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+            {christmas.quote.author}, <span className="normal-case italic tracking-normal">{christmas.quote.work}</span>
+          </figcaption>
+        </div>
       </figure>
 
       <section id="join" className="flex flex-col gap-8">

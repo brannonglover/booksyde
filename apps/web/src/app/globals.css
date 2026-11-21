@@ -12,6 +12,10 @@
   }
 }
 
+/* `christmas:` applies through December (<html data-season>, set by the script in
+   lib/theme-script.ts); pair `christmas:hidden` with `hidden christmas:block` to swap. */
+@custom-variant christmas (&:where([data-season="christmas"] *));
+
 /* Tailwind v4 dropped the hand cursor on buttons; bring it back everywhere. */
 @layer base {
   button:not(:disabled),

@@ -4,7 +4,7 @@ import { toCssVariables } from "@booksyde/theme";
 import { TrackClicks } from "@/components/analytics";
 import { FlashToast } from "@/components/flash-toast";
 import { isProduction, siteUrl } from "@/lib/site";
-import { themeInitScript } from "@/lib/theme-script";
+import { seasonInitScript, themeInitScript } from "@/lib/theme-script";
 import "./globals.css";
 
 // Instrument Serif: old-book letterforms with modern, editorial proportions.
@@ -34,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable} h-full antialiased`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript + seasonInitScript }} />
         <style dangerouslySetInnerHTML={{ __html: toCssVariables() }} />
       </head>
       <body className="min-h-full flex flex-col font-sans">

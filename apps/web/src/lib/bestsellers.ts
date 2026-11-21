@@ -22,7 +22,7 @@ type NytBook = {
   primary_isbn13: string | null;
 };
 
-export type Bestseller = { title: string; author: string; coverUrl: string; isbn13: string | null };
+export type Bestseller = { rank: number; title: string; author: string; coverUrl: string; isbn13: string | null };
 
 /** The current list, top first. The list changes weekly; a few hours' cache keeps well inside the API's limits. */
 export async function getBestsellers(): Promise<Bestseller[]> {
@@ -38,6 +38,7 @@ export async function getBestsellers(): Promise<Bestseller[]> {
     .filter((b) => b.book_image)
     .sort((a, b) => a.rank - b.rank)
     .map((b) => ({
+      rank: b.rank,
       title: titleCase(b.title),
       author: b.author,
       coverUrl: b.book_image!,

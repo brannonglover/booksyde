@@ -1,7 +1,9 @@
 import { radii, spacing } from '@booksyde/theme';
 import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { HollySprig } from '@/components/holly';
 import { ChromeMaxScale, DisplayFonts, DisplayMaxScale } from '@/constants/theme';
+import { useSeason } from '@/hooks/use-season';
 import { useTheme } from '@/hooks/use-theme';
 
 /*
@@ -9,12 +11,18 @@ import { useTheme } from '@/hooks/use-theme';
  * headings, the centred page header, dashed empty notes and pill buttons.
  */
 
+/** The fleuron between two gilt rules; a sprig of holly through December. */
 export function Ornament({ center = false }: { center?: boolean }) {
   const theme = useTheme();
+  const season = useSeason();
   return (
     <View style={[styles.ornament, center && { alignSelf: 'center' }]}>
       <View style={[styles.ornamentRule, { backgroundColor: theme.highlight }]} />
-      <Text style={{ color: theme.highlight, fontSize: 16 }}>❦</Text>
+      {season === 'christmas' ? (
+        <HollySprig color={theme.highlight} height={18} />
+      ) : (
+        <Text style={{ color: theme.highlight, fontSize: 16 }}>❦</Text>
+      )}
       <View style={[styles.ornamentRule, { backgroundColor: theme.highlight }]} />
     </View>
   );

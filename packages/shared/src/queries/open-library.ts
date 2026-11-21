@@ -126,6 +126,11 @@ async function search(params: Record<string, string>, init?: RequestInit) {
   return (json.docs ?? []).map(toBook).filter((b): b is OpenLibraryBook => b !== null);
 }
 
+/** A raw Open Library search (q, sort, language, limit…), for lists we build ourselves. */
+export function searchOpenLibraryBooks(params: Record<string, string>, init?: RequestInit) {
+  return search(params, init);
+}
+
 /** Books from before this year need a following to be offered in the wider stacks. */
 const FORGOTTEN_BEFORE = 1950;
 /** How many Open Library readers an older book needs. Classics have hundreds or thousands. */

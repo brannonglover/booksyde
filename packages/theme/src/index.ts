@@ -1,3 +1,5 @@
+import { christmasColors } from "./season";
+
 /**
  * Booksyde design tokens — the single source of truth for colour, type,
  * spacing and shape. Plain values only (no CSS, no React Native) so both
@@ -178,14 +180,22 @@ export type ThemePreference = "system" | "light" | "dark";
  */
 export function toCssVariables(): string {
   const kebab = (k: string) => k.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
-  const toVars = (obj: Record<string, string>) =>
+  const toVars = (obj: Partial<Record<string, string>>) =>
     Object.entries(obj)
       .map(([k, v]) => `--bk-${kebab(k)}: ${v};`)
       .join(" ");
   const dark = `${toVars(colors.dark)} color-scheme: dark;`;
+  // December (<html data-season="christmas">): the season's tokens win over light and dark alike.
+  const xmas = ':root[data-season="christmas"]';
   return [
     `:root { ${toVars(palette)} ${toVars(colors.light)} color-scheme: light; }`,
+    `${xmas} { ${toVars(christmasColors.light)} }`,
     `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { ${dark} } }`,
     `:root[data-theme="dark"] { ${dark} }`,
+    `@media (prefers-color-scheme: dark) { ${xmas}:not([data-theme="light"]) { ${toVars(christmasColors.dark)} } }`,
+    `${xmas}[data-theme="dark"] { ${toVars(christmasColors.dark)} }`,
   ].join("\n");
 }
+
+export * from "./season";
+export * from "./garland";

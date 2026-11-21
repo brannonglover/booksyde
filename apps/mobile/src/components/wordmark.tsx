@@ -1,18 +1,25 @@
 import { Platform, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { christmas } from '@booksyde/theme';
+
+import { HollySprig } from '@/components/holly';
 import { DisplayFonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useSeason } from '@/hooks/use-season';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
  * The Booksyde wordmark: the "oo" is a pair of reading glasses (matches the web
  * header). Frames are ink on the light theme and gilt on the dark theme; the
- * closing period is always gilt.
+ * closing period is gilt. Through December a sprig of holly sits on the bridge
+ * and the period turns berry red.
  */
 export function Wordmark({ size = 30 }: { size?: number }) {
   const theme = useTheme();
   const dark = useColorScheme() === 'dark';
+  const isChristmas = useSeason() === 'christmas';
+  const sprig = size * 0.46;
   return (
     <Text
       accessible
@@ -26,8 +33,13 @@ export function Wordmark({ size = 30 }: { size?: number }) {
           lenses so their bottoms sit on it. On the web they already do. */}
       <View style={{ width: size * 1.09, height: size * 0.52, marginHorizontal: size * 0.03, transform: [{ translateY: Platform.OS === 'web' ? 0 : -size * 0.18 }] }}>
         <ReadingGlasses color={dark ? theme.highlight : theme.text} />
+        {isChristmas ? (
+          <View style={{ position: 'absolute', top: -size * 0.36, left: (size * 1.09 - sprig * 1.75) / 2, transform: [{ rotate: '-8deg' }] }}>
+            <HollySprig color={dark ? '#8DB88F' : '#2F5D46'} height={sprig} />
+          </View>
+        ) : null}
       </View>
-      ksyde<Text style={{ color: theme.highlight }}>.</Text>
+      ksyde<Text style={{ color: isChristmas ? christmas.berry : theme.highlight }}>.</Text>
     </Text>
   );
 }

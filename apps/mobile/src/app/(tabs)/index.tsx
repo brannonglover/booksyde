@@ -13,7 +13,7 @@ import {
   toFeatured,
   type YearInBooks,
 } from '@booksyde/shared';
-import { coverUrl, genreColor, radii, spacing } from '@booksyde/theme';
+import { christmas, coverUrl, genreColor, palette, radii, spacing } from '@booksyde/theme';
 import { Link, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -24,7 +24,9 @@ import { Avatar } from '@/components/avatar';
 import { AppearancePicker } from '@/components/appearance-picker';
 import { BookCover } from '@/components/book-cover';
 import { BookObject } from '@/components/book-object';
+import { Garland, HollySprig } from '@/components/holly';
 import { Ornament, SectionHeading } from '@/components/page-chrome';
+import { SeasonPicksSection } from '@/components/season-picks';
 import { Stars } from '@/components/stars';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -33,6 +35,7 @@ import { BottomTabInset, ChromeMaxScale, DisplayFonts, DisplayMaxScale, MaxConte
 import { useAsync } from '@/hooks/use-async';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
+import { useSeason } from '@/hooks/use-season';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -148,6 +151,7 @@ function useFeaturedWidth() {
 /** Your next read (or today's pick when signed out), drawn as a book; with a bookmark if you've started it. As on the web. */
 function FeaturedPick() {
   const theme = useTheme();
+  const isChristmas = useSeason() === 'christmas';
   const bookWidth = useFeaturedWidth();
   const { session, loading: sessionLoading } = useSession();
   const userId = session?.user.id ?? null;
@@ -196,6 +200,7 @@ function FeaturedPick() {
                 <BookObject
                   width={bookWidth}
                   ribbon={reading}
+                  gift={isChristmas && !reading}
                   cover={<BookCover title={book.title} author={book.author} src={book.cover_url} color={book.cover_color} width={bookWidth} />}
                 />
               </View>
@@ -405,6 +410,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const nightstand = useNightstandBooks();
+  const isChristmas = useSeason() === 'christmas';
   const search = () => router.navigate({ pathname: '/search', params: query.trim() ? { q: query.trim() } : {} });
   return (
     <ThemedView style={styles.container}>
@@ -413,6 +419,13 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingTop: Platform.OS === 'web' ? WebTabBarHeight : insets.top, paddingBottom: insets.bottom + BottomTabInset + spacing[7] }}
         showsVerticalScrollIndicator={false}
       >
+        {/* December: a thin green-and-gilt ribbon above the masthead, like the ribbon on a gift (as on the web). */}
+        {isChristmas ? (
+          <View accessible={false}>
+            <View style={{ height: 3, backgroundColor: palette.green }} />
+            <View style={{ height: 1, backgroundColor: palette.gilt, opacity: 0.7 }} />
+          </View>
+        ) : null}
         <View style={[styles.masthead, { borderBottomColor: theme.border }]}>
           <Wordmark />
           <View style={styles.mastheadActions}>
@@ -442,13 +455,26 @@ export default function HomeScreen() {
             )}
           </View>
         </View>
+        {/* December: a garland hung along the foot of the masthead, as on the web. It takes its own
+            room (the hero starts below it), so it never hangs over words. */}
+        {isChristmas ? <Garland style={styles.mastheadGarland} /> : null}
 
         <View style={styles.content}>
           {/* Hero */}
-          <View style={styles.hero}>
-            <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>EST. 2026 · A READING ROOM FOR EVERYONE</Text>
+          {/* In December the garland above already makes room, so the hero starts a little closer. */}
+          <View style={[styles.hero, isChristmas && { paddingTop: spacing[5] }]}>
+            <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>{isChristmas ? christmas.kicker.toUpperCase() : 'EST. 2026 · A READING ROOM FOR EVERYONE'}</Text>
             <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.heroTitle, { color: theme.text }]}>
-              Settle in with your next <Text style={[styles.italic, { color: theme.accent }]}>favorite</Text> book.
+              {isChristmas ? (
+                <>
+                  {christmas.headline.before} <Text style={[styles.italic, { color: theme.accent }]}>{christmas.headline.accent}</Text>{' '}
+                  {christmas.headline.after}
+                </>
+              ) : (
+                <>
+                  Settle in with your next <Text style={[styles.italic, { color: theme.accent }]}>favorite</Text> book.
+                </>
+              )}
             </Text>
             <Ornament />
             <ThemedText themeColor="textSecondary" style={styles.lede}>
@@ -475,10 +501,22 @@ export default function HomeScreen() {
           {/* Your next read (or today's pick), staged on a backdrop drawn from the book itself */}
           <FeaturedPick />
 
+          {/* December: a bestseller and a Christmas book, side by side on the web. */}
+          {isChristmas ? <SeasonPicksSection /> : null}
+
           <SectionHeading numeral="I" aside={<AsideLink href="/discover" label="Discover more →" />}>
             What are you in the mood for?
           </SectionHeading>
           <View style={styles.chips}>
+            {/* December: Christmas books first. */}
+            {isChristmas ? (
+              <Link href={{ pathname: '/search', params: { q: 'christmas' } }} asChild>
+                <Pressable style={StyleSheet.flatten([styles.chip, { backgroundColor: theme.backgroundElement, borderColor: theme.accent }])}>
+                  <HollySprig color={theme.highlight} height={11} />
+                  <Text style={[styles.chipLabel, { color: theme.text }]}>Christmas</Text>
+                </Pressable>
+              </Link>
+            ) : null}
             {moods.map(([slug, label]) => (
               <Link key={slug} href={{ pathname: '/search', params: { tags: slug } }} asChild>
                 <Pressable
@@ -506,10 +544,12 @@ export default function HomeScreen() {
           <View style={styles.quote}>
             <Ornament center />
             <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.quoteText, { color: theme.text }]}>
-              “I declare after all there is no enjoyment like reading!”
+              {/* Austen most of the year; Dickens through December. */}
+              {isChristmas ? `“${christmas.quote.text}”` : '“I declare after all there is no enjoyment like reading!”'}
             </Text>
             <Text style={[styles.label, { color: theme.textSecondary, textAlign: 'center' }]}>
-              JANE AUSTEN, <Text style={styles.italicSmall}>Pride and Prejudice</Text>
+              {isChristmas ? christmas.quote.author.toUpperCase() : 'JANE AUSTEN'},{' '}
+              <Text style={styles.italicSmall}>{isChristmas ? christmas.quote.work : 'Pride and Prejudice'}</Text>
             </Text>
           </View>
 
@@ -528,9 +568,12 @@ export default function HomeScreen() {
             ))}
           </View>
 
-          <View style={[styles.colophon, { borderTopColor: theme.border }]}>
+          <View style={[styles.colophon, { borderTopColor: theme.border }, isChristmas && styles.colophonGarlanded]}>
+            {isChristmas ? <Garland style={styles.colophonGarland} /> : null}
             <Wordmark size={24} />
-            <Text style={[styles.colophonText, { color: theme.textSecondary }]}>Made for readers.</Text>
+            <Text style={[styles.colophonText, { color: theme.textSecondary }]}>
+              Made for readers.{isChristmas ? ` ${christmas.greeting}` : ''}
+            </Text>
             <Text style={[styles.label, { color: theme.textSecondary, marginTop: spacing[3] }]}>APPEARANCE</Text>
             <AppearancePicker />
             {profile ? (
@@ -565,6 +608,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[3],
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  // Tucked up over the masthead's bottom rule, as on the web.
+  mastheadGarland: { marginTop: -8 },
+  colophonGarlanded: { paddingTop: spacing[7] + spacing[3] },
+  // Hangs into the colophon's own top padding, clear of its words.
+  colophonGarland: { position: 'absolute', left: -spacing[4], right: -spacing[4], top: -8 },
   mastheadActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   colophon: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing[5], gap: spacing[2] },
   colophonText: { fontFamily: DisplayFonts.italic, fontSize: 16 },

@@ -1,6 +1,7 @@
 import { palette } from '@booksyde/theme';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { GiftWrap } from '@/components/holly';
 import Svg, { Defs, Ellipse, LinearGradient, Polygon, RadialGradient, Stop } from 'react-native-svg';
 
 /*
@@ -8,7 +9,7 @@ import Svg, { Defs, Ellipse, LinearGradient, Polygon, RadialGradient, Stop } fro
  * (apps/web/src/components/book-object): a crease down the spine, a sliver of
  * page edges along the fore-edge and foot, and a soft shadow underneath. With
  * `ribbon`, a bookmark ribbon hangs out of the bottom: the book you're partway
- * through.
+ * through. With `gift`, it's tied up with a ribbon and bow (December's pick).
  */
 
 const PAGE = '#EFE6D2';
@@ -30,11 +31,13 @@ export function BookObject({
   cover,
   width,
   ribbon = false,
+  gift = false,
 }: {
   /** A BookCover `width` wide. */
   cover: ReactNode;
   width: number;
   ribbon?: boolean;
+  gift?: boolean;
 }) {
   const height = (width * 3) / 2;
   const ribbonWidth = Math.max(12, width * 0.07);
@@ -90,6 +93,7 @@ export function BookObject({
         {cover}
         {/* The hinge: a crease a little way in from the spine. */}
         <View pointerEvents="none" style={[styles.hinge, { width: width * 0.09 }]} />
+        {gift ? <GiftWrap width={width} /> : null}
       </View>
     </View>
   );

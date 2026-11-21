@@ -1,8 +1,10 @@
 import { getMyProfile } from "@booksyde/shared";
+import { christmas } from "@booksyde/theme";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AccountMenu } from "@/components/account-menu";
+import { Garland, HollySprig } from "@/components/holly";
 import { IdentifyReader } from "@/components/analytics";
 import { AnalyticsEvent, track } from "@/lib/analytics";
 import { ThemePicker } from "@/components/theme-toggle";
@@ -15,14 +17,23 @@ async function AccountArea() {
   // Request-time only: the Supabase client reads the clock, which can't happen while prerendering.
   await connection();
   const supabase = hasSupabaseEnv ? await createClient() : null;
-  const profile = supabase ? await getMyProfile(supabase).catch(() => null) : null;
+  const profile = supabase
+    ? await getMyProfile(supabase).catch(() => null)
+    : null;
   if (profile && supabase) {
     // From the session token already in hand, so no extra trip to the auth server.
-    const { data } = await supabase.auth.getClaims().catch(() => ({ data: null }));
-    const email = typeof data?.claims.email === "string" ? data.claims.email : undefined;
+    const { data } = await supabase.auth
+      .getClaims()
+      .catch(() => ({ data: null }));
+    const email =
+      typeof data?.claims.email === "string" ? data.claims.email : undefined;
     return (
       <>
-        <IdentifyReader userId={profile.id} username={profile.username} email={email} />
+        <IdentifyReader
+          userId={profile.id}
+          username={profile.username}
+          email={email}
+        />
         <AccountMenu profile={profile} />
       </>
     );
@@ -30,7 +41,10 @@ async function AccountArea() {
   return (
     <>
       <IdentifyReader userId={null} />
-      <Link className="whitespace-nowrap rounded-full px-2.5 py-2 hover:bg-surface sm:px-4" href="/sign-in">
+      <Link
+        className="whitespace-nowrap rounded-full px-2.5 py-2 hover:bg-surface sm:px-4"
+        href="/sign-in"
+      >
         Sign in
       </Link>
       <Link
@@ -47,55 +61,87 @@ async function AccountArea() {
 /** `showSearch={false}` on pages that already have a search box of their own. */
 export function SiteHeader({ showSearch = true }: { showSearch?: boolean }) {
   return (
-    <header className="border-b border-border">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="text-[1.7rem] leading-none sm:text-3xl">
-          <Wordmark />
-        </Link>
-        <nav className="flex items-center gap-0.5 text-sm font-semibold sm:gap-2">
-          <Link
-            className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block"
-            href="/discover"
-            {...track(AnalyticsEvent.DiscoverClicked, { location: "header" })}
-          >
-            Discover
+    <>
+      <header className="border-b border-border">
+        {/* December: a thin green-and-gilt ribbon along the top of the page, like the ribbon on a gift. */}
+        <div aria-hidden className="hidden christmas:block">
+          <div className="h-[3px] bg-green" />
+          <div className="h-px bg-gilt/70" />
+        </div>
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+          <Link href="/" className="text-[1.7rem] leading-none sm:text-3xl">
+            <Wordmark />
           </Link>
-          <Link
-            className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block"
-            href="/clubs"
-            {...track(AnalyticsEvent.ClubsClicked, { location: "header" })}
-          >
-            Clubs
-          </Link>
-          {showSearch && (
+          <nav className="flex items-center gap-0.5 text-sm font-semibold sm:gap-2">
             <Link
-              href="/search"
-              aria-label="Search the catalogue"
-              title="Search the catalogue"
-              className="grid size-9 place-items-center rounded-full text-muted hover:bg-surface hover:text-text"
+              className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block"
+              href="/discover"
+              {...track(AnalyticsEvent.DiscoverClicked, { location: "header" })}
             >
-              <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-              </svg>
+              Discover
             </Link>
-          )}
-          <Suspense fallback={<span aria-hidden className="ml-1 h-9 w-24 animate-pulse rounded-full bg-border/50" />}>
-            <AccountArea />
-          </Suspense>
-        </nav>
-      </div>
-    </header>
+            <Link
+              className="hidden rounded-full px-4 py-2 hover:bg-surface sm:inline-block"
+              href="/clubs"
+              {...track(AnalyticsEvent.ClubsClicked, { location: "header" })}
+            >
+              Clubs
+            </Link>
+            {showSearch && (
+              <Link
+                href="/search"
+                aria-label="Search the catalogue"
+                title="Search the catalogue"
+                className="grid size-9 place-items-center rounded-full text-muted hover:bg-surface hover:text-text"
+              >
+                <svg
+                  aria-hidden
+                  viewBox="0 0 24 24"
+                  className="size-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+                </svg>
+              </Link>
+            )}
+            <Suspense
+              fallback={
+                <span
+                  aria-hidden
+                  className="ml-1 h-9 w-24 animate-pulse rounded-full bg-border/50"
+                />
+              }
+            >
+              <AccountArea />
+            </Suspense>
+          </nav>
+        </div>
+      </header>
+      {/* December: a garland hung along the foot of the header, swagged between little bows. It
+        takes its own room (the page starts below it), so it never hangs over the page's words. */}
+      <Garland className="relative -mt-[10px]" />
+    </>
   );
 }
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
+    <footer className="relative border-t border-border">
+      {/* Hangs into the footer's own padding (pt-20 in December), clear of its words. */}
+      <Garland className="absolute inset-x-0 top-[-10px]" />
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 christmas:pt-20 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex flex-col gap-1">
           <Wordmark className="self-start text-2xl text-text" />
-          <span className="italic">Set in Instrument Serif &amp; Plus Jakarta Sans. Made for readers.</span>
+          <span className="italic">
+            Set in Instrument Serif &amp; Plus Jakarta Sans. Made for readers.
+            <span className="hidden christmas:inline">
+              {" "}
+              {christmas.greeting}
+            </span>
+          </span>
         </div>
         <ThemePicker />
       </div>
@@ -103,11 +149,16 @@ export function SiteFooter() {
   );
 }
 
+/** The fleuron between two gilt rules; a sprig of holly through December. */
 export function Ornament({ className = "" }: { className?: string }) {
   return (
-    <div aria-hidden className={`flex items-center gap-3 text-highlight ${className}`}>
+    <div
+      aria-hidden
+      className={`flex items-center gap-3 text-highlight ${className}`}
+    >
       <span className="h-px w-10 bg-current opacity-60" />
-      <span className="text-lg leading-none">❦</span>
+      <span className="text-lg leading-none christmas:hidden">❦</span>
+      <HollySprig className="hidden text-[1.35rem] christmas:block" />
       <span className="h-px w-10 bg-current opacity-60" />
     </div>
   );
@@ -127,7 +178,9 @@ export function SectionHeading({
   return (
     <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
       <Tag className="font-display text-4xl leading-none sm:text-5xl">
-        <span className="mr-3 text-2xl italic text-highlight sm:text-3xl">{numeral}.</span>
+        <span className="mr-3 text-2xl italic text-highlight sm:text-3xl">
+          {numeral}.
+        </span>
         {children}
       </Tag>
       {aside}
