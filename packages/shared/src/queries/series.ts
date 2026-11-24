@@ -53,24 +53,44 @@ export async function getSeriesShelf(client: BooksydeClient, seriesId: string) {
 export type SeriesShelfBook = Awaited<ReturnType<typeof getSeriesShelf>>[number];
 
 /**
- * Files a work under an Open Library series (creating the series the first
- * time it's seen) at its number. Needs a client that may write the catalogue.
- * A work already filed under that series keeps its row but takes the new number.
+ * Files a work under a series (creating the series the first time it's seen)
+ * at its number. Needs a client that may write the catalogue. A series is
+ * found by its Open Library id; one only edition records name (no id) is
+ * found by name, and a series first filed by name takes the Open Library id
+ * when it turns up. A work already filed under that series keeps its row but
+ * takes the new number.
  */
 export async function fileInSeries(client: BooksydeClient, workId: string, series: OpenLibrarySeries) {
-  let { data: row } = await client.from("series").select("id").eq("open_library_id", series.olid).maybeSingle();
-  if (!row) {
-    const created = await client.from("series").insert({ name: series.name, open_library_id: series.olid }).select("id").single();
-    if (created.error) {
-      // Filed a moment ago by someone else.
-      const again = await client.from("series").select("id").eq("open_library_id", series.olid).single();
-      if (again.error) throw created.error;
-      row = again.data;
-    } else row = created.data;
-  }
+  const seriesId = await findOrCreateSeries(client, series);
   const { error } = await client
     .from("series_works")
-    .upsert({ series_id: row.id, work_id: workId, position: series.position }, { onConflict: "series_id,work_id" });
+    .upsert({ series_id: seriesId, work_id: workId, position: series.position }, { onConflict: "series_id,work_id" });
   if (error) throw error;
-  return row.id;
+  return seriesId;
+}
+
+async function findOrCreateSeries(client: BooksydeClient, series: OpenLibrarySeries): Promise<string> {
+  const byOlid = () => client.from("series").select("id").eq("open_library_id", series.olid!).maybeSingle();
+  if (series.olid) {
+    const { data } = await byOlid();
+    if (data) return data.id;
+  }
+  // Same name (case aside): an Open Library series we hold, or one filed by name alone.
+  const { data: named } = await client
+    .from("series")
+    .select("id, open_library_id")
+    .ilike("name", series.name.replace(/[%_\\]/g, "\\$&"))
+    .order("open_library_id", { nullsFirst: false })
+    .limit(5);
+  const match = series.olid ? named?.find((s) => s.open_library_id === null) : named?.[0];
+  if (match) {
+    if (series.olid) await client.from("series").update({ open_library_id: series.olid }).eq("id", match.id);
+    return match.id;
+  }
+  const created = await client.from("series").insert({ name: series.name, open_library_id: series.olid }).select("id").single();
+  if (!created.error) return created.data.id;
+  // Filed a moment ago by someone else.
+  const again = series.olid ? await byOlid() : null;
+  if (again?.data) return again.data.id;
+  throw created.error;
 }

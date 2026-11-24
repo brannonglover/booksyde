@@ -1,27 +1,26 @@
-import { type OpenLibraryBook, seriesEntry } from '@booksyde/shared';
-import { palette, radii, spacing } from '@booksyde/theme';
+import { type OpenLibraryBook, seriesLabel } from '@booksyde/shared';
+import { mixHex, radii, spacing } from '@booksyde/theme';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/book-cover';
-import { DisplayFonts, Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { SeriesLine } from '@/components/series-line';
+import { DisplayFonts, DisplayMaxScale } from '@/constants/theme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
+import { useTheme } from '@/hooks/use-theme';
 import { webUrl } from '@/lib/web-url';
 
 /**
- * An Open Library book we don't hold yet, as a library request slip: "Add to
- * the catalogue" imports it (through the web app) and opens its page. When we
- * already hold it (`workId`), the slip just links to the book.
+ * An Open Library book we don't hold yet: tapping anywhere on the card adds it
+ * to the catalogue (through the web app) and opens its page. When we already
+ * hold it (`workId`), the card just links to the book.
  */
-export function RequestSlip({ book, tilt = '0deg' }: { book: OpenLibraryBook & { workId?: string | null }; tilt?: string }) {
+export function RequestSlip({ book }: { book: OpenLibraryBook & { workId?: string | null } }) {
   const router = useRouter();
   const quick = useQuickShelf();
-  const dark = useColorScheme() === 'dark';
+  const theme = useTheme();
   const [state, setState] = useState<'idle' | 'adding' | 'error'>('idle');
-  const ink = dark ? palette.paper : palette.ink;
-  const label = dark ? '#A9C29A' : '#4A6040';
   const byline = book.authors.map((a) => a.name).join(', ') || 'Unknown';
 
   async function add() {
@@ -41,46 +40,61 @@ export function RequestSlip({ book, tilt = '0deg' }: { book: OpenLibraryBook & {
     }
   }
 
-  const fields: [string, string | number | null][] = [
-    ['Title', book.subtitle ? `${book.title}: ${book.subtitle}` : book.title],
-    ['Author', byline],
-    ['Series', book.series ? seriesEntry(book.series) : null],
-    ['Year', book.year],
-  ];
-  const body = (
-    <View style={styles.body}>
-      <View style={{ flex: 1, gap: 6 }}>
-        {fields.map(([name, value]) =>
-          value ? (
-            <View key={name} style={styles.field}>
-              <Text style={[styles.mono, { color: label, width: 58 }]}>{name}:</Text>
-              <Text style={[name === 'Title' ? styles.title : styles.mono, { color: ink, flex: 1 }]}>{value}</Text>
-            </View>
-          ) : null,
-        )}
-      </View>
-      <BookCover title={book.title} author={byline} coverId={book.coverId} width={56} />
-    </View>
-  );
-  const card = { backgroundColor: dark ? '#2C3529' : '#EEF3E8', transform: [{ rotate: tilt }] };
+  // Dashed until pressed, when it firms up into a solid card — the web slip does the same on hover.
+  // Link (asChild) only passes a plain style through, so the pressed look is tracked by hand.
+  const [active, setActive] = useState(false);
+  const press = {
+    onPressIn: () => setActive(true),
+    onPressOut: () => setActive(false),
+  };
+  const shell = StyleSheet.flatten([
+    styles.card,
+    {
+      borderColor: active ? mixHex(theme.border, theme.text, 0.25) : theme.border,
+      borderStyle: active ? ('solid' as const) : ('dashed' as const),
+      backgroundColor: active ? theme.backgroundElement : 'transparent',
+      transform: [{ translateY: active ? -2 : 0 }],
+    },
+  ]);
 
-  // Already on file: it opens the book, and press and hold puts it on a shelf like any other cover.
+  const details = (
+    <>
+      {book.year ? <Text style={[styles.year, { color: theme.textSecondary }]}>{book.year}</Text> : null}
+      <Text numberOfLines={2} maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]}>
+        {book.title}
+      </Text>
+      {book.subtitle ? (
+        <Text numberOfLines={1} style={[styles.subtitle, { color: theme.textSecondary }]}>
+          {book.subtitle}
+        </Text>
+      ) : null}
+      <Text numberOfLines={1} style={[styles.byline, { color: theme.text }]}>
+        <Text style={{ color: theme.textSecondary }}>by </Text>
+        <Text style={{ fontWeight: '500' }}>{byline}</Text>
+      </Text>
+      {book.series ? <SeriesLine label={seriesLabel(book.series)} /> : null}
+    </>
+  );
+  const cover = <BookCover title={book.title} author={byline} coverId={book.coverId} width={80} />;
+
+  // Already on file (someone added it earlier): it opens the book, and press and hold puts it on a shelf like any other cover.
   if (book.workId) {
     const workId = book.workId;
     return (
       <>
         <Link href={{ pathname: '/book/[id]', params: { id: workId } }} asChild>
           <Pressable
-            style={StyleSheet.flatten([styles.card, card])}
+            {...press}
+            style={shell}
             onLongPress={() => quick.open({ id: workId, title: book.title })}
             delayLongPress={400}
             accessibilityHint="Press and hold to put it on a shelf"
           >
-            <View style={[styles.header, { borderBottomColor: 'rgba(126,154,110,0.6)' }]}>
-              <Text style={[styles.headerText, { color: label }]}>ON FILE</Text>
+            {cover}
+            <View style={styles.body}>
+              {details}
+              <Text style={[styles.footer, { color: theme.accent, fontWeight: '600', fontSize: 14 }]}>Now on Booksyde →</Text>
             </View>
-            {body}
-            <Text style={{ color: label, fontWeight: '600', fontSize: 14 }}>Open the book →</Text>
           </Pressable>
         </Link>
         {quick.sheet}
@@ -88,47 +102,59 @@ export function RequestSlip({ book, tilt = '0deg' }: { book: OpenLibraryBook & {
     );
   }
 
+  const adding = state === 'adding';
   return (
-    <View style={[styles.card, card]}>
-      <View style={[styles.header, { borderBottomColor: 'rgba(126,154,110,0.6)' }]}>
-        <Text style={[styles.headerText, { color: label }]}>REQUEST SLIP</Text>
-        <Text style={[styles.headerText, { color: label }]}>NO. {book.olid.replace(/\D/g, '').slice(-5)}</Text>
+    <Pressable
+      onPress={add}
+      disabled={adding}
+      accessibilityRole="button"
+      accessibilityLabel={`Add ${book.title} by ${byline} to Booksyde`}
+      {...press}
+      style={shell}
+    >
+      {cover}
+      <View style={styles.body}>
+        {details}
+        <View style={[styles.footer, { gap: spacing[2] }]}>
+          {state === 'error' ? (
+            <Text style={{ color: theme.accent, fontSize: 14 }}>The stacks are stuck right now. Try again in a moment.</Text>
+          ) : null}
+          <View style={[styles.button, { backgroundColor: theme.primary, opacity: adding ? 0.7 : 1 }]}>
+            <Text style={[styles.buttonText, { color: theme.primaryText }]}>{adding ? 'Adding…' : '+ Add to Booksyde'}</Text>
+          </View>
+        </View>
       </View>
-      {body}
-      {state === 'error' ? (
-        <Text style={{ color: palette.oxblood, fontSize: 13 }}>
-          The stacks are stuck right now. Try again in a moment.
-        </Text>
-      ) : null}
-      <Pressable
-        onPress={add}
-        disabled={state === 'adding'}
-        accessibilityRole="button"
-        style={[styles.button, { opacity: state === 'adding' ? 0.7 : 1 }]}
-      >
-        <Text style={styles.buttonText}>{state === 'adding' ? 'Fetching it from the stacks…' : 'Add to the catalogue →'}</Text>
-      </Pressable>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 3,
+    flexDirection: 'row',
+    gap: spacing[4],
+    borderWidth: 1,
+    borderRadius: 16,
     padding: spacing[4],
-    gap: spacing[3],
-    shadowColor: '#1F1B16',
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
   },
-  header: { flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 6, borderBottomWidth: 1, borderStyle: 'dashed' },
-  headerText: { fontFamily: Fonts.mono, fontSize: 10, letterSpacing: 2 },
-  body: { flexDirection: 'row', gap: spacing[4], alignItems: 'flex-start' },
-  field: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[2] },
-  mono: { fontFamily: Fonts.mono, fontSize: 13, lineHeight: 20 },
-  title: { fontFamily: DisplayFonts.regular, fontSize: 19, lineHeight: 22 },
-  button: { alignSelf: 'flex-start', backgroundColor: palette.green, borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
-  buttonText: { color: palette.paper, fontWeight: '600', fontSize: 14 },
+  body: { flex: 1, minWidth: 0 },
+  year: { fontSize: 12, fontWeight: '500', fontVariant: ['tabular-nums'] },
+  title: {
+    fontFamily: DisplayFonts.regular,
+    fontSize: 24,
+    lineHeight: 26,
+    marginTop: 2,
+  },
+  subtitle: { fontSize: 14, marginTop: 4 },
+  byline: { fontSize: 14, marginTop: 6 },
+  footer: {
+    marginTop: 'auto',
+    paddingTop: spacing[4],
+    alignItems: 'flex-start',
+  },
+  button: {
+    borderRadius: radii.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  buttonText: { fontWeight: '600', fontSize: 14 },
 });

@@ -33,8 +33,8 @@ export type OpenLibraryBook = {
 };
 
 export type OpenLibrarySeries = {
-  /** Series id, e.g. "OL327572L". */
-  olid: string;
+  /** Series id, e.g. "OL327572L"; null when only the edition records name the series (see editionSeries). */
+  olid: string | null;
   name: string;
   /** Its number in the series (2.5 for a novella between 2 and 3); null for an omnibus ("1-4") or unknown. */
   position: number | null;
@@ -172,10 +172,8 @@ export async function getOpenLibraryBook(olid: string, init?: RequestInit) {
   const [found] = await search({ q: `key:/works/${olid}`, limit: "1" }, init);
   if (!found) return null;
 
-  const [res, editions] = await Promise.all([
-    fetch(`${API}/works/${olid}.json`, init),
-    getEditionCovers(olid, found.title, found.coverId, init),
-  ]);
+  const [res, entries] = await Promise.all([fetch(`${API}/works/${olid}.json`, init), fetchEditions(olid, init)]);
+  const editions = rankEditionCovers(entries, found.title, found.coverId);
   const edition = preferredEdition(editions);
   let description: string | null = null;
   if (res.ok) {
@@ -187,6 +185,8 @@ export async function getOpenLibraryBook(olid: string, init?: RequestInit) {
     ...found,
     coverId: edition?.coverId ?? found.coverId,
     isbn13: edition?.isbn13 ?? found.isbn13,
+    // Open Library's search often leaves a newer book's series out; its edition records may still name it.
+    series: found.series ?? editionSeries(entries),
     description,
     /** Every English edition's cover, best first: fallbacks when the chosen one turns out to be poor. */
     editions: editions.map(({ coverId, isbn13 }) => ({ coverId, isbn13 })),
@@ -199,7 +199,23 @@ type EditionDoc = {
   covers?: number[];
   isbn_13?: string[];
   isbn_10?: string[];
+  /** Free text, e.g. "Bloodwing Academy (#1)", or a publisher's line like "Penguin classics". */
+  series?: string[];
+  publishers?: string[];
 };
+
+/** A work's edition records (the first 50), or empty if they can't be read. */
+async function fetchEditions(olid: string, init?: RequestInit): Promise<EditionDoc[]> {
+  if (!OPEN_LIBRARY_WORK_ID.test(olid)) return [];
+  try {
+    const res = await fetch(`${API}/works/${olid}/editions.json?limit=50`, init);
+    if (!res.ok) return [];
+    const { entries = [] } = (await res.json()) as { entries?: EditionDoc[] };
+    return entries;
+  } catch {
+    return [];
+  }
+}
 
 export type EditionCover = { coverId: number; isbn13: string | null };
 
@@ -215,34 +231,99 @@ export async function getEditionCovers(
   currentCover: number | null = null,
   init?: RequestInit,
 ): Promise<(EditionCover & { score: number })[]> {
-  if (!OPEN_LIBRARY_WORK_ID.test(olid)) return [];
-  try {
-    const res = await fetch(`${API}/works/${olid}/editions.json?limit=50`, init);
-    if (!res.ok) return [];
-    const { entries = [] } = (await res.json()) as { entries?: EditionDoc[] };
-    const workIdentity = bookIdentity(workTitle);
-    const seen = new Set<number>();
-    const ranked: (EditionCover & { score: number })[] = [];
-    for (const e of entries) {
-      const coverId = e.covers?.find((c) => c > 0);
-      if (!coverId || seen.has(coverId)) continue;
-      const langs = (e.languages ?? []).map((l) => l.key.replace("/languages/", ""));
-      if (langs.length && !langs.includes("eng")) continue;
-      seen.add(coverId);
-      ranked.push({
-        coverId,
-        isbn13: firstIsbn13([...(e.isbn_13 ?? []), ...(e.isbn_10 ?? [])]),
-        score:
-          (langs.includes("eng") ? 2 : 0) +
-          (e.title && bookIdentity(e.title) === workIdentity ? 1 : 0) +
-          (coverId === currentCover ? 0.5 : 0),
-      });
-    }
-    // Stable sort: equal scores keep Open Library's edition order.
-    return ranked.sort((a, b) => b.score - a.score);
-  } catch {
-    return [];
+  return rankEditionCovers(await fetchEditions(olid, init), workTitle, currentCover);
+}
+
+function rankEditionCovers(entries: EditionDoc[], workTitle: string, currentCover: number | null) {
+  const workIdentity = bookIdentity(workTitle);
+  const seen = new Set<number>();
+  const ranked: (EditionCover & { score: number })[] = [];
+  for (const e of entries) {
+    const coverId = e.covers?.find((c) => c > 0);
+    if (!coverId || seen.has(coverId)) continue;
+    const langs = (e.languages ?? []).map((l) => l.key.replace("/languages/", ""));
+    if (langs.length && !langs.includes("eng")) continue;
+    seen.add(coverId);
+    ranked.push({
+      coverId,
+      isbn13: firstIsbn13([...(e.isbn_13 ?? []), ...(e.isbn_10 ?? [])]),
+      score:
+        (langs.includes("eng") ? 2 : 0) +
+        (e.title && bookIdentity(e.title) === workIdentity ? 1 : 0) +
+        (coverId === currentCover ? 0.5 : 0),
+    });
   }
+  // Stable sort: equal scores keep Open Library's edition order.
+  return ranked.sort((a, b) => b.score - a.score);
+}
+
+const SERIES_NUMBER = String.raw`(\d{1,3}(?:\.\d{1,2})?)`;
+const SERIES_MARK = String.raw`(?:#|no\.?\s*|book\s+|bk\.?\s*|vol(?:ume)?\.?\s*|part\s+)`;
+/**
+ * "Bloodwing Academy (#1)", "Red Rising Saga, #3", "The Empyrean ; 1",
+ * "Throne of Glass -- 2", "Shadowhunters book 4": the name, then the number.
+ * A bare trailing number ("Area 51") stays part of the name.
+ */
+const SERIES_LINE = new RegExp(
+  String.raw`^(.*?)\s*(?:[(\[]\s*${SERIES_MARK}?\s*${SERIES_NUMBER}\s*[)\]]|(?:[,;:\u2013\u2014-]+\s*|\s+)${SERIES_MARK}${SERIES_NUMBER}|[,;:\u2013\u2014-]+\s*${SERIES_NUMBER})\s*$`,
+  "i",
+);
+
+/** An edition's series line as a name and number ("Bloodwing Academy (#1)" → Bloodwing Academy, 1). */
+export function parseSeriesLine(raw: string): { name: string; position: number | null } | null {
+  const line = raw.replace(/\s+/g, " ").trim();
+  const m = line.match(SERIES_LINE);
+  // Anything else in brackets at the end ("(1-4)" on a box set) isn't part of the name.
+  const name = (m ? m[1] : line.replace(/\s*[(\[][^)\]]*[)\]]$/, "")).replace(/[\s,;:.\u2013\u2014-]+$/, "").trim();
+  const number = m ? Number(m[2] ?? m[3] ?? m[4]) : null;
+  if (name.length < 2 || !/\p{L}/u.test(name)) return null;
+  return { name, position: number && number > 0 ? number : null };
+}
+
+/** The series a work's edition records name (see editionSeries); null if none, or they can't be read. */
+export async function getEditionSeries(olid: string, init?: RequestInit) {
+  return editionSeries(await fetchEditions(olid, init));
+}
+
+/** Publisher lines that editions file under as a "series" ("Penguin classics", "Signet classic"). */
+const IMPRINT_SERIES = /\b(classics?|editions?|paperbacks?|large print|library of america|everyman|modern library|bestsellers?)\b/i;
+const PUBLISHER_FILLER = new Set(["books", "book", "press", "publishing", "publishers", "publisher", "house", "group", "inc", "ltd", "limited", "company", "independently", "published"]);
+
+/**
+ * The series a work's edition records name, for when Open Library's search
+ * doesn't carry one. Editions also list publishers' own lines ("Penguin
+ * classics ; 123") as a series, so a name that looks like an imprint or
+ * shares a word with a publisher is ignored, and a name only one edition
+ * gives needs a number to count. The name most editions agree on wins.
+ */
+export function editionSeries(entries: EditionDoc[]): OpenLibrarySeries | null {
+  const publisherWords = new Set(
+    entries
+      .flatMap((e) => e.publishers ?? [])
+      .flatMap((p) => p.toLowerCase().split(/[^\p{L}]+/u))
+      .filter((w) => w.length >= 4 && !PUBLISHER_FILLER.has(w)),
+  );
+  const tally = new Map<string, { name: string; count: number; position: number | null }>();
+  for (const e of entries) {
+    const seenHere = new Set<string>();
+    for (const raw of e.series ?? []) {
+      const parsed = parseSeriesLine(raw);
+      if (!parsed || IMPRINT_SERIES.test(parsed.name)) continue;
+      const words = parsed.name.toLowerCase().split(/[^\p{L}]+/u);
+      if (words.some((w) => publisherWords.has(w))) continue;
+      const key = parsed.name.toLowerCase().replace(/^the\s+/, "");
+      if (seenHere.has(key)) continue;
+      seenHere.add(key);
+      const entry = tally.get(key) ?? { name: parsed.name, count: 0, position: null };
+      entry.count++;
+      entry.position ??= parsed.position;
+      tally.set(key, entry);
+    }
+  }
+  const best = [...tally.values()]
+    .filter((s) => s.count >= 2 || s.position != null)
+    .sort((a, b) => b.count - a.count || Number(b.position != null) - Number(a.position != null))[0];
+  return best ? { olid: null, name: best.name, position: best.position } : null;
 }
 
 /**
@@ -493,8 +574,14 @@ export async function getOpenLibrarySeries(olids: string[], init?: RequestInit) 
       fields: "key,series_key,series_name,series_position",
       limit: String(batch.length),
     });
-    const res = await fetch(`${API}/search.json?${params}`, init);
-    if (!res.ok) throw new Error(`Open Library search failed (${res.status})`);
+    // Open Library fails now and then (a 500, a reset connection): give each batch a few tries.
+    let res: Response | null = null;
+    for (let attempt = 1; ; attempt++) {
+      res = await fetch(`${API}/search.json?${params}`, init).catch(() => null);
+      if (res?.ok || attempt === 3) break;
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+    }
+    if (!res?.ok) throw new Error(`Open Library search failed (${res?.status ?? "no response"})`);
     const { docs = [] } = (await res.json()) as { docs?: SearchDoc[] };
     for (const doc of docs) {
       const series = firstSeries(doc);

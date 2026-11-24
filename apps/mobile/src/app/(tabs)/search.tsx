@@ -2,9 +2,8 @@ import {
   type BookLike,
   bookSeries,
   type CatalogBook,
-  callNumber,
-  catalogName,
   compactCount,
+  formatRating,
   type BrowseDrawer,
   getBrowseDrawers,
   getTagDrawers,
@@ -29,8 +28,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
 import { RequestSlip } from '@/components/request-slip';
-import { Stars } from '@/components/stars';
+import { SeriesLine } from '@/components/series-line';
 import { ThemedView } from '@/components/themed-view';
+import { TintWash } from '@/components/tint-wash';
 import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
@@ -246,13 +246,8 @@ export default function SearchScreen() {
                 />
               ) : (
                 <>
-                  {results.books.map((book, i) => (
-                    <CatalogueCard
-                      key={book.id}
-                      book={book}
-                      tilt={i % 3 === 1 ? '0.5deg' : i % 3 === 2 ? '-0.4deg' : '0deg'}
-                      onLongPress={() => quick.open(book)}
-                    />
+                  {results.books.map((book) => (
+                    <CatalogueCard key={book.id} book={book} onLongPress={() => quick.open(book)} />
                   ))}
                   {results.authors.length ? (
                     <View style={{ gap: spacing[3] }}>
@@ -337,13 +332,13 @@ function WiderStacks({
   return (
     <View style={[{ gap: spacing[4] }, !headline && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border, paddingTop: spacing[6] }]}>
       <View style={{ gap: spacing[1] }}>
-        <Text style={[styles.summaryText, { color: theme.textSecondary }]}>NOT ON FILE YET</Text>
+        <Text style={[styles.summaryText, { color: theme.textSecondary }]}>NOT ON BOOKSYDE YET</Text>
         <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cabinetTitle, { color: theme.text }]}>
           From the <Text style={{ fontFamily: DisplayFonts.italic, color: theme.accent }}>wider stacks</Text>
         </Text>
         <Text style={{ color: theme.textSecondary, fontSize: 15, lineHeight: 22 }}>
           {headline ? 'We don’t have it on our shelves yet, but these are out there. ' : ''}
-          Fill in a request slip and we’ll add the book to the catalogue. Courtesy of Open Library.
+          Add one and it joins the catalogue, ready to shelve and review. Courtesy of Open Library.
         </Text>
       </View>
       {!stacks ? (
@@ -351,7 +346,7 @@ function WiderStacks({
       ) : stacks.books === null ? (
         <Text style={{ color: theme.textSecondary }}>The wider stacks aren’t answering right now. Try again in a moment.</Text>
       ) : (
-        books.map((b, i) => <RequestSlip key={b.olid} book={b} tilt={i % 2 ? '-0.5deg' : '0.4deg'} />)
+        books.map((b) => <RequestSlip key={b.olid} book={b} />)
       )}
     </View>
   );
@@ -367,82 +362,81 @@ function AsideHeading({ children }: { children: string }) {
   );
 }
 
-/** The punched hole at the foot of every catalogue card. */
-function Hole() {
+function CatalogueCard({ book, onLongPress }: { book: CatalogBook; onLongPress: () => void }) {
   const theme = useTheme();
-  return <View style={[styles.hole, { backgroundColor: theme.background }]} />;
-}
-
-function useCardColors() {
-  const theme = useTheme();
-  const dark = useColorScheme() === 'dark';
-  return {
-    paper: dark ? theme.backgroundSelected : '#FFFDF6',
-    ink: dark ? theme.text : palette.ink,
-    muted: dark ? theme.textSecondary : '#6F655A',
-    rule: dark ? 'rgba(201,123,107,0.5)' : 'rgba(139,58,43,0.5)',
-  };
-}
-
-function CatalogueCard({ book, tilt, onLongPress }: { book: CatalogBook; tilt: string; onLongPress: () => void }) {
-  const theme = useTheme();
-  const c = useCardColors();
+  const [pressed, setPressed] = useState(false);
   const authors = [...book.work_contributors]
     .filter((x) => x.role === 'author')
     .sort((a, b) => a.position - b.position)
     .map((x) => x.authors);
-  const lead = authors[0];
   const byline = authors.map((a) => a.name).join(' & ') || 'Unknown';
   const subjects = [...book.work_tags]
     .filter((t) => t.votes > 0 && (t.tags.kind === 'genre' || t.tags.kind === 'mood'))
     .sort((a, b) => b.votes - a.votes)
-    .slice(0, 4)
+    .slice(0, 3)
     .map((t) => t.tags);
+  const tint = book.cover_color ?? (subjects[0] ? genreColor(subjects[0].slug).dot : null) ?? palette.gilt;
   const series = bookSeries(book);
+  const rating = formatRating(Number(book.avg_rating));
 
   return (
     <Link href={{ pathname: '/book/[id]', params: { id: book.id } }} asChild>
       <Pressable
-        style={StyleSheet.flatten([styles.card, { backgroundColor: c.paper, transform: [{ rotate: tilt }] }])}
         onLongPress={onLongPress}
         delayLongPress={400}
         accessibilityHint="Press and hold to put it on a shelf"
+        // Link (asChild) only passes a plain style through, so the pressed look is tracked by hand.
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        style={StyleSheet.flatten([
+          styles.card,
+          {
+            backgroundColor: theme.backgroundElement,
+            borderColor: pressed ? mixHex(theme.border, theme.text, 0.25) : theme.border,
+            transform: [{ translateY: pressed ? -2 : 0 }],
+          },
+        ])}
       >
-        <View style={[styles.cardHeading, { borderBottomColor: c.rule }]}>
-          <Text style={[styles.callNumber, { color: theme.accent }]}>{callNumber(book, lead?.name)}</Text>
-          <Text numberOfLines={1} style={[styles.mono, { color: c.muted, flex: 1 }]}>
-            {lead
-              ? `${[catalogName(lead.name), lifeYears(lead.birth_date, lead.death_date)].filter(Boolean).join(', ')}.`
-              : 'Anonymous.'}
-          </Text>
-        </View>
+        <TintWash color={tint} />
+        <BookCover title={book.title} author={byline} src={book.cover_url} color={book.cover_color} width={96} />
         <View style={styles.cardBody}>
-          <View style={{ flex: 1, gap: spacing[2] }}>
-            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cardTitle, { color: c.ink }]}>{book.title}</Text>
-            {book.subtitle ? <Text style={[styles.mono, { color: c.muted }]}>{book.subtitle}</Text> : null}
-            <Text style={[styles.mono, { color: c.ink }]}>
-              / by {byline}.{book.first_published_year ? ` — First published ${book.first_published_year}.` : ''}
-            </Text>
-            {series ? (
-              <Text style={[styles.mono, { color: theme.accent, fontWeight: '600' }]}>— {seriesLabel(series)}.</Text>
-            ) : null}
-            {book.ratings_count > 0 ? (
-              <View style={styles.ratingRow}>
-                <Stars rating={Number(book.avg_rating)} size={12} />
-                <Text style={{ color: c.muted, fontSize: 12 }}>
-                  {Number(book.avg_rating).toFixed(1)} · {compactCount(book.ratings_count)} ratings
-                </Text>
-              </View>
-            ) : null}
-            {subjects.length ? (
-              <Text style={[styles.mono, { color: c.muted }]}>
-                {subjects.map((t, i) => `${i + 1}. ${t.name}${t.kind === 'genre' ? ' — Fiction' : ''}.`).join(' ')}
-              </Text>
-            ) : null}
-          </View>
-          <BookCover title={book.title} author={byline} src={book.cover_url} color={book.cover_color} width={64} />
+          {book.first_published_year ? (
+            <Text style={[styles.cardYear, { color: theme.textSecondary }]}>{book.first_published_year}</Text>
+          ) : null}
+          <Text numberOfLines={2} maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cardTitle, { color: theme.text }]}>
+            {book.title}
+          </Text>
+          {book.subtitle ? (
+            <Text numberOfLines={1} style={[styles.cardSubtitle, { color: theme.textSecondary }]}>{book.subtitle}</Text>
+          ) : null}
+          <Text numberOfLines={1} style={[styles.cardByline, { color: theme.text }]}>
+            <Text style={{ color: theme.textSecondary }}>by </Text>
+            <Text style={{ fontWeight: '500' }}>{byline}</Text>
+          </Text>
+          {series ? <SeriesLine label={seriesLabel(series)} /> : null}
+
+          {book.ratings_count > 0 || subjects.length ? (
+            <View style={styles.cardTags}>
+              {book.ratings_count > 0 ? (
+                <View
+                  style={[styles.ratingPill, { backgroundColor: mixHex(theme.backgroundElement, theme.highlight, 0.15) }]}
+                  accessibilityLabel={`Rated ${rating} from ${book.ratings_count} ${book.ratings_count === 1 ? 'rating' : 'ratings'}`}
+                >
+                  <Text style={[styles.pillText, { color: theme.text, fontWeight: '600' }]}>
+                    <Text style={{ color: theme.highlight }}>★</Text> {rating}{' '}
+                    <Text style={{ color: theme.textSecondary, fontWeight: '400' }}>({compactCount(book.ratings_count)})</Text>
+                  </Text>
+                </View>
+              ) : null}
+              {subjects.map((t) => (
+                <View key={t.slug} style={[styles.subjectPill, { borderColor: theme.border }]}>
+                  <View style={[styles.subjectDot, { backgroundColor: genreColor(t.slug).dot }]} />
+                  <Text style={[styles.pillText, { color: theme.textSecondary }]}>{t.name}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
-        <Hole />
       </Pressable>
     </Link>
   );
@@ -671,34 +665,32 @@ const styles = StyleSheet.create({
   chipDot: { width: 8, height: 8, borderRadius: 4 },
   chipLabel: { fontSize: 14 },
   card: {
-    borderRadius: 3,
-    paddingHorizontal: spacing[5],
-    paddingTop: spacing[4],
-    paddingBottom: spacing[7],
-    gap: spacing[3],
-    shadowColor: '#1F1B16',
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    flexDirection: 'row',
+    gap: spacing[4],
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: spacing[4],
   },
-  cardHeading: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[3], paddingBottom: 6, borderBottomWidth: 1 },
-  callNumber: { fontFamily: mono, fontSize: 12, fontWeight: '700' },
+  cardBody: { flex: 1, minWidth: 0 },
+  cardYear: { fontSize: 12, fontWeight: '500', fontVariant: ['tabular-nums'] },
+  cardTitle: { fontFamily: DisplayFonts.regular, fontSize: 26, lineHeight: 28, marginTop: 2 },
+  cardSubtitle: { fontSize: 14, marginTop: 4 },
+  cardByline: { fontSize: 14, marginTop: 6 },
+  cardTags: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 'auto', paddingTop: spacing[4] },
+  ratingPill: { borderRadius: radii.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  subjectPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  subjectDot: { width: 6, height: 6, borderRadius: 3 },
+  pillText: { fontSize: 12 },
   mono: { fontFamily: mono, fontSize: 13, lineHeight: 20 },
-  cardBody: { flexDirection: 'row', gap: spacing[4], alignItems: 'flex-start' },
-  cardTitle: { fontFamily: DisplayFonts.regular, fontSize: 28, lineHeight: 30 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  hole: {
-    position: 'absolute',
-    bottom: 12,
-    left: '50%',
-    marginLeft: -8,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderTopWidth: 2,
-    borderTopColor: 'rgba(31,27,22,0.25)',
-  },
   asideHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[4] },
   asideLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 3 },
   asideRule: { flex: 1, height: StyleSheet.hairlineWidth },

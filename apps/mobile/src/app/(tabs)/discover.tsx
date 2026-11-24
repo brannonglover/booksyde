@@ -243,8 +243,8 @@ function WiderStacksPicks({ shelved, read, headline }: { shelved: string[]; read
           Not on Booksyde yet: add one to the catalogue and it’s ready to shelve. Courtesy of Open Library.
         </Text>
       </View>
-      {picks.map((book, i) => (
-        <RequestSlip key={book.olid} book={book} tilt={i % 2 ? '-0.5deg' : '0.4deg'} />
+      {picks.map((book) => (
+        <RequestSlip key={book.olid} book={book} />
       ))}
     </View>
   );

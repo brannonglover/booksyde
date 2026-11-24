@@ -191,15 +191,31 @@ export async function getBrowseDrawers() {
 
 /**
  * Open Library matches for a query ("the wider stacks"), each with its
- * Booksyde id when we already hold that work.
+ * Booksyde id when we already hold that work; null when Open Library can't
+ * be reached. Open Library is often slow or briefly down, so a failed call is
+ * tried once more, and a failure is never cached: the next search asks again
+ * instead of reporting the stacks closed for hours.
  */
 export async function searchWiderStacks(q: string) {
+  try {
+    return await widerStacksOnFile(q);
+  } catch {
+    try {
+      return await widerStacksOnFile(q);
+    } catch (e) {
+      console.error("Open Library search failed", q, e);
+      return null;
+    }
+  }
+}
+
+/** Throws when Open Library can't be reached, so the failure isn't cached. */
+async function widerStacksOnFile(q: string) {
   "use cache";
   cacheLife("minutes");
   // Adding a book invalidates this, so its slip turns into a link straight away.
   cacheTag("catalog-search");
   const books = await openLibraryMatches(q);
-  if (!books) return null;
   const { data } = await publicClient()
     .from("works")
     .select("id, open_library_id")
@@ -211,11 +227,11 @@ export async function searchWiderStacks(q: string) {
   return books.map((b) => ({ ...b, workId: onFile.get(b.olid) ?? null }));
 }
 
-/** Open Library's answer for a query; slow and rarely changes, so it keeps for hours. */
+/** Open Library's answer for a query; slow and rarely changes, so it keeps for hours. Throws (uncached) on failure. */
 async function openLibraryMatches(q: string) {
   "use cache";
   cacheLife("hours");
-  return searchOpenLibrary(q, 9, { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } }, { skipForgotten: true }).catch(() => null);
+  return searchOpenLibrary(q, 9, { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } }, { skipForgotten: true });
 }
 
 /** Open Library picks for a reader who has outgrown our shelves (see @booksyde/shared). */

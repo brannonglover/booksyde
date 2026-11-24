@@ -1,14 +1,16 @@
 /*
  * Files books already in the catalogue under their series ("Morning Star":
- * book 3 of Red Rising), from Open Library — the same data new imports use.
- * Only books with an Open Library id and no series yet are touched.
+ * book 3 of Red Rising), from Open Library — the same data new imports use:
+ * the series its search gives, or failing that the one the work's edition
+ * records name (see editionSeries). Only books with an Open Library id and
+ * no series yet are touched.
  *
  *   npm run series:backfill                 # dry run: prints what would be filed
  *   npm run series:backfill -- --apply      # writes it
  *
  * Reads NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY from apps/web/.env.local.
  */
-import { createBooksydeClient, fileInSeries, getOpenLibrarySeries } from "@booksyde/shared";
+import { createBooksydeClient, fileInSeries, getEditionSeries, getOpenLibrarySeries } from "@booksyde/shared";
 
 const apply = process.argv.includes("--apply");
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -45,13 +47,15 @@ const found = await getOpenLibrarySeries(
 const tally = { filed: 0, none: 0, failed: 0 };
 const seriesSeen = new Set<string>();
 for (const w of works) {
-  const series = found.get(w.open_library_id);
+  // One request per book for the edition records, so only for books the search left out.
+  const series = found.get(w.open_library_id) ?? (await getEditionSeries(w.open_library_id, init));
   if (!series) {
     tally.none++;
     continue;
   }
-  seriesSeen.add(series.olid);
-  console.log(`${w.title.slice(0, 44).padEnd(44)} → ${series.name}${series.position != null ? ` #${series.position}` : ""}`);
+  seriesSeen.add(series.olid ?? series.name.toLowerCase());
+  const source = series.olid ? "" : "  (from editions)";
+  console.log(`${w.title.slice(0, 44).padEnd(44)} → ${series.name}${series.position != null ? ` #${series.position}` : ""}${source}`);
   if (!apply) {
     tally.filed++;
     continue;
