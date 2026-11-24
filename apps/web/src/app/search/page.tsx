@@ -391,13 +391,16 @@ function AuthorList({ authors }: { authors: Author[] }) {
               <Link href={hrefFor(a.name, [])} className="flex items-center gap-3 rounded-xl p-2 hover:bg-surface">
                 <span
                   aria-hidden
-                  className="grid size-12 shrink-0 place-items-center rounded-full border border-gilt/60 bg-surface font-display text-xl"
+                  className="relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border border-gilt/60 bg-surface font-display text-xl"
                 >
                   {a.name
                     .split(/\s+/)
                     .map((p) => p[0])
                     .slice(0, 2)
                     .join("")}
+                  {a.photo_url ? (
+                    <Image src={a.photo_url} alt="" fill sizes="48px" className="object-cover object-top" />
+                  ) : null}
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate font-display text-xl leading-tight">{a.name}</span>

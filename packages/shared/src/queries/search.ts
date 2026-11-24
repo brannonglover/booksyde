@@ -33,13 +33,28 @@ export async function searchCatalog(client: BooksydeClient, { q = "", tags = [],
 
 export type CatalogBook = Awaited<ReturnType<typeof searchCatalog>>[number];
 
-/** Authors by name (typo- and accent-tolerant), with how many of their books we hold. */
+/**
+ * Authors by name (typo- and accent-tolerant), with how many of their books we
+ * hold and their portrait. The search_authors RPC doesn't return portraits, so
+ * they're looked up by id afterwards; if that lookup fails the authors still
+ * come back, just without photos.
+ */
 export async function searchAuthors(client: BooksydeClient, query: string, limit = 6) {
   const q = query.trim();
   if (q.length < 2) return [];
   const { data, error } = await client.rpc("search_authors", { q, max_results: limit });
   if (error) throw error;
-  return data ?? [];
+  const authors = data ?? [];
+  if (authors.length === 0) return [];
+  const { data: photos } = await client
+    .from("authors")
+    .select("id, photo_url")
+    .in(
+      "id",
+      authors.map((a) => a.id),
+    );
+  const photoById = new Map((photos ?? []).map((p) => [p.id, p.photo_url]));
+  return authors.map((a) => ({ ...a, photo_url: photoById.get(a.id) ?? null }));
 }
 
 /** Readers whose username or name contains the query. */

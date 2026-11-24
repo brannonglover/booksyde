@@ -262,6 +262,18 @@ export default function SearchScreen() {
                                 .slice(0, 2)
                                 .join('')}
                             </Text>
+                            {/* The portrait sits over the initials, so a photo that fails to load still leaves them. */}
+                            {a.photo_url ? (
+                              <Image
+                                source={{ uri: a.photo_url }}
+                                style={StyleSheet.absoluteFill}
+                                contentFit="cover"
+                                contentPosition="top"
+                                transition={150}
+                                cachePolicy="memory-disk"
+                                accessible={false}
+                              />
+                            ) : null}
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.authorName, { color: theme.text }]}>{a.name}</Text>
@@ -695,7 +707,15 @@ const styles = StyleSheet.create({
   asideLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 3 },
   asideRule: { flex: 1, height: StyleSheet.hairlineWidth },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[1] },
-  authorBadge: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  authorBadge: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   authorInitials: { fontFamily: DisplayFonts.regular, fontSize: 20 },
   authorName: { fontFamily: DisplayFonts.regular, fontSize: 21, lineHeight: 24 },
   plate: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], borderWidth: 3, borderStyle: 'solid', borderRadius: 3, padding: spacing[3] },
