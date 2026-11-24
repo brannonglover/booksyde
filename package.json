@@ -34,5 +34,6 @@
   "packageManager": "npm@11.11.0",
   "engines": {
     "node": ">=20"
-  }
+  },
+  "version": "0.1.0"
 }
