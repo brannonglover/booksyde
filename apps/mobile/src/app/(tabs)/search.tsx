@@ -143,6 +143,8 @@ export default function SearchScreen() {
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        // Keep the search slip above the iPhone keyboard (and let results scroll clear of it).
+        automaticallyAdjustKeyboardInsets
         contentContainerStyle={[
           styles.scroll,
           {
