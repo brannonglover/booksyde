@@ -24,3 +24,4 @@ export * from "./queries/avatar";
 export * from "./queries/series";
 export * from "./queries/moods";
 export * from "./queries/season";
+export * from "./queries/news";

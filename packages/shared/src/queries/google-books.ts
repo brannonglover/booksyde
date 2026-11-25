@@ -39,3 +39,63 @@ export async function getGoogleBooksCovers(isbn: string, apiKey: string, init?: 
   const links = ((await volume.json()) as { volumeInfo?: { imageLinks?: ImageLinks } }).volumeInfo?.imageLinks ?? {};
   return [...new Set(SIZES.flatMap((size) => (links[size] ? [cleanImageUrl(links[size])] : [])))];
 }
+
+export type GoogleBooksRelease = {
+  id: string;
+  title: string;
+  authors: string[];
+  /** "2026-03-04"; volumes with only a year or month are left out. */
+  publishedDate: string;
+  isbn13: string | null;
+  coverUrl: string | null;
+};
+
+type SearchVolume = {
+  id: string;
+  volumeInfo?: {
+    title?: string;
+    authors?: string[];
+    publishedDate?: string;
+    language?: string;
+    industryIdentifiers?: { type: string; identifier: string }[];
+    imageLinks?: ImageLinks;
+  };
+};
+
+/**
+ * An author's newest English books with an exact publication date (recent and
+ * forthcoming ones come first), for "new from your authors". Every edition is
+ * its own volume, so expect repeats of a title; callers group them.
+ */
+export async function getGoogleBooksByAuthor(author: string, apiKey: string, init?: RequestInit): Promise<GoogleBooksRelease[]> {
+  const params = new URLSearchParams({
+    q: `inauthor:"${author.replace(/"/g, "")}"`,
+    orderBy: "newest",
+    printType: "books",
+    langRestrict: "en",
+    maxResults: "20",
+    fields: "items(id,volumeInfo(title,authors,publishedDate,language,industryIdentifiers,imageLinks))",
+    key: apiKey,
+  });
+  const res = await fetch(`${API}?${params}`, init);
+  if (!res.ok) throw new Error(`Google Books search failed (${res.status})`);
+  const items = ((await res.json()) as { items?: SearchVolume[] }).items ?? [];
+  return items.flatMap((item) => {
+    const info = item.volumeInfo;
+    if (!info?.title || !info.publishedDate || !/^\d{4}-\d{2}-\d{2}$/.test(info.publishedDate)) return [];
+    if (info.language && info.language !== "en") return [];
+    const isbn13 = info.industryIdentifiers?.find((i) => i.type === "ISBN_13")?.identifier ?? null;
+    const image = info.imageLinks?.thumbnail ?? info.imageLinks?.smallThumbnail;
+    return [
+      {
+        id: item.id,
+        title: info.title,
+        authors: info.authors ?? [],
+        publishedDate: info.publishedDate,
+        isbn13,
+        // Search results only offer thumbnails; zoom=1 is the largest Google serves at this URL.
+        coverUrl: image ? cleanImageUrl(image) : null,
+      },
+    ];
+  });
+}

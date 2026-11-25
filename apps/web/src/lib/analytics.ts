@@ -45,6 +45,8 @@ export const AnalyticsEvent = {
   ClubCreated: "club_created",
   /** Server-side, per batch of a Goodreads import (a big library arrives in several). */
   GoodreadsBatchImported: "goodreads_batch_imported",
+  /** A story in "This week in books" (a chart move or a new release). */
+  NewsClicked: "news_clicked",
 } as const;
 
 export type AnalyticsEventName = (typeof AnalyticsEvent)[keyof typeof AnalyticsEvent];

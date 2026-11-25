@@ -63,17 +63,63 @@ isOneToOne: false
                   ]
                 },"authors": {
                   Row: {
-                    "bio": string | null,"birth_date": string | null,"created_at": string,"death_date": string | null,"id": string,"name": string,"open_library_id": string | null,"photo_url": string | null,"updated_at": string
+                    "bio": string | null,"birth_date": string | null,"created_at": string,"death_date": string | null,"id": string,"name": string,"open_library_id": string | null,"photo_url": string | null,"releases_checked_at": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"id"?: string,"name": string,"open_library_id"?: string | null,"photo_url"?: string | null,"updated_at"?: string
+                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"id"?: string,"name": string,"open_library_id"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"id"?: string,"name"?: string,"open_library_id"?: string | null,"photo_url"?: string | null,"updated_at"?: string
+                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"id"?: string,"name"?: string,"open_library_id"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     
+                  ]
+                },"bestseller_entries": {
+                  Row: {
+                    "author": string,"cover_url": string | null,"isbn13": string | null,"list_date": string,"list_name": string,"rank": number,"rank_last_week": number,"title": string,"weeks_on_list": number,"work_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author": string,"cover_url"?: string | null,"isbn13"?: string | null,"list_date": string,"list_name": string,"rank": number,"rank_last_week"?: number,"title": string,"weeks_on_list"?: number,"work_id"?: string | null
+                  }
+                  Update: {
+                    "author"?: string,"cover_url"?: string | null,"isbn13"?: string | null,"list_date"?: string,"list_name"?: string,"rank"?: number,"rank_last_week"?: number,"title"?: string,"weeks_on_list"?: number,"work_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "bestseller_entries_work_id_fkey"
+      columns: ["work_id"]
+isOneToOne: false
+      referencedRelation: "works"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"news_items": {
+                  Row: {
+                    "author_id": string | null,"author_name": string | null,"cover_url": string | null,"data": Json,"expires_at": string | null,"happens_at": string | null,"headline": string,"id": string,"key": string,"kind": Database["public"]["Enums"]["news_kind"],"label": string | null,"published_at": string,"source": string | null,"title": string | null,"url": string | null,"weight": number,"work_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "author_id"?: string | null,"author_name"?: string | null,"cover_url"?: string | null,"data"?: Json,"expires_at"?: string | null,"happens_at"?: string | null,"headline": string,"id"?: string,"key": string,"kind": Database["public"]["Enums"]["news_kind"],"label"?: string | null,"published_at"?: string,"source"?: string | null,"title"?: string | null,"url"?: string | null,"weight"?: number,"work_id"?: string | null
+                  }
+                  Update: {
+                    "author_id"?: string | null,"author_name"?: string | null,"cover_url"?: string | null,"data"?: Json,"expires_at"?: string | null,"happens_at"?: string | null,"headline"?: string,"id"?: string,"key"?: string,"kind"?: Database["public"]["Enums"]["news_kind"],"label"?: string | null,"published_at"?: string,"source"?: string | null,"title"?: string | null,"url"?: string | null,"weight"?: number,"work_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "news_items_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
+      referencedRelation: "authors"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "news_items_work_id_fkey"
+      columns: ["work_id"]
+isOneToOne: false
+      referencedRelation: "works"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"club_members": {
                   Row: {
@@ -661,6 +707,11 @@ isOneToOne: false
               "context": string,"reason": string,"work_id": string
             }[]
                            },
+"news_feed":
+{ Args: { "max_results"?: number }; Returns: {
+              "author_id": string | null,"author_name": string | null,"cover_color": string | null,"cover_url": string | null,"for_you": boolean,"happens_at": string | null,"headline": string,"id": string,"kind": Database["public"]["Enums"]["news_kind"],"label": string | null,"published_at": string,"source": string | null,"title": string | null,"url": string | null,"work_id": string | null
+            }[]
+                           },
 "nightstand_works":
 { Args: { "max_results"?: number }; Returns: {
               "readers": number,"work_id": string
@@ -671,6 +722,11 @@ isOneToOne: false
                            },
 "reader_page":
 { Args: { "p_work_id": string }; Returns: number
+                           },
+"watched_authors":
+{ Args: { "max_results"?: number }; Returns: {
+              "author_id": string,"name": string,"open_library_id": string | null,"readers": number
+            }[]
                            },
 "search_authors":
 { Args: { "max_results"?: number,"q": string }; Returns: {
@@ -773,7 +829,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "activity_verb": "shelved"|"started"|"finished"|"dnf"|"rated"|"reviewed"|"followed","backdrop_style": "cover"|"motif"|"setting"|"generated","club_role": "owner"|"moderator"|"member","contributor_role": "author"|"translator"|"illustrator"|"editor"|"narrator","cover_source": "open_library"|"google_books"|"manual","edition_format": "hardcover"|"paperback"|"mass_market"|"ebook"|"audiobook"|"other","follow_status": "pending"|"accepted","reading_status": "want_to_read"|"reading"|"read"|"did_not_finish","tag_kind": "genre"|"mood"|"trope"|"pace"|"content_warning","user_role": "member"|"librarian"|"admin"
+            "activity_verb": "shelved"|"started"|"finished"|"dnf"|"rated"|"reviewed"|"followed","backdrop_style": "cover"|"motif"|"setting"|"generated","club_role": "owner"|"moderator"|"member","contributor_role": "author"|"translator"|"illustrator"|"editor"|"narrator","cover_source": "open_library"|"google_books"|"manual","edition_format": "hardcover"|"paperback"|"mass_market"|"ebook"|"audiobook"|"other","follow_status": "pending"|"accepted","news_kind": "chart"|"release"|"buzz"|"article"|"award"|"adaptation","reading_status": "want_to_read"|"reading"|"read"|"did_not_finish","tag_kind": "genre"|"mood"|"trope"|"pace"|"content_warning","user_role": "member"|"librarian"|"admin"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -893,7 +949,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "activity_verb": ["shelved", "started", "finished", "dnf", "rated", "reviewed", "followed"],"backdrop_style": ["cover", "motif", "setting", "generated"],"club_role": ["owner", "moderator", "member"],"contributor_role": ["author", "translator", "illustrator", "editor", "narrator"],"cover_source": ["open_library", "google_books", "manual"],"edition_format": ["hardcover", "paperback", "mass_market", "ebook", "audiobook", "other"],"follow_status": ["pending", "accepted"],"reading_status": ["want_to_read", "reading", "read", "did_not_finish"],"tag_kind": ["genre", "mood", "trope", "pace", "content_warning"],"user_role": ["member", "librarian", "admin"]
+            "activity_verb": ["shelved", "started", "finished", "dnf", "rated", "reviewed", "followed"],"backdrop_style": ["cover", "motif", "setting", "generated"],"club_role": ["owner", "moderator", "member"],"contributor_role": ["author", "translator", "illustrator", "editor", "narrator"],"cover_source": ["open_library", "google_books", "manual"],"edition_format": ["hardcover", "paperback", "mass_market", "ebook", "audiobook", "other"],"follow_status": ["pending", "accepted"],"news_kind": ["chart", "release", "buzz", "article", "award", "adaptation"],"reading_status": ["want_to_read", "reading", "read", "did_not_finish"],"tag_kind": ["genre", "mood", "trope", "pace", "content_warning"],"user_role": ["member", "librarian", "admin"]
           }
         }
 } as const

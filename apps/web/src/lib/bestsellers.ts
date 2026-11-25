@@ -16,11 +16,52 @@ const TOP = 10;
 
 type NytBook = {
   rank: number;
+  rank_last_week: number;
+  weeks_on_list: number;
   title: string;
   author: string;
   book_image: string | null;
   primary_isbn13: string | null;
+  isbns?: { isbn13?: string }[];
 };
+
+/** The lists the news job follows: fiction and non-fiction, print and e-book combined. */
+export const NEWS_LISTS = [
+  { list: LIST, name: "Fiction" },
+  { list: "combined-print-and-e-book-nonfiction", name: "Nonfiction" },
+] as const;
+
+export type ListEntry = Bestseller & {
+  /** 0 when it wasn't on last week's list. */
+  rankLastWeek: number;
+  weeksOnList: number;
+  /** Every ISBN-13 the list gives for it, for finding our copy. */
+  isbns: string[];
+};
+
+/** A whole current list with each book's movement, uncached, for the news job. Null without a key. */
+export async function getBestsellerList(list: string): Promise<{ date: string; books: ListEntry[] } | null> {
+  const key = process.env.NYT_BOOKS_API_KEY;
+  if (!key) return null;
+  const res = await fetch(`https://api.nytimes.com/svc/books/v3/lists/current/${list}.json?api-key=${encodeURIComponent(key)}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`NYT Books API: ${res.status}`);
+  const json = (await res.json()) as { results?: { published_date?: string; books?: NytBook[] } };
+  const date = json.results?.published_date;
+  if (!date) return null;
+  const books = (json.results?.books ?? []).sort((a, b) => a.rank - b.rank).map((b) => ({
+    rank: b.rank,
+    title: titleCase(b.title),
+    author: b.author,
+    coverUrl: b.book_image ?? "",
+    isbn13: b.primary_isbn13 || null,
+    rankLastWeek: b.rank_last_week ?? 0,
+    weeksOnList: b.weeks_on_list ?? 0,
+    isbns: [...new Set([b.primary_isbn13, ...(b.isbns ?? []).map((i) => i.isbn13)].filter((i): i is string => Boolean(i)))],
+  }));
+  return { date, books };
+}
 
 export type Bestseller = { rank: number; title: string; author: string; coverUrl: string; isbn13: string | null };
 

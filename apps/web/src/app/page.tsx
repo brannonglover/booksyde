@@ -7,6 +7,7 @@ import { BookCover } from "@/components/book-cover";
 import { BookObject } from "@/components/book-object";
 import { FeatureBento } from "@/components/feature-bento";
 import { HollySprig } from "@/components/holly";
+import { NewsSection } from "@/components/news";
 import { Stars } from "@/components/stars";
 import { ReadingDesk } from "@/components/reading-desk";
 import { ReadingProgress } from "@/components/reading-progress";
@@ -112,6 +113,11 @@ export default function Home() {
         {/* December: a bestseller and a Christmas book, side by side. */}
         <Suspense fallback={null}>
           <SeasonPicksSection />
+        </Suspense>
+
+        {/* Bestseller-list moves, and new books from the authors on the reader's shelves. */}
+        <Suspense fallback={null}>
+          <NewsSection />
         </Suspense>
 
         <section id="discover" className="flex flex-col gap-6">

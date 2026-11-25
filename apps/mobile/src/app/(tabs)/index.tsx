@@ -27,6 +27,7 @@ import { BookObject } from '@/components/book-object';
 import { Grid } from '@/components/grid';
 import { Garland, HollySprig } from '@/components/holly';
 import { LeafStrip } from '@/components/leaves';
+import { NewsSection } from '@/components/news';
 import { Ornament, SectionHeading } from '@/components/page-chrome';
 import { SeasonPicksSection } from '@/components/season-picks';
 import { Stars } from '@/components/stars';
@@ -409,7 +410,7 @@ export default function HomeScreen() {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const { profile } = useSession();
+  const { profile, session } = useSession();
   const nightstand = useNightstandBooks();
   const season = useSeason();
   const isChristmas = season === 'christmas';
@@ -504,6 +505,9 @@ export default function HomeScreen() {
 
           {/* December: a bestseller and a Christmas book, side by side on the web. */}
           {isChristmas ? <SeasonPicksSection /> : null}
+
+          {/* Bestseller-list moves, and new books from the authors on the reader's shelves. */}
+          <NewsSection readerId={session?.user.id ?? null} />
 
           <SectionHeading numeral="I" aside={<AsideLink href="/discover" label="Discover more →" />}>
             What are you in the mood for?
