@@ -22,6 +22,8 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, DisplayFonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Grid } from '@/components/grid';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -46,6 +48,7 @@ const WIDER_STACKS_PICKS = 6;
 export default function DiscoverScreen() {
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { contentWidth } = useBreakpoint();
   return (
     <ThemedView style={{ flex: 1 }}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
@@ -55,7 +58,7 @@ export default function DiscoverScreen() {
           paddingBottom: insets.bottom + BottomTabInset + spacing[7],
         }}
       >
-        <View style={styles.content}>
+        <View style={[styles.content, { maxWidth: contentWidth }]}>
           <PageHeader
             kicker="Discover"
             before="Wander the"
@@ -279,6 +282,7 @@ function SignedOutNote() {
 
 function PublicShelves() {
   const theme = useTheme();
+  const { md } = useBreakpoint();
   const { data, error, loading } = useAsync<DiscoverShelves>(supabase ? () => getDiscoverShelves(supabase!) : null, []);
   if (loading) return <Loading />;
   if (error || !data) {
@@ -316,6 +320,8 @@ function PublicShelves() {
       {moods.length ? (
         <View style={styles.section}>
           <SectionHeading numeral={next()}>Shelf by shelf</SectionHeading>
+          {/* Two shelves side by side on iPad, as on the web. */}
+          <Grid columns={md ? 2 : 1} gap={spacing[7]} rowGap={spacing[6]}>
           {moods.map(({ drawer, books }) => (
             <View key={drawer.slug} style={styles.row}>
               <View style={styles.moodHeading}>
@@ -330,14 +336,17 @@ function PublicShelves() {
               <Bookshelf books={books} />
             </View>
           ))}
+          </Grid>
         </View>
       ) : null}
 
       {tropes.length || paces.length ? (
         <View style={styles.section}>
           <SectionHeading numeral={next()}>Or go by feel</SectionHeading>
-          {tropes.length ? <ChipGroup title="Tropes" blurb="The stories you can’t resist." drawers={tropes} /> : null}
-          {paces.length ? <ChipGroup title="Pace" blurb="A page-turner, or something to savour." drawers={paces} /> : null}
+          <Grid columns={md && tropes.length && paces.length ? 2 : 1} gap={spacing[7]} rowGap={spacing[6]}>
+            {tropes.length ? <ChipGroup title="Tropes" blurb="The stories you can’t resist." drawers={tropes} /> : null}
+            {paces.length ? <ChipGroup title="Pace" blurb="A page-turner, or something to savour." drawers={paces} /> : null}
+          </Grid>
         </View>
       ) : null}
     </>

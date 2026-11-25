@@ -186,7 +186,7 @@ export async function getOpenLibraryBook(olid: string, init?: RequestInit) {
     coverId: edition?.coverId ?? found.coverId,
     isbn13: edition?.isbn13 ?? found.isbn13,
     // Open Library's search often leaves a newer book's series out; its edition records may still name it.
-    series: found.series ?? editionSeries(entries),
+    series: found.series ?? editionSeries(entries, { title: found.title, subtitle: found.subtitle, description }),
     description,
     /** Every English edition's cover, best first: fallbacks when the chosen one turns out to be poor. */
     editions: editions.map(({ coverId, isbn13 }) => ({ coverId, isbn13 })),
@@ -274,44 +274,81 @@ export function parseSeriesLine(raw: string): { name: string; position: number |
   const line = raw.replace(/\s+/g, " ").trim();
   const m = line.match(SERIES_LINE);
   // Anything else in brackets at the end ("(1-4)" on a box set) isn't part of the name.
-  const name = (m ? m[1] : line.replace(/\s*[(\[][^)\]]*[)\]]$/, "")).replace(/[\s,;:.\u2013\u2014-]+$/, "").trim();
+  const name = (m ? m[1] : line.replace(/\s*[(\[][^)\]]*[)\]]$/, "")).replace(/[\s,;:.\u2013\u2014-]+$/, "")
+    // Leading dashes and the like ("--For dummies") and trademark signs aren't part of it either.
+    .replace(/^[^\p{L}\p{N}"'\u2018\u201c]+/u, "")
+    .replace(/[\u00ae\u2122]/g, "")
+    .trim();
   const number = m ? Number(m[2] ?? m[3] ?? m[4]) : null;
   if (name.length < 2 || !/\p{L}/u.test(name)) return null;
   return { name, position: number && number > 0 ? number : null };
 }
 
+/** What a work says about itself, for checking a series its editions name. */
+export type WorkText = { title: string; subtitle?: string | null; description?: string | null };
+
 /** The series a work's edition records name (see editionSeries); null if none, or they can't be read. */
-export async function getEditionSeries(olid: string, init?: RequestInit) {
-  return editionSeries(await fetchEditions(olid, init));
+export async function getEditionSeries(olid: string, work: WorkText, init?: RequestInit) {
+  return editionSeries(await fetchEditions(olid, init), work);
 }
 
-/** Publisher lines that editions file under as a "series" ("Penguin classics", "Signet classic"). */
-const IMPRINT_SERIES = /\b(classics?|editions?|paperbacks?|large print|library of america|everyman|modern library|bestsellers?)\b/i;
-const PUBLISHER_FILLER = new Set(["books", "book", "press", "publishing", "publishers", "publisher", "house", "group", "inc", "ltd", "limited", "company", "independently", "published"]);
+/** Lines that aren't a story's series: publishers' imprints, book clubs, translated collections. */
+const IMPRINT_SERIES =
+  /\b(classics?|editions?|paperbacks?|large print|library|everyman|bestsellers?|book ?clubs?|collection|colecci[oó]n|cole[cç][aã]o|collana|reihe|serie|biblioteca|bibliot[eè]que|narrativa|for dummies)\b/i;
+
+/** Lowercase words only, so "Lockwood & Co." and "lockwood & co" compare equal. */
+function plainWords(text: string) {
+  return ` ${text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
+}
+
+/**
+ * Whether a work's own title, subtitle or description names the series
+ * ("Welcome to Bloodwing Academy" in On Wings of Blood's blurb). A leading
+ * "The" and a trailing "series", "saga" or "trilogy" needn't be there. A
+ * one-word series could be any word in a blurb ("War", "From"), so it has to
+ * be in the title or subtitle ("Red Mars" for Mars), or in the description
+ * as a name: capitalised mid-sentence ("the Culture", "Mistborn").
+ */
+export function seriesMentioned(seriesName: string, work: WorkText) {
+  const core = plainWords(seriesName)
+    .replace(/^ the /, " ")
+    .replace(/ (series|saga|trilogy|sequence|novels|books|cycle) $/, " ");
+  if (core.trim().length < 3) return false;
+  if (core.trim().includes(" ")) {
+    return plainWords([work.title, work.subtitle, work.description].filter(Boolean).join(" ")).includes(core);
+  }
+  if (plainWords([work.title, work.subtitle].filter(Boolean).join(" ")).includes(core)) return true;
+  const word = core.trim();
+  const description = (work.description ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const asName = new RegExp(`(?<![.!?:"\u201c]\\s*)(?<=[\\p{L}\\p{N},;)]\\s+)${word[0].toUpperCase()}${word.slice(1)}(?![\\p{L}\\p{N}])`, "u");
+  return asName.test(description);
+}
+
+/** Whether a series named only by edition records is believable for this work (see editionSeries). */
+export function editionSeriesFits(seriesName: string, work: WorkText) {
+  return !IMPRINT_SERIES.test(seriesName) && seriesMentioned(seriesName, work);
+}
 
 /**
  * The series a work's edition records name, for when Open Library's search
- * doesn't carry one. Editions also list publishers' own lines ("Penguin
- * classics ; 123") as a series, so a name that looks like an imprint or
- * shares a word with a publisher is ignored, and a name only one edition
- * gives needs a number to count. The name most editions agree on wins.
+ * doesn't carry one. Edition records are loose: they also file books under
+ * publishers' lines ("Pelican Books"), book clubs ("Oprah's Book Club #31")
+ * and translations' own collections ("Colección Teatro #256"). So only
+ * English (or unlabelled) editions count, imprint-like names are ignored,
+ * and the work's own title, subtitle or description must name the series
+ * (On Wings of Blood's blurb opens "Welcome to Bloodwing Academy"). The name
+ * most editions agree on wins.
  */
-export function editionSeries(entries: EditionDoc[]): OpenLibrarySeries | null {
-  const publisherWords = new Set(
-    entries
-      .flatMap((e) => e.publishers ?? [])
-      .flatMap((p) => p.toLowerCase().split(/[^\p{L}]+/u))
-      .filter((w) => w.length >= 4 && !PUBLISHER_FILLER.has(w)),
-  );
+export function editionSeries(entries: EditionDoc[], work: WorkText): OpenLibrarySeries | null {
   const tally = new Map<string, { name: string; count: number; position: number | null }>();
   for (const e of entries) {
+    const langs = (e.languages ?? []).map((l) => l.key.replace("/languages/", ""));
+    if (langs.length && !langs.includes("eng")) continue;
     const seenHere = new Set<string>();
     for (const raw of e.series ?? []) {
       const parsed = parseSeriesLine(raw);
-      if (!parsed || IMPRINT_SERIES.test(parsed.name)) continue;
-      const words = parsed.name.toLowerCase().split(/[^\p{L}]+/u);
-      if (words.some((w) => publisherWords.has(w))) continue;
-      const key = parsed.name.toLowerCase().replace(/^the\s+/, "");
+      if (!parsed || !editionSeriesFits(parsed.name, work)) continue;
+      const key = plainWords(parsed.name).replace(/^ the /, " ");
       if (seenHere.has(key)) continue;
       seenHere.add(key);
       const entry = tally.get(key) ?? { name: parsed.name, count: 0, position: null };
@@ -320,9 +357,9 @@ export function editionSeries(entries: EditionDoc[]): OpenLibrarySeries | null {
       tally.set(key, entry);
     }
   }
-  const best = [...tally.values()]
-    .filter((s) => s.count >= 2 || s.position != null)
-    .sort((a, b) => b.count - a.count || Number(b.position != null) - Number(a.position != null))[0];
+  const best = [...tally.values()].sort(
+    (a, b) => b.count - a.count || Number(b.position != null) - Number(a.position != null),
+  )[0];
   return best ? { olid: null, name: best.name, position: best.position } : null;
 }
 

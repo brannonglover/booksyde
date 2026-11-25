@@ -34,6 +34,8 @@ import { TintWash } from '@/components/tint-wash';
 import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
+import { Grid } from '@/components/grid';
+import { useBreakpoint, useColumns } from '@/hooks/use-breakpoint';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
 
@@ -67,6 +69,8 @@ export default function SearchScreen() {
   const quick = useQuickShelf();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { contentWidth } = useBreakpoint();
+  const bookColumns = useColumns(1, { md: 2, xl: 3 });
   const params = useLocalSearchParams<{ q?: string; tags?: string }>();
 
   // Start from (and follow) the route params, e.g. a search from the home screen.
@@ -153,7 +157,7 @@ export default function SearchScreen() {
           },
         ]}
       >
-        <View style={styles.content}>
+        <View style={[styles.content, { maxWidth: contentWidth }]}>
           <Text style={[styles.kicker, { color: theme.accent }]}>THE CARD CATALOGUE</Text>
           <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]}>
             {/* A no-break space keeps "looking for" together: on a phone it drops to the second line whole. */}
@@ -248,9 +252,12 @@ export default function SearchScreen() {
                 />
               ) : (
                 <>
-                  {results.books.map((book) => (
-                    <CatalogueCard key={book.id} book={book} onLongPress={() => quick.open(book)} />
-                  ))}
+                  {/* One card a row on a phone; two or three across on iPad, as on the web. */}
+                  <Grid columns={bookColumns} gap={spacing[4]}>
+                    {results.books.map((book) => (
+                      <CatalogueCard key={book.id} book={book} onLongPress={() => quick.open(book)} />
+                    ))}
+                  </Grid>
                   {results.authors.length ? (
                     <View style={{ gap: spacing[3] }}>
                       <AsideHeading>AUTHORS</AsideHeading>
@@ -545,7 +552,23 @@ function Browse({ drawers, onAsk, onDrawer }: { drawers: BrowseDrawer[]; onAsk: 
  */
 function ShelfRow({ title, blurb, drawers, onDrawer }: { title: string; blurb: string; drawers: BrowseDrawer[]; onDrawer: (slug: string) => void }) {
   const theme = useTheme();
+  const { md } = useBreakpoint();
+  const columns = useColumns(1, { md: 4, lg: 5, xl: 6 });
   if (drawers.length === 0) return null;
+  // iPad has room for the whole shelf at once, so the cards stand in a grid instead of scrolling sideways.
+  if (md) {
+    return (
+      <View style={{ gap: spacing[2] }}>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cabinetTitle, { color: theme.text }]}>{title}</Text>
+        <Text style={{ color: theme.textSecondary, fontSize: 15 }}>{blurb}</Text>
+        <Grid columns={columns} gap={10} style={{ paddingTop: spacing[3] }}>
+          {drawers.map((d) => (
+            <ShelfCard key={d.slug} drawer={d} onPress={() => onDrawer(d.slug)} fill />
+          ))}
+        </Grid>
+      </View>
+    );
+  }
   return (
     <View style={{ gap: spacing[2] }}>
       <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cabinetTitle, { color: theme.text }]}>{title}</Text>
@@ -559,7 +582,8 @@ function ShelfRow({ title, blurb, drawers, onDrawer }: { title: string; blurb: s
   );
 }
 
-function ShelfCard({ drawer, onPress }: { drawer: BrowseDrawer; onPress: () => void }) {
+/** `fill` stretches the card to its grid cell (iPad) instead of the phone row's fixed width. */
+function ShelfCard({ drawer, onPress, fill }: { drawer: BrowseDrawer; onPress: () => void; fill?: boolean }) {
   const theme = useTheme();
   const tint = genreColor(drawer.slug).dot;
   const empty = drawer.works === 0;
@@ -574,6 +598,7 @@ function ShelfCard({ drawer, onPress }: { drawer: BrowseDrawer; onPress: () => v
         const active = state.pressed || (state as { hovered?: boolean }).hovered;
         return [
           styles.shelfCard,
+          fill && styles.shelfCardFill,
           {
             backgroundColor: theme.backgroundElement,
             borderColor: active ? tint : theme.border,
@@ -680,6 +705,8 @@ const styles = StyleSheet.create({
   chipLabel: { fontSize: 14 },
   card: {
     flexDirection: 'row',
+    // Fills its grid cell on iPad, so cards side by side match heights.
+    flexGrow: 1,
     gap: spacing[4],
     overflow: 'hidden',
     borderWidth: 1,
@@ -758,5 +785,6 @@ const styles = StyleSheet.create({
   shelfScroll: { marginHorizontal: -spacing[5] },
   shelfRow: { gap: 10, paddingHorizontal: spacing[5], paddingTop: spacing[3], paddingBottom: spacing[1] },
   shelfCard: { width: 156, borderWidth: 1, borderRadius: 16, padding: spacing[3] },
+  shelfCardFill: { width: 'auto', flexGrow: 1 },
   fanCover: { width: 35, height: 52, borderRadius: 3, borderWidth: 2, overflow: 'hidden' },
 });

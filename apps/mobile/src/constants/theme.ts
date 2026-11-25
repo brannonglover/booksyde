@@ -84,6 +84,16 @@ export const TabBarHeight = 56;
 /** Room to leave at the foot of a tab screen so its last item clears the bar (add the safe-area inset). */
 export const BottomTabInset = Platform.select({ ios: TabBarHeight, android: TabBarHeight }) ?? 0;
 export const MaxContentWidth = 800;
+/** The page column on iPad (from 768pt wide): the web's max-w-6xl. Read it through useBreakpoint(). */
+export const WideContentWidth = 1152;
+
+/**
+ * From iPadOS 26 every iPad app has window controls (close / minimise / tile)
+ * in its top-left corner, over the app's own content. Anything pinned to that
+ * corner moves right by this much to clear them, as Apple's own toolbars do.
+ */
+export const WindowControlsInset =
+  Platform.OS === 'ios' && Platform.isPad && parseInt(String(Platform.Version), 10) >= 26 ? 72 : 0;
 
 /**
  * How far display headings may grow with the reader's iOS/Android text size.

@@ -119,7 +119,8 @@ function TabButton({ label, icon, isFocused, ...props }: TabTriggerSlotProps & {
 
 const styles = StyleSheet.create({
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: StyleSheet.hairlineWidth },
-  row: { height: TabBarHeight, alignSelf: 'stretch', flexDirection: 'row' },
+  // On iPad the bar spans a wide screen; the four tabs keep to a phone-width row in its middle.
+  row: { height: TabBarHeight, width: '100%', maxWidth: 560, alignSelf: 'center', flexDirection: 'row' },
   indicator: { position: 'absolute', top: 0, left: 0, width: INDICATOR, height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingTop: 2 },
   icon: { height: 28, justifyContent: 'center', alignItems: 'center' },

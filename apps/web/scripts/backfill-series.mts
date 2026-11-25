@@ -24,17 +24,17 @@ const PAGE = 1000;
 console.log(`${apply ? "Applying" : "Dry run"}: books with an Open Library id and no series\n`);
 
 // Every work with an Open Library id, paged by id; then drop the ones already filed.
-const works: { id: string; title: string; open_library_id: string }[] = [];
+const works: { id: string; title: string; subtitle: string | null; description: string | null; open_library_id: string }[] = [];
 for (let after = ""; ; ) {
   const { data, error } = await db
     .from("works")
-    .select("id, title, open_library_id, series_works ( series_id )")
+    .select("id, title, subtitle, description, open_library_id, series_works ( series_id )")
     .not("open_library_id", "is", null)
     .gt("id", after || "00000000-0000-0000-0000-000000000000")
     .order("id")
     .limit(PAGE);
   if (error) throw error;
-  for (const w of data) if (w.series_works.length === 0) works.push({ id: w.id, title: w.title, open_library_id: w.open_library_id! });
+  for (const w of data) if (w.series_works.length === 0) works.push({ id: w.id, title: w.title, subtitle: w.subtitle, description: w.description, open_library_id: w.open_library_id! });
   if (data.length < PAGE) break;
   after = data[data.length - 1].id;
 }
@@ -48,7 +48,7 @@ const tally = { filed: 0, none: 0, failed: 0 };
 const seriesSeen = new Set<string>();
 for (const w of works) {
   // One request per book for the edition records, so only for books the search left out.
-  const series = found.get(w.open_library_id) ?? (await getEditionSeries(w.open_library_id, init));
+  const series = found.get(w.open_library_id) ?? (await getEditionSeries(w.open_library_id, w, init));
   if (!series) {
     tally.none++;
     continue;

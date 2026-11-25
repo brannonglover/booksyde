@@ -12,6 +12,8 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Grid } from '@/components/grid';
+import { useBreakpoint, useColumns } from '@/hooks/use-breakpoint';
 import { useTheme } from '@/hooks/use-theme';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -40,6 +42,9 @@ export default function ClubsScreen() {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { contentWidth } = useBreakpoint();
+  // As on the web: one club a row on a phone, two or three across on iPad.
+  const columns = useColumns(1, { md: 2, lg: 3 });
   const { session, loading: sessionLoading } = useSession();
   const signedIn = Boolean(session);
   const { data, loading, reload } = useAsync(supabase && !sessionLoading ? () => loadClubs(signedIn) : null, [
@@ -63,7 +68,7 @@ export default function ClubsScreen() {
           paddingBottom: insets.bottom + BottomTabInset + spacing[7],
         }}
       >
-        <View style={styles.content}>
+        <View style={[styles.content, { maxWidth: contentWidth }]}>
           <View style={{ alignItems: 'center', gap: spacing[5] }}>
             <PageHeader
               kicker="Clubs"
@@ -83,15 +88,21 @@ export default function ClubsScreen() {
               {data?.mine.length ? (
                 <View style={styles.section}>
                   <SectionHeading numeral="I">Your clubs</SectionHeading>
-                  {data.mine.map((club) => (
-                    <ClubCard key={club.id} club={club} role={club.role} />
-                  ))}
+                  <Grid columns={columns} gap={spacing[5]}>
+                    {data.mine.map((club) => (
+                      <ClubCard key={club.id} club={club} role={club.role} />
+                    ))}
+                  </Grid>
                 </View>
               ) : null}
               <View style={styles.section}>
                 <SectionHeading numeral={data?.mine.length ? 'II' : 'I'}>Open clubs</SectionHeading>
                 {data?.open.length ? (
-                  data.open.map((club) => <ClubCard key={club.id} club={club} />)
+                  <Grid columns={columns} gap={spacing[5]}>
+                    {data.open.map((club) => (
+                      <ClubCard key={club.id} club={club} />
+                    ))}
+                  </Grid>
                 ) : (
                   <EmptyNote>
                     <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 15, lineHeight: 22 }}>

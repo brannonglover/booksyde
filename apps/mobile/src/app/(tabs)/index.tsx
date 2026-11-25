@@ -24,6 +24,7 @@ import { Avatar } from '@/components/avatar';
 import { AppearancePicker } from '@/components/appearance-picker';
 import { BookCover } from '@/components/book-cover';
 import { BookObject } from '@/components/book-object';
+import { Grid } from '@/components/grid';
 import { Garland, HollySprig } from '@/components/holly';
 import { LeafStrip } from '@/components/leaves';
 import { Ornament, SectionHeading } from '@/components/page-chrome';
@@ -32,8 +33,9 @@ import { Stars } from '@/components/stars';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Wordmark } from '@/components/wordmark';
-import { BottomTabInset, ChromeMaxScale, DisplayFonts, DisplayMaxScale, MaxContentWidth } from '@/constants/theme';
+import { BottomTabInset, ChromeMaxScale, DisplayFonts, DisplayMaxScale, MaxContentWidth, WindowControlsInset } from '@/constants/theme';
 import { useAsync } from '@/hooks/use-async';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useSeason } from '@/hooks/use-season';
@@ -304,7 +306,7 @@ function YearInBooksSection({ numeral }: { numeral: string }) {
                 <Link key={`${s.workId}-${i}`} href={{ pathname: '/book/[id]', params: { id: s.workId } }} asChild>
                   <Pressable
                     accessibilityLabel={s.title}
-                    style={[styles.spine, { height, width, backgroundColor: genreColor(s.genre ?? 'default').dot }]}
+                    style={StyleSheet.flatten([styles.spine, { height, width, backgroundColor: genreColor(s.genre ?? 'default').dot }])}
                   >
                     {i % 3 === 0 ? <View style={styles.spineBand} /> : null}
                   </Pressable>
@@ -413,6 +415,7 @@ export default function HomeScreen() {
   const nightstand = useNightstandBooks();
   const season = useSeason();
   const isChristmas = season === 'christmas';
+  const { md, contentWidth } = useBreakpoint();
   // The season's kicker, headline, quote and greeting (seasonCopy in @booksyde/theme); null for the rest of the year.
   const copy = season ? seasonCopy[season] : null;
   const search = () => router.navigate({ pathname: '/search', params: query.trim() ? { q: query.trim() } : {} });
@@ -464,7 +467,7 @@ export default function HomeScreen() {
             <View style={{ height: 1, backgroundColor: palette.gilt, opacity: 0.7 }} />
           </View>
         ) : null}
-        <View style={[styles.masthead, { borderBottomColor: theme.border }]}>
+        <View style={[styles.masthead, { borderBottomColor: theme.border, paddingLeft: spacing[4] + WindowControlsInset }]}>
           <Wordmark />
           <View style={styles.mastheadActions}>
             {profile ? (
@@ -499,10 +502,11 @@ export default function HomeScreen() {
         {/* November: fallen leaves along the foot of the masthead, likewise in their own room. */}
         {season === 'thanksgiving' ? <LeafStrip style={styles.mastheadLeaves} /> : null}
 
-        <View style={styles.content}>
-          {/* Hero */}
+        <View style={[styles.content, { maxWidth: contentWidth }]}>
+          {/* The hero, with the featured book beside it on iPad (the web waits for lg, but an iPad in portrait has the room), or below it on phones. */}
+          <View style={md ? styles.heroRow : styles.heroStack}>
           {/* In December the garland above already makes room, so the hero starts a little closer. */}
-          <View style={[styles.hero, season && { paddingTop: spacing[5] }]}>
+          <View style={[styles.hero, season && { paddingTop: spacing[5] }, md && styles.heroBeside]}>
             <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>{copy ? copy.kicker.toUpperCase() : 'EST. 2026 · A READING ROOM FOR EVERYONE'}</Text>
             <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.heroTitle, { color: theme.text }]}>
               {copy ? (
@@ -540,7 +544,10 @@ export default function HomeScreen() {
           </View>
 
           {/* Your next read (or today's pick), staged on a backdrop drawn from the book itself */}
-          <FeaturedPick />
+          <View style={md ? styles.pickBeside : undefined}>
+            <FeaturedPick />
+          </View>
+          </View>
 
           {/* December: a bestseller and a Christmas book, side by side on the web. */}
           {isChristmas ? <SeasonPicksSection /> : null}
@@ -595,9 +602,10 @@ export default function HomeScreen() {
           </View>
 
           <SectionHeading numeral={nightstand ? 'IV' : 'III'}>A few things you’ll love</SectionHeading>
-          <View style={[styles.features, { borderColor: theme.border, backgroundColor: theme.border }]}>
+          {/* Hairline rules between the cards: the border colour shows through a 1pt gap. */}
+          <Grid columns={md ? features.length : 1} gap={1} style={[styles.features, { borderColor: theme.border, backgroundColor: theme.border }]}>
             {features.map((f) => (
-              <View key={f.title} style={[styles.feature, { backgroundColor: theme.backgroundElement }]}>
+              <View key={f.title} style={[styles.feature, { backgroundColor: theme.backgroundElement }, md && styles.featureCell]}>
                 <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.featureNumeral, { color: theme.highlight }]}>{f.numeral}.</Text>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.featureTitle, { color: theme.text }]}>{f.title}</Text>
@@ -607,7 +615,7 @@ export default function HomeScreen() {
                 </View>
               </View>
             ))}
-          </View>
+          </Grid>
 
           <View style={[styles.colophon, { borderTopColor: theme.border }, isChristmas && styles.colophonGarlanded]}>
             {isChristmas ? <Garland style={styles.colophonGarland} /> : null}
@@ -672,6 +680,11 @@ const styles = StyleSheet.create({
     gap: spacing[6],
   },
   hero: { paddingTop: spacing[6], gap: spacing[4] },
+  heroStack: { gap: spacing[6] },
+  // From md, as the web's lg:grid-cols-[1.25fr_1fr]: the words on the left, the book on the right.
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[8] },
+  heroBeside: { flex: 1.25 },
+  pickBeside: { flex: 1, paddingTop: spacing[6] },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 2 },
   heroTitle: { fontFamily: DisplayFonts.regular, fontSize: 54, lineHeight: 62, letterSpacing: -0.5 },
   italic: { fontFamily: DisplayFonts.italic },
@@ -730,6 +743,8 @@ const styles = StyleSheet.create({
   quoteText: { fontFamily: DisplayFonts.italic, fontSize: 30, lineHeight: 36, textAlign: 'center' },
   features: { borderWidth: 1, borderRadius: radii.md, overflow: 'hidden', gap: 1 },
   feature: { flexDirection: 'row', gap: spacing[4], padding: spacing[4] },
+  // In the iPad grid each card fills its row's height, so the hairlines between them stay even.
+  featureCell: { flexGrow: 1 },
   featureNumeral: { fontFamily: DisplayFonts.italic, fontSize: 26, width: 32 },
   featureTitle: { fontFamily: DisplayFonts.regular, fontSize: 22, lineHeight: 26 },
 });

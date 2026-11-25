@@ -4,6 +4,7 @@ import { ActivityIndicator, Alert, Platform, Pressable, StyleSheet, Text, View, 
 import { HollySprig } from '@/components/holly';
 import { MapleLeaf } from '@/components/leaves';
 import { ChromeMaxScale, DisplayFonts, DisplayMaxScale } from '@/constants/theme';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useSeason } from '@/hooks/use-season';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -35,13 +36,14 @@ export function Ornament({ center = false }: { center?: boolean }) {
 
 export function SectionHeading({ numeral, children, aside }: { numeral?: string; children: React.ReactNode; aside?: React.ReactNode }) {
   const theme = useTheme();
+  const { md } = useBreakpoint();
   return (
-    <View style={[styles.sectionHeading, { borderBottomColor: theme.border }]}>
+    <View style={[styles.sectionHeading, md && styles.sectionHeadingWide, { borderBottomColor: theme.border }]}>
       <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.sectionTitle, { color: theme.text }]}>
         {numeral ? <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.sectionNumeral, { color: theme.highlight }]}>{numeral}. </Text> : null}
         {children}
       </Text>
-      {/* On a phone a link beside the title squeezes it into a narrow column, so it gets its own line. */}
+      {/* On a phone a link beside the title squeezes it into a narrow column, so it gets its own line; iPad has room beside it. */}
       {aside ? <View style={styles.sectionAside}>{aside}</View> : null}
     </View>
   );
@@ -146,8 +148,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     marginBottom: -spacing[2],
   },
+  sectionHeadingWide: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: spacing[4] },
   sectionAside: { alignSelf: 'flex-end' },
-  sectionTitle: { fontFamily: DisplayFonts.regular, fontSize: 34, lineHeight: 38 },
+  sectionTitle: { flexShrink: 1, fontFamily: DisplayFonts.regular, fontSize: 34, lineHeight: 38 },
   sectionNumeral: { fontFamily: DisplayFonts.italic, fontSize: 24 },
   header: { alignItems: 'center', gap: spacing[3], paddingTop: spacing[4] },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 3, textAlign: 'center' },

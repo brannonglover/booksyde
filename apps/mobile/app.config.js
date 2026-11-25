@@ -37,6 +37,10 @@ module.exports = {
     ios: {
       icon: "./assets/images/icon.png",
       bundleIdentifier: "com.booksyde.app",
+      // Runs natively on iPad. iPhone stays portrait (`orientation` above); iPad
+      // turns to any orientation and can share the screen in Split View, so every
+      // screen has to lay out at any width.
+      supportsTablet: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },

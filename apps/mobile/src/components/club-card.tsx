@@ -13,7 +13,8 @@ export function ClubCard({ club, role }: { club: Club; role?: string }) {
   const read = club.currentRead;
   return (
     <Link href={{ pathname: '/clubs/[slug]', params: { slug: club.slug } }} asChild>
-      <Pressable>
+      {/* Grows to fill its grid cell on iPad, so cards side by side match heights. */}
+      <Pressable style={styles.fill}>
         <ClubCardFace
           ink={club.cover_color ?? DEFAULT_INK}
           name={club.name}
@@ -80,7 +81,8 @@ export function ClubCardFace({
 }
 
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg },
+  fill: { flexGrow: 1 },
+  card: { flexGrow: 1, flexDirection: 'row', overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.lg },
   cloth: { width: 10 },
   body: { flex: 1, flexDirection: 'row', gap: spacing[4], padding: spacing[4] },
   meta: { fontSize: 11, fontWeight: '700', letterSpacing: 1.6 },

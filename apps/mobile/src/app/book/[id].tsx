@@ -7,17 +7,19 @@ import {
   getShelfCounts,
   getWork,
   getMyReadingStatus,
+  getSeriesShelf,
   getWorkReviews,
   ratingVerdict,
   READING_STATUS_LABELS,
   seriesEntry,
+  seriesLabel,
   setReadingStatus,
 } from '@booksyde/shared';
 import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
 import { Image } from 'expo-image';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useEffect, useState } from 'react';
+import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
@@ -25,6 +27,7 @@ import { BookCover } from '@/components/book-cover';
 import { MoodVote } from '@/components/mood-vote';
 import { Stars } from '@/components/stars';
 import { BottomTabInset, DisplayFonts, Fonts, MaxContentWidth, DisplayMaxScale } from '@/constants/theme';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useQuickShelf } from '@/hooks/use-quick-shelf';
 import { useTheme } from '@/hooks/use-theme';
@@ -33,8 +36,8 @@ import { supabase } from '@/lib/supabase';
 
 /*
  * A book screen laid out like a book: a title page, then chapters — the
- * vibe, the marginalia (reviews), the catalogue card (details) — and an
- * epilogue of books shelved nearby. Mirrors apps/web/src/app/books/[id].
+ * vibe, the marginalia (reviews), the catalogue card (details), the series in
+ * reading order — and an epilogue of books shelved nearby. Mirrors apps/web/src/app/books/[id].
  */
 
 type Work = NonNullable<Awaited<ReturnType<typeof getWork>>>;
@@ -44,6 +47,8 @@ type BookData = {
   reviews: Awaited<ReturnType<typeof getWorkReviews>>;
   shelves: Awaited<ReturnType<typeof getShelfCounts>>;
   similar: Awaited<ReturnType<typeof getMoreLikeThis>>;
+  /** The books of its series we hold, in reading order (empty when it's in none). */
+  seriesBooks: Awaited<ReturnType<typeof getSeriesShelf>>;
 };
 
 // Not every Hermes build has Intl.DisplayNames, so fall back to a short table of
@@ -90,13 +95,16 @@ function useBook(id: string) {
     (async () => {
       const work = await getWork(client, id);
       if (!work) return null;
-      const [distribution, reviews, shelves, similar] = await Promise.all([
+      const series = bookSeries(work);
+      const [distribution, reviews, shelves, similar, seriesBooks] = await Promise.all([
         getRatingDistribution(client, id),
         getWorkReviews(client, id, 6),
         getShelfCounts(client, id),
         getMoreLikeThis(client, id, 6),
+        // A series that won't load shouldn't cost the reader the whole book.
+        series ? getSeriesShelf(client, series.id).catch(() => []) : Promise.resolve([]),
       ]);
-      return { work, distribution, reviews, shelves, similar };
+      return { work, distribution, reviews, shelves, similar, seriesBooks };
     })()
       .then((data) => !cancelled && setState({ data }))
       .catch(() => !cancelled && setState({ error: 'Couldn’t load this book. Is Supabase running?' }));
@@ -136,7 +144,14 @@ export default function BookScreen() {
 function BookDetail({ data }: { data: BookData }) {
   const theme = useTheme();
   const quick = useQuickShelf();
-  const { work, distribution, reviews, shelves, similar } = data;
+  const { work, distribution, reviews, shelves, similar, seriesBooks } = data;
+  // The series tag under the title scrolls down to the series in order, as the web's #series link does.
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const contentY = useRef(0);
+  const seriesY = useRef<number | null>(null);
+  const toSeries = () => {
+    if (seriesY.current != null) scrollRef.current?.scrollTo({ y: contentY.current + seriesY.current - spacing[6], animated: true });
+  };
   const authors = [...work.work_contributors]
     .filter((c) => c.role === 'author' && c.authors)
     .sort((a, b) => a.position - b.position)
@@ -151,27 +166,43 @@ function BookDetail({ data }: { data: BookData }) {
   const paragraphs = (work.description ?? '').split(/\n{2,}/).filter(Boolean);
   const lovedPct = Math.round(verdict.lovedShare * 100);
   const headerHeight = useHeaderHeight();
+  // On iPad the cover stands beside the title, and the vibe cards pair up, as on the web.
+  const { md } = useBreakpoint();
   const series = bookSeries(work);
+  // Mood votes on the left, pace and tropes on the right, when there are any to pair with.
+  const vibePaired = md && (vibe.pace !== null || vibe.tropes.length > 0);
 
   return (
-    <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.scroll}>
+    <ScrollView ref={scrollRef} style={{ backgroundColor: theme.background }} contentContainerStyle={styles.scroll}>
       {/* The back button floats over the title page instead of sitting on a coloured bar. */}
       <Stack.Screen options={{ title: '', headerTransparent: true, headerStyle: { backgroundColor: 'transparent' } }} />
 
       {/* Title page */}
-      <View style={[styles.titlePage, { backgroundColor: tint, borderBottomColor: theme.border, paddingTop: headerHeight + spacing[2] }]}>
+      <View
+        style={[
+          styles.titlePage,
+          md && styles.titlePageWide,
+          { backgroundColor: tint, borderBottomColor: theme.border, paddingTop: headerHeight + (md ? spacing[6] : spacing[2]) },
+        ]}
+      >
         <View style={{ transform: [{ rotate: '-1.5deg' }] }}>
-          <BookCover title={work.title} author={authorNames} src={work.cover_url} color={work.cover_color} width={168} />
+          <BookCover title={work.title} author={authorNames} src={work.cover_url} color={work.cover_color} width={md ? 240 : 168} />
         </View>
+        <View style={[styles.titleBlock, md && styles.titleBlockWide]}>
         {vibe.genres.length > 0 ? (
-          <Text style={[styles.kicker, { color: theme.accent, marginTop: spacing[6] }]}>
+          <Text style={[styles.kicker, { color: theme.accent, marginTop: md ? 0 : spacing[6] }]}>
             {vibe.genres.map((g) => g.name.toUpperCase()).join(' · ')}
           </Text>
         ) : null}
         <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.title, { color: theme.text }]}>{work.title}</Text>
         {work.subtitle ? <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.subtitle, { color: theme.textSecondary }]}>{work.subtitle}</Text> : null}
         {series ? (
-          <View style={[styles.seriesTag, { borderColor: theme.border, backgroundColor: theme.background }]}>
+          <Pressable
+            onPress={toSeries}
+            accessibilityRole="button"
+            accessibilityHint="Shows the series in reading order"
+            style={({ pressed }) => [styles.seriesTag, { borderColor: theme.border, backgroundColor: theme.background }, pressed && { opacity: 0.7 }]}
+          >
             <Text style={{ color: theme.accent }}>❧</Text>
             <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flexShrink: 1 }}>
               {series.position != null ? (
@@ -184,7 +215,7 @@ function BookDetail({ data }: { data: BookData }) {
                 </>
               )}
             </Text>
-          </View>
+          </Pressable>
         ) : null}
         <Ornament />
         <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.byline, { color: theme.text }]}>by {authorNames}</Text>
@@ -213,9 +244,10 @@ function BookDetail({ data }: { data: BookData }) {
           </Text>
         ) : null}
         <ShelfButton workId={work.id} />
+        </View>
       </View>
 
-      <View style={styles.content}>
+      <View style={styles.content} onLayout={(e) => (contentY.current = e.nativeEvent.layout.y)}>
         {/* The blurb */}
         {paragraphs.map((p, i) => (
           <Text key={i} style={[styles.body, { color: theme.text }]}>
@@ -234,7 +266,8 @@ function BookDetail({ data }: { data: BookData }) {
                 <Text maxFontSizeMultiplier={DisplayMaxScale} style={styles.bestEnjoyedText}>{vibe.bestEnjoyed}.</Text>
               </View>
             ) : null}
-            <Card>
+            <View style={vibePaired ? styles.vibeRow : styles.vibeStack}>
+            <Card style={vibePaired ? styles.vibeColumn : undefined}>
               <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cardTitle, { color: theme.text }]}>How it feels</Text>
               <Text style={{ color: theme.textSecondary, fontSize: 14, marginTop: -spacing[2] }}>
                 {vibe.moods.length > 0 ? 'From readers’ mood votes' : 'No one has said yet. Be the first.'}
@@ -253,6 +286,7 @@ function BookDetail({ data }: { data: BookData }) {
                 <MoodVote workId={work.id} />
               </View>
             </Card>
+            <View style={[styles.vibeStack, vibePaired && styles.vibeColumn]}>
             {vibe.pace !== null ? (
               <Card>
                 <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.cardTitle, { color: theme.text }]}>Pace</Text>
@@ -294,6 +328,8 @@ function BookDetail({ data }: { data: BookData }) {
                 </View>
               </Card>
             ) : null}
+            </View>
+            </View>
         </>
 
         {/* Chapter two: marginalia */}
@@ -375,6 +411,12 @@ function BookDetail({ data }: { data: BookData }) {
           </Card>
         ))}
 
+        {series ? (
+          <View onLayout={(e) => (seriesY.current = e.nativeEvent.layout.y)}>
+            <SeriesInOrder series={series} books={seriesBooks} currentId={work.id} onLongPress={quick.open} />
+          </View>
+        ) : null}
+
         {/* Epilogue: shelved nearby */}
         {similar.length > 0 ? <ChapterHeading kicker="EPILOGUE" title="Shelved nearby" /> : null}
       </View>
@@ -414,6 +456,91 @@ function BookDetail({ data }: { data: BookData }) {
       ) : null}
       {quick.sheet}
     </ScrollView>
+  );
+}
+
+/**
+ * The books of the series we hold, in reading order, with this one marked, as
+ * on the web. With nothing else of the series on file it says where this one
+ * falls and sends the reader to look for the rest.
+ */
+function SeriesInOrder({
+  series,
+  books,
+  currentId,
+  onLongPress,
+}: {
+  series: NonNullable<ReturnType<typeof bookSeries>>;
+  books: BookData['seriesBooks'];
+  currentId: string;
+  onLongPress: (book: { id: string; title: string }) => void;
+}) {
+  const theme = useTheme();
+  const { md } = useBreakpoint();
+  const width = md ? 136 : 104;
+  const others = books.filter((b) => b.id !== currentId);
+  // Book 1 isn't on file yet: say so, rather than let the shelf suggest it starts here.
+  const startsLater = series.position != null && series.position > 1 && !books.some((b) => b.position != null && b.position <= 1);
+  const lookFor = (text: string) => (
+    <Link href={{ pathname: '/search', params: { q: series.name } }} style={[styles.inlineLink, { color: theme.text, textDecorationColor: theme.border }]}>
+      {text}
+    </Link>
+  );
+
+  return (
+    <View style={{ gap: spacing[5] }}>
+      <ChapterHeading kicker="READ IN ORDER" title={series.name} />
+      {others.length === 0 ? (
+        <Text style={[styles.seriesNote, { color: theme.textSecondary }]}>
+          {seriesLabel(series)}. The rest of the series isn’t on Booksyde yet — {lookFor('look for it in the wider stacks')}.
+        </Text>
+      ) : (
+        <>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seriesScroll}>
+            {books.map((b) => {
+              const here = b.id === currentId;
+              const author =
+                [...b.work_contributors].filter((c) => c.role === 'author').sort((x, y) => x.position - y.position)[0]?.authors?.name ?? '';
+              const card = (
+                <View style={{ width: width + 10, alignItems: 'center' }}>
+                  <View style={[styles.seriesCover, here && { borderColor: theme.accent }]}>
+                    <BookCover title={b.title} author={author} src={b.cover_url} color={b.cover_color} width={width} />
+                  </View>
+                  <Text style={[styles.seriesPosition, { color: here ? theme.accent : theme.textSecondary }]}>
+                    {b.position != null ? `BOOK ${b.position}` : 'IN THE SERIES'}
+                  </Text>
+                  <Text numberOfLines={3} style={[styles.shelfTitle, { color: theme.text, marginTop: 2 }]}>
+                    {b.title}
+                  </Text>
+                </View>
+              );
+              // This book is marked, not linked: you're already here.
+              return here ? (
+                <View key={b.id} accessible accessibilityLabel={`${b.title}, this book`}>
+                  {card}
+                </View>
+              ) : (
+                <Link key={b.id} href={{ pathname: '/book/[id]', params: { id: b.id } }} push asChild>
+                  <Pressable
+                    onLongPress={() => onLongPress(b)}
+                    delayLongPress={400}
+                    accessibilityLabel={b.position != null ? `Book ${b.position}: ${b.title}` : b.title}
+                    accessibilityHint="Press and hold to put it on a shelf"
+                  >
+                    {({ pressed }) => <View style={pressed ? { opacity: 0.8, transform: [{ translateY: -4 }] } : undefined}>{card}</View>}
+                  </Pressable>
+                </Link>
+              );
+            })}
+          </ScrollView>
+          {startsLater ? (
+            <Text style={[styles.seriesNote, { color: theme.textSecondary, fontSize: 14 }]}>
+              Book 1 isn’t on Booksyde yet — {lookFor('find it in the wider stacks')}.
+            </Text>
+          ) : null}
+        </>
+      )}
+    </View>
   );
 }
 
@@ -556,7 +683,10 @@ function CatalogueCard({
         .map(([label, value]) => (
           <View key={label} style={styles.libraryRow}>
             <Text style={[styles.mono, { color: ink, opacity: 0.7, fontSize: 10, letterSpacing: 1.2 }]}>{label}</Text>
-            <View style={[styles.leader, { borderBottomColor: ink }]} />
+            {/* iOS draws dotted borders only on all four sides alike, so a dotted box is clipped to its top edge. */}
+            <View style={styles.leader}>
+              <View style={[styles.leaderDots, { borderColor: ink }]} />
+            </View>
             <Text style={[styles.mono, { color: ink, fontSize: 13, flexShrink: 1, textAlign: 'right' }]}>{value}</Text>
           </View>
         ))}
@@ -610,6 +740,13 @@ const styles = StyleSheet.create({
   shelfButton: { alignItems: 'center', borderRadius: radii.pill, paddingVertical: spacing[3] + 2, borderWidth: StyleSheet.hairlineWidth },
   ornament: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginVertical: spacing[1] },
   rule: { height: 1, width: 36, opacity: 0.6 },
+  titleBlock: { alignSelf: 'stretch', alignItems: 'center', gap: spacing[3] },
+  // iPad: the cover on the left, the title block beside it.
+  titlePageWide: { flexDirection: 'row', justifyContent: 'center', gap: spacing[8], paddingHorizontal: spacing[6], paddingBottom: spacing[8] },
+  titleBlockWide: { alignSelf: 'center', flexShrink: 1, maxWidth: 560 },
+  vibeStack: { gap: spacing[5] },
+  vibeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[5] },
+  vibeColumn: { flex: 1, minWidth: 0 },
   content: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center', paddingHorizontal: spacing[4], paddingTop: spacing[6], gap: spacing[5] },
   body: { fontSize: 18, lineHeight: 29 },
   dropCap: { fontFamily: DisplayFonts.regular, fontSize: 46, lineHeight: 29 },
@@ -661,7 +798,8 @@ const styles = StyleSheet.create({
   libraryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingBottom: spacing[3], borderBottomWidth: 2 },
   libraryLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2.4 },
   libraryRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2] },
-  leader: { flex: 1, minWidth: 12, borderBottomWidth: 1, borderStyle: 'dotted', opacity: 0.35, marginBottom: 4 },
+  leader: { flex: 1, minWidth: 12, height: 1, overflow: 'hidden', opacity: 0.35, marginBottom: 4 },
+  leaderDots: { height: 4, borderWidth: 1, borderStyle: 'dotted' },
   mono: { fontFamily: Fonts?.mono },
   stamp: { alignSelf: 'center', borderWidth: 3, borderRadius: 6, paddingHorizontal: spacing[3], paddingVertical: spacing[2], transform: [{ rotate: '-8deg' }], marginVertical: spacing[2], opacity: 0.85 },
   stampText: { fontSize: 11, fontWeight: '800', letterSpacing: 1.6, textAlign: 'center' },
@@ -692,4 +830,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   shelfTitle: { fontFamily: DisplayFonts.regular, fontSize: 16, lineHeight: 18, textAlign: 'center' },
+  // Centred while the series fits the column, scrolling sideways once it doesn't (the web's w-fit list).
+  seriesScroll: { flexGrow: 1, justifyContent: 'center', gap: spacing[5], paddingHorizontal: spacing[2], paddingTop: spacing[3] },
+  // An accent ring, set off from the cover, marks the book you're on.
+  seriesCover: { borderWidth: 2, borderColor: 'transparent', borderRadius: 6, padding: 3 },
+  seriesPosition: { fontSize: 11, fontWeight: '700', letterSpacing: 2, marginTop: spacing[3] },
+  seriesNote: { fontSize: 17, lineHeight: 26, textAlign: 'center', maxWidth: 560, alignSelf: 'center' },
+  inlineLink: { textDecorationLine: 'underline' },
 });
