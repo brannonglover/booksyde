@@ -30,15 +30,27 @@ function dateLabel(iso: string, now: Date) {
 }
 
 /**
- * The badge and the line under the title. Releases are worded from their date
- * on the day they're read, so a "Coming Jan 14" book reads "Out Jan 14" once it is.
+ * How a card words a story: its badge, its title, the line under the title,
+ * and what its cover is of (for the cover's alt text).
+ *
+ * Releases are worded from their date on the day they're read, so a "Coming
+ * Jan 14" book reads "Out Jan 14" once it is. A headline is its own title, with
+ * its date beneath; its cover is one of the author's books, not the article's.
  */
-export function describeNews(item: NewsItem, now = new Date()): { badge: string; line: string } {
+export function describeNews(
+  item: NewsItem,
+  now = new Date(),
+): { badge: string; title: string; line: string; coverTitle: string } {
+  const title = item.title ?? item.headline;
   if (item.kind === "release" && item.happens_at) {
     const out = new Date(item.happens_at).getTime() <= now.getTime();
-    return { badge: out ? "Out now" : "Coming soon", line: `${out ? "Out" : "Coming"} ${dateLabel(item.happens_at, now)}` };
+    return { badge: out ? "Out now" : "Coming soon", title, line: `${out ? "Out" : "Coming"} ${dateLabel(item.happens_at, now)}`, coverTitle: title };
   }
-  return { badge: item.label ?? "", line: item.headline };
+  if (item.kind === "article") {
+    const line = item.happens_at ? `Published ${dateLabel(item.happens_at, now)}` : "";
+    return { badge: item.label ?? "In the news", title: item.headline, line, coverTitle: "a book" };
+  }
+  return { badge: item.label ?? "", title, line: item.headline, coverTitle: title };
 }
 
 const SHELF_TAGS: Record<NonNullable<NewsItem["shelf_status"]>, string> = {

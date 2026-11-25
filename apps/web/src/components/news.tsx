@@ -47,14 +47,13 @@ export async function NewsSection() {
 }
 
 function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
-  const { badge, line } = describeNews(item, now);
+  const { badge, title, line, coverTitle } = describeNews(item, now);
   const target = newsTarget(item);
   const shelf = newsShelfTag(item);
-  const title = item.title ?? item.headline;
   const body = (
     <>
       <BookCover
-        title={title}
+        title={coverTitle}
         author={item.author_name ?? ""}
         src={item.cover_url}
         color={item.cover_color}

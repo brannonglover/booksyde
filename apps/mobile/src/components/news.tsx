@@ -46,10 +46,9 @@ export function NewsSection({ readerId }: { readerId: string | null }) {
 function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
   const theme = useTheme();
   const router = useRouter();
-  const { badge, line } = describeNews(item, now);
+  const { badge, title, line, coverTitle } = describeNews(item, now);
   const target = newsTarget(item);
   const shelf = newsShelfTag(item);
-  const title = item.title ?? item.headline;
   const open = () => {
     if ('url' in target) Linking.openURL(target.url);
     else if ('workId' in target) router.push({ pathname: '/book/[id]', params: { id: target.workId } });
@@ -70,7 +69,7 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
             { backgroundColor: pressed ? theme.backgroundSelected : theme.backgroundElement, borderColor: pressed ? theme.accent : theme.border },
           ]}
         >
-          <BookCover title={title} author={item.author_name ?? ''} src={item.cover_url} color={item.cover_color} width={64} />
+          <BookCover title={coverTitle} author={item.author_name ?? ''} src={item.cover_url} color={item.cover_color} width={64} />
           <View style={styles.body}>
             <View style={styles.badges}>
               {badge ? (

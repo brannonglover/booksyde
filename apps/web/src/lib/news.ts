@@ -8,7 +8,9 @@ import {
   titleKey,
 } from "@booksyde/shared";
 import type { Database } from "@booksyde/types";
+import { createHash } from "node:crypto";
 import { getBestsellerList, type ListEntry, NEWS_LISTS } from "./bestsellers";
+import { BOOK_FEEDS, type FeedArticle, fetchFeed } from "./feeds";
 import { userAgent } from "./open-library-import";
 import { supabaseUrl } from "./supabase/env";
 
@@ -23,6 +25,9 @@ import { supabaseUrl } from "./supabase/env";
  *   readers who shelve that author.
  * - Buzz stories: the books Booksyde readers are picking up, finishing,
  *   reviewing and talking about in clubs this week, once there's a crowd.
+ * - Headline stories: articles about the authors readers shelve, from
+ *   literary outlets' feeds (see feeds.ts), linking out to the outlet. Like
+ *   releases, news_feed() shows each only to readers of that author.
  *
  * Rows are upserted by a stable key, so running it twice in a day is harmless.
  */
@@ -44,17 +49,18 @@ const AUTHORS_PER_RUN = 40;
 const AHEAD_DAYS = 240;
 const BEHIND_DAYS = 60;
 
-export type NewsRunResult = { charts: number | string; releases: number | string; buzz: number | string };
+export type NewsRunResult = { charts: number | string; releases: number | string; buzz: number | string; headlines: number | string };
 
 export async function refreshNews(): Promise<NewsRunResult> {
   const db = adminClient();
   // Each half reports its own failure, so a Google outage doesn't cost the week's chart stories.
-  const [charts, releases, buzz] = await Promise.all([
+  const [charts, releases, buzz, headlines] = await Promise.all([
     refreshCharts(db).catch((e: unknown) => (console.error("News: charts failed", e), String(e))),
     refreshReleases(db).catch((e: unknown) => (console.error("News: releases failed", e), String(e))),
     refreshBuzz(db).catch((e: unknown) => (console.error("News: buzz failed", e), String(e))),
+    refreshHeadlines(db).catch((e: unknown) => (console.error("News: headlines failed", e), String(e))),
   ]);
-  return { charts, releases, buzz };
+  return { charts, releases, buzz, headlines };
 }
 
 /* ───────────── Bestseller charts ───────────── */
@@ -189,9 +195,9 @@ type Release = {
   year: number;
 };
 
-/** Things filed under an author that aren't a new book of theirs (bundles like "Ward D / The Tenant" too). */
+/** Things filed under an author that aren't a new book of theirs (bundles like "Ward D / The Tenant", and "Untitled…" placeholders, too). */
 const NOT_A_NEW_BOOK =
-  /\b(summary|study guide|analysis|workbook|box(ed)? set|collection|omnibus|books? \d+\s*[-–&]|trilogy|series|coloring|colouring|journal|calendar|sampler|excerpt|preview|bestsellers)\b|\s\/\s/i;
+  /\b(summary|study guide|analysis|workbook|box(ed)? set|collection|omnibus|books? \d+\s*[-–&]|trilogy|series|coloring|colouring|journal|calendar|sampler|excerpt|preview|bestsellers)\b|\s\/\s|^untitled\b/i;
 
 /** "J.K. Rowling" and "J. K. Rowling" are the same person. */
 const nameKey = (name: string) => name.toLowerCase().replace(/[^\p{L}]/gu, "");
@@ -420,4 +426,108 @@ async function refreshBuzz(db: BooksydeClient) {
   const { error: quietError } = await quiet;
   if (quietError) throw quietError;
   return rows.length;
+}
+
+/* ───────────── Author headlines ───────────── */
+
+/** How far back a headline counts as news. */
+const HEADLINE_DAYS = 14;
+/** An item naming more of our authors than this is a roundup, not a story about any of them. */
+const MAX_AUTHORS_PER_HEADLINE = 3;
+
+/**
+ * Text for name matching: lower case, no accents or punctuation, and runs of
+ * initials joined, so "J.K. Rowling", "J. K. Rowling" and "JK Rowling" agree.
+ */
+export function matchKey(text: string) {
+  const words = text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  const out: string[] = [];
+  let initials = false; // whether the last word in `out` is a run of single letters
+  for (const w of words) {
+    if (w.length === 1 && initials) out[out.length - 1] += w;
+    else out.push(w);
+    initials = w.length === 1;
+  }
+  return ` ${out.join(" ")} `;
+}
+
+/** The authors an article is about: named in its headline, or the only one of ours its summary names. */
+export function authorsInArticle<A extends { key: string }>(article: Pick<FeedArticle, "title" | "summary">, authors: A[]): A[] {
+  const title = matchKey(article.title);
+  const inTitle = authors.filter((a) => title.includes(a.key));
+  if (inTitle.length) return inTitle.length <= MAX_AUTHORS_PER_HEADLINE ? inTitle : [];
+  const summary = matchKey(article.summary);
+  const inSummary = authors.filter((a) => summary.includes(a.key));
+  return inSummary.length === 1 ? inSummary : [];
+}
+
+async function refreshHeadlines(db: BooksydeClient) {
+  const now = Date.now();
+  const { data: watched, error } = await db.rpc("watched_authors", { max_results: 200 });
+  if (error) throw error;
+  // One-word names ("Homer", "Sappho") would match too much; two words or more is a person.
+  const authors = (watched ?? [])
+    .map((a) => ({ ...a, key: matchKey(a.name) }))
+    .filter((a) => a.key.trim().split(" ").length >= 2);
+  if (!authors.length) return 0;
+
+  const articles = (await Promise.all(BOOK_FEEDS.map(fetchFeed)))
+    .flat()
+    .filter((a) => a.publishedAt.getTime() > now - HEADLINE_DAYS * DAY && a.publishedAt.getTime() <= now + DAY);
+  const found = articles.flatMap((article) => authorsInArticle(article, authors).map((author) => ({ article, author })));
+  if (!found.length) return 0;
+
+  // A cover for the card: the author's most-shelved book we hold with one.
+  const authorIds = [...new Set(found.map((f) => f.author.author_id))];
+  const { data: credits } = await db
+    .from("work_contributors")
+    .select("author_id, works ( cover_url, shelved_count )")
+    .eq("role", "author")
+    .in("author_id", authorIds);
+  const cover = new Map<string, { url: string; shelved: number }>();
+  for (const c of credits ?? []) {
+    const w = c.works;
+    if (!w?.cover_url) continue;
+    const best = cover.get(c.author_id);
+    if (!best || w.shelved_count > best.shelved) cover.set(c.author_id, { url: w.cover_url, shelved: w.shelved_count });
+  }
+
+  const rows: NewsInsert[] = found.flatMap(({ article, author }) => {
+    const coverUrl = cover.get(author.author_id)?.url;
+    // Without a cover the card would typeset the headline as if it were a book.
+    if (!coverUrl) return [];
+    const at = article.publishedAt.toISOString();
+    return [
+      {
+        kind: "article",
+        key: `article:${author.author_id}:${createHash("sha1").update(article.url).digest("hex").slice(0, 20)}`,
+        label: "In the news",
+        headline: article.title,
+        title: null,
+        author_name: author.name,
+        author_id: author.author_id,
+        cover_url: coverUrl,
+        source: article.source,
+        url: article.url,
+        happens_at: at,
+        published_at: at,
+        expires_at: new Date(article.publishedAt.getTime() + HEADLINE_DAYS * DAY).toISOString(),
+        weight: 55,
+        data: {},
+      },
+    ];
+  });
+  const unique = [...new Map(rows.map((r) => [r.key, r])).values()];
+  if (unique.length) {
+    const { error: upsertError } = await db.from("news_items").upsert(unique, { onConflict: "key" });
+    if (upsertError) throw upsertError;
+  }
+  return unique.length;
 }
