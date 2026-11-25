@@ -27,7 +27,6 @@ const PLACES = [
 export function SiteMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
 
   useEffect(() => {
     if (!open) return;
@@ -61,35 +60,45 @@ export function SiteMenu() {
           )}
         </svg>
       </button>
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-30 mt-2 w-[min(18rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface-raised p-1.5 shadow-xl"
-        >
-          {PLACES.map((p) => {
-            const here = pathname === p.href || pathname.startsWith(`${p.href}/`);
-            return (
-              <Link
-                key={p.href}
-                role="menuitem"
-                href={p.href}
-                aria-current={here ? "page" : undefined}
-                onClick={() => setOpen(false)}
-                className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 hover:bg-surface aria-[current=page]:bg-surface"
-                {...track(p.event, { location: "header_menu" })}
-              >
-                <span className="min-w-0">
-                  <span className="block font-semibold">{p.title}</span>
-                  <span className="block text-xs font-normal text-muted">{p.blurb}</span>
-                </span>
-                <span aria-hidden className="text-muted">
-                  &rarr;
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      ) : null}
+      {open ? <MenuItems onPick={() => setOpen(false)} /> : null}
+    </div>
+  );
+}
+
+/**
+ * The open menu. It's the only part that reads the URL, and it only renders
+ * once the reader opens the menu, so the button can be prerendered with the
+ * rest of the header (usePathname during prerendering would block it).
+ */
+function MenuItems({ onPick }: { onPick: () => void }) {
+  const pathname = usePathname();
+  return (
+    <div
+      role="menu"
+      className="absolute right-0 top-full z-30 mt-2 w-[min(18rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface-raised p-1.5 shadow-xl"
+    >
+      {PLACES.map((p) => {
+        const here = pathname === p.href || pathname.startsWith(`${p.href}/`);
+        return (
+          <Link
+            key={p.href}
+            role="menuitem"
+            href={p.href}
+            aria-current={here ? "page" : undefined}
+            onClick={onPick}
+            className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 hover:bg-surface aria-[current=page]:bg-surface"
+            {...track(p.event, { location: "header_menu" })}
+          >
+            <span className="min-w-0">
+              <span className="block font-semibold">{p.title}</span>
+              <span className="block text-xs font-normal text-muted">{p.blurb}</span>
+            </span>
+            <span aria-hidden className="text-muted">
+              &rarr;
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }
