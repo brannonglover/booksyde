@@ -646,6 +646,11 @@ isOneToOne: false
             "arrange_shelf":
 { Args: { "p_status": Database["public"]['Enums']["reading_status"],"p_work_ids": (string)[] }; Returns: undefined
                            },
+"buzz_works":
+{ Args: { "days"?: number,"max_results"?: number,"min_readers"?: number }; Returns: {
+              "club_posts": number,"clubs": number,"finished": number,"readers": number,"reviewed": number,"shelved": number,"started": number,"work_id": string
+            }[]
+                           },
 "can_view_user":
 { Args: { "target": string }; Returns: boolean
                            },

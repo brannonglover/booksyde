@@ -21,6 +21,8 @@ import { supabaseUrl } from "./supabase/env";
  *   their shelves, from Google Books (exact dates, pre-orders) or, without a
  *   key, Open Library (just the year). news_feed() shows each one only to the
  *   readers who shelve that author.
+ * - Buzz stories: the books Booksyde readers are picking up, finishing,
+ *   reviewing and talking about in clubs this week, once there's a crowd.
  *
  * Rows are upserted by a stable key, so running it twice in a day is harmless.
  */
@@ -42,16 +44,17 @@ const AUTHORS_PER_RUN = 40;
 const AHEAD_DAYS = 240;
 const BEHIND_DAYS = 60;
 
-export type NewsRunResult = { charts: number | string; releases: number | string };
+export type NewsRunResult = { charts: number | string; releases: number | string; buzz: number | string };
 
 export async function refreshNews(): Promise<NewsRunResult> {
   const db = adminClient();
   // Each half reports its own failure, so a Google outage doesn't cost the week's chart stories.
-  const [charts, releases] = await Promise.all([
+  const [charts, releases, buzz] = await Promise.all([
     refreshCharts(db).catch((e: unknown) => (console.error("News: charts failed", e), String(e))),
     refreshReleases(db).catch((e: unknown) => (console.error("News: releases failed", e), String(e))),
+    refreshBuzz(db).catch((e: unknown) => (console.error("News: buzz failed", e), String(e))),
   ]);
-  return { charts, releases };
+  return { charts, releases, buzz };
 }
 
 /* ───────────── Bestseller charts ───────────── */
@@ -335,5 +338,86 @@ async function refreshReleases(db: BooksydeClient) {
     const { error: checkError } = await db.from("authors").update({ releases_checked_at: new Date(now).toISOString() }).in("id", checked);
     if (checkError) throw checkError;
   }
+  return rows.length;
+}
+
+/* ───────────── Booksyde buzz ───────────── */
+
+type BuzzRow = Database["public"]["Functions"]["buzz_works"]["Returns"][number];
+
+/** A book needs this many different readers active on it to be buzz, so no story points at one person. */
+const BUZZ_MIN_READERS = 3;
+const BUZZ_DAYS = 7;
+const BUZZ_STORIES = 6;
+
+const readers = (n: number) => `${n} ${n === 1 ? "reader" : "readers"}`;
+
+/** What's happening with a book this week, in a line: club talk first, then reviews, then the most common move. */
+export function buzzStory(b: BuzzRow) {
+  let headline: string;
+  if (b.clubs >= 1 && b.club_posts >= 5) {
+    headline = `Talked about in ${b.clubs === 1 ? "a club" : `${b.clubs} clubs`} this week`;
+  } else if (b.reviewed >= BUZZ_MIN_READERS) {
+    headline = `${b.reviewed} new reviews this week`;
+  } else {
+    const moves = [
+      ["started it", b.started],
+      ["finished it", b.finished],
+      ["added it to their shelves", b.shelved],
+    ] as const;
+    const [verb, n] = moves.reduce((best, move) => (move[1] > best[1] ? move : best));
+    headline = n >= BUZZ_MIN_READERS ? `${readers(n)} ${verb} this week` : `${readers(b.readers)} picked it up this week`;
+  }
+  return { label: "Booksyde buzz", headline, weight: 70 + Math.min(b.readers, 25) };
+}
+
+async function refreshBuzz(db: BooksydeClient) {
+  const now = Date.now();
+  // Until enough different people read here, "what readers are talking about" would really be one or two shelves.
+  const { data: crowd, error: crowdError } = await db.rpc("has_crowd", {});
+  if (crowdError) throw crowdError;
+  let books: BuzzRow[] = [];
+  if (crowd) {
+    const { data, error } = await db.rpc("buzz_works", { days: BUZZ_DAYS, min_readers: BUZZ_MIN_READERS, max_results: BUZZ_STORIES });
+    if (error) throw error;
+    books = data ?? [];
+  }
+
+  const workIds = books.map((b) => b.work_id);
+  const { data: credits } = workIds.length
+    ? await db
+        .from("work_contributors")
+        .select("work_id, author_id, position, authors ( name )")
+        .eq("role", "author")
+        .in("work_id", workIds)
+        .order("position")
+    : { data: [] };
+  const lead = new Map<string, { id: string; name: string | null }>();
+  for (const c of credits ?? []) if (!lead.has(c.work_id)) lead.set(c.work_id, { id: c.author_id, name: c.authors?.name ?? null });
+
+  const rows: NewsInsert[] = books.map((b) => ({
+    kind: "buzz",
+    key: `buzz:${b.work_id}`,
+    ...buzzStory(b),
+    work_id: b.work_id,
+    author_id: lead.get(b.work_id)?.id ?? null,
+    author_name: lead.get(b.work_id)?.name ?? null,
+    source: "Booksyde readers",
+    // Fresh each day it's still buzzing; gone two days after it stops.
+    published_at: new Date(now).toISOString(),
+    expires_at: new Date(now + 2 * DAY).toISOString(),
+    data: { ...b },
+  }));
+  if (rows.length) {
+    const { error } = await db.from("news_items").upsert(rows, { onConflict: "key" });
+    if (error) throw error;
+  }
+
+  // Books that have gone quiet drop out today rather than lingering.
+  const iso = new Date(now).toISOString();
+  let quiet = db.from("news_items").update({ expires_at: iso }).eq("kind", "buzz").gt("expires_at", iso);
+  if (rows.length) quiet = quiet.not("key", "in", `(${rows.map((r) => `"${r.key}"`).join(",")})`);
+  const { error: quietError } = await quiet;
+  if (quietError) throw quietError;
   return rows.length;
 }
