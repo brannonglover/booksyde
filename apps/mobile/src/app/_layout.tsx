@@ -51,6 +51,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="book/[id]" options={{ title: '' }} />
         <Stack.Screen name="u/[username]" options={{ title: '' }} />
+        <Stack.Screen name="shelf/[status]" options={{ title: '' }} />
         <Stack.Screen name="clubs/[slug]" options={{ title: '' }} />
         <Stack.Screen name="clubs/new" options={{ presentation: 'modal', title: 'Start a club', ...closeable }} />
         <Stack.Screen name="settings/profile" options={{ presentation: 'modal', title: 'Edit your bookplate', ...closeable }} />

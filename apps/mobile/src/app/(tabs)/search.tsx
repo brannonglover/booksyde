@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { BookCover } from '@/components/book-cover';
+import { CoverFan } from '@/components/cover-fan';
 import { RequestSlip } from '@/components/request-slip';
 import { SeriesLine } from '@/components/series-line';
 import { ThemedView } from '@/components/themed-view';
@@ -621,33 +622,6 @@ function ShelfCard({ drawer, onPress, fill }: { drawer: BrowseDrawer; onPress: (
   );
 }
 
-/** Three overlapping covers; tinted blanks stand in when a drawer has none. */
-function CoverFan({ covers, tint, edge }: { covers: BrowseDrawer['covers']; tint: string; edge: string }) {
-  return (
-    <View style={{ flexDirection: 'row' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {[0, 1, 2].map((i) => {
-        const c = covers[i];
-        return (
-          <View
-            key={c?.id ?? i}
-            style={[
-              styles.fanCover,
-              {
-                marginLeft: i === 0 ? 0 : -12,
-                zIndex: 3 - i,
-                borderColor: edge,
-                backgroundColor: c?.cover_color ? mixHex(c.cover_color, palette.ink, 0.35) : mixHex(tint, palette.paper, i * 0.25),
-              },
-            ]}
-          >
-            {c?.cover_url ? <Image source={c.cover_url} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { alignItems: 'center' },
@@ -786,5 +760,4 @@ const styles = StyleSheet.create({
   shelfRow: { gap: 10, paddingHorizontal: spacing[5], paddingTop: spacing[3], paddingBottom: spacing[1] },
   shelfCard: { width: 156, borderWidth: 1, borderRadius: 16, padding: spacing[3] },
   shelfCardFill: { width: 'auto', flexGrow: 1 },
-  fanCover: { width: 35, height: 52, borderRadius: 3, borderWidth: 2, overflow: 'hidden' },
 });

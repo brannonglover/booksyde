@@ -14,10 +14,10 @@ import {
   type YearInBooks,
 } from '@booksyde/shared';
 import { coverUrl, seasonCopy, genreColor, palette, radii, spacing } from '@booksyde/theme';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { type ComponentRef, useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -410,49 +410,19 @@ export default function HomeScreen() {
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { profile } = useSession();
-  const router = useRouter();
-  const [query, setQuery] = useState('');
   const nightstand = useNightstandBooks();
   const season = useSeason();
   const isChristmas = season === 'christmas';
   const { md, contentWidth } = useBreakpoint();
   // The season's kicker, headline, quote and greeting (seasonCopy in @booksyde/theme); null for the rest of the year.
   const copy = season ? seasonCopy[season] : null;
-  const search = () => router.navigate({ pathname: '/search', params: query.trim() ? { q: query.trim() } : {} });
-
-  // iOS scrolls the focused field just far enough to show the cursor, which leaves the
-  // search bar pressed against the keyboard. Once the keyboard is up, lift the whole
-  // bar clear of it with a little room to spare.
-  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
-  const scrollY = useRef(0);
-  const searchBarRef = useRef<ComponentRef<typeof View>>(null);
-  const searchInputRef = useRef<ComponentRef<typeof TextInput>>(null);
-  useEffect(() => {
-    if (Platform.OS !== 'ios') return;
-    const sub = Keyboard.addListener('keyboardDidShow', (e) => {
-      if (!searchInputRef.current?.isFocused()) return;
-      searchBarRef.current?.measureInWindow((_x, y, _w, h) => {
-        const overlap = y + h + spacing[4] - e.endCoordinates.screenY;
-        if (overlap > 0) scrollRef.current?.scrollTo({ y: scrollY.current + overlap, animated: true });
-      });
-    });
-    return () => sub.remove();
-  }, []);
 
   return (
     <ThemedView style={styles.container}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <ScrollView
-        ref={scrollRef}
-        onScroll={(e) => (scrollY.current = e.nativeEvent.contentOffset.y)}
-        scrollEventThrottle={16}
         contentContainerStyle={{ paddingTop: Platform.OS === 'web' ? WebTabBarHeight : insets.top, paddingBottom: insets.bottom + BottomTabInset + spacing[7] }}
         showsVerticalScrollIndicator={false}
-        // The hero's search bar sits low enough for the iPhone keyboard to cover it:
-        // make room for the keyboard and scroll the focused field into view above it.
-        automaticallyAdjustKeyboardInsets
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
       >
         {/* December: a thin green-and-gilt ribbon above the masthead, like the ribbon on a gift (as on the web). */}
         {season === 'thanksgiving' ? (
@@ -524,23 +494,6 @@ export default function HomeScreen() {
             <ThemedText themeColor="textSecondary" style={styles.lede}>
               Keep track of what you read, find books that suit your mood, and trade recommendations with friends.
             </ThemedText>
-            <View ref={searchBarRef} style={[styles.search, { backgroundColor: theme.backgroundSelected, borderColor: theme.border }]}>
-              <TextInput
-                ref={searchInputRef}
-                value={query}
-                onChangeText={setQuery}
-                onSubmitEditing={search}
-                returnKeyType="search"
-                autoCapitalize="none"
-                placeholder="Title, author or ISBN"
-                maxFontSizeMultiplier={ChromeMaxScale}
-                placeholderTextColor={theme.textSecondary}
-                style={[styles.searchInput, { color: theme.text }]}
-              />
-              <Pressable onPress={search} style={[styles.searchButton, { backgroundColor: theme.primary }]}>
-                <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.buttonLabel, { color: theme.primaryText }]}>Search</Text>
-              </Pressable>
-            </View>
           </View>
 
           {/* Your next read (or today's pick), staged on a backdrop drawn from the book itself */}
@@ -690,17 +643,6 @@ const styles = StyleSheet.create({
   italic: { fontFamily: DisplayFonts.italic },
   italicSmall: { fontFamily: DisplayFonts.italic, letterSpacing: 0, fontSize: 13 },
   lede: { fontSize: 17, lineHeight: 25 },
-  search: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    borderWidth: 1,
-    borderRadius: radii.pill,
-    padding: 6,
-    paddingLeft: spacing[4],
-  },
-  searchInput: { flex: 1, minWidth: 0, fontSize: 16, paddingVertical: spacing[2] },
-  searchButton: { borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2] + 2 },
   // As on the web: a 384pt-wide figure, the book centred with room above and a shadow below.
   figure: { width: '100%', maxWidth: 384, alignSelf: 'center' },
   art: { alignItems: 'center', paddingTop: spacing[5], paddingBottom: spacing[7] + spacing[2] },

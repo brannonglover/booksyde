@@ -25,9 +25,10 @@ type Icon = {
   size?: number;
 };
 
-const tabs: { name: string; href: '/' | '/search' | '/discover' | '/clubs'; label: string; icon: Icon }[] = [
+const tabs: { name: string; href: '/' | '/search' | '/shelves' | '/discover' | '/clubs'; label: string; icon: Icon }[] = [
   { name: 'index', href: '/', label: 'Home', icon: { ios: 'house', selected: 'house.fill', material: 'home' } },
   { name: 'search', href: '/search', label: 'Search', icon: { ios: 'magnifyingglass', selected: 'magnifyingglass', material: 'search' } },
+  { name: 'shelves', href: '/shelves', label: 'Shelves', icon: { ios: 'books.vertical', selected: 'books.vertical.fill', material: 'collections-bookmark' } },
   { name: 'discover', href: '/discover', label: 'Discover', icon: { ios: 'safari', selected: 'safari.fill', material: 'explore' } },
   { name: 'clubs', href: '/clubs', label: 'Clubs', icon: { ios: 'person.3', selected: 'person.3.fill', material: 'groups', size: 27 } },
 ];
@@ -119,7 +120,7 @@ function TabButton({ label, icon, isFocused, ...props }: TabTriggerSlotProps & {
 
 const styles = StyleSheet.create({
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopWidth: StyleSheet.hairlineWidth },
-  // On iPad the bar spans a wide screen; the four tabs keep to a phone-width row in its middle.
+  // On iPad the bar spans a wide screen; the five tabs keep to a phone-width row in its middle.
   row: { height: TabBarHeight, width: '100%', maxWidth: 560, alignSelf: 'center', flexDirection: 'row' },
   indicator: { position: 'absolute', top: 0, left: 0, width: INDICATOR, height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, paddingTop: 2 },
