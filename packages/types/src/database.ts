@@ -714,7 +714,7 @@ isOneToOne: false
                            },
 "news_feed":
 { Args: { "max_results"?: number }; Returns: {
-              "author_id": string | null,"author_name": string | null,"cover_color": string | null,"cover_url": string | null,"for_you": boolean,"happens_at": string | null,"headline": string,"id": string,"kind": Database["public"]["Enums"]["news_kind"],"label": string | null,"published_at": string,"source": string | null,"title": string | null,"url": string | null,"work_id": string | null
+              "author_id": string | null,"author_name": string | null,"cover_color": string | null,"cover_url": string | null,"for_you": boolean,"happens_at": string | null,"headline": string,"id": string,"kind": Database["public"]["Enums"]["news_kind"],"label": string | null,"published_at": string,"shelf_status": Database["public"]["Enums"]["reading_status"] | null,"source": string | null,"title": string | null,"url": string | null,"work_id": string | null
             }[]
                            },
 "nightstand_works":

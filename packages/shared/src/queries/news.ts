@@ -41,6 +41,24 @@ export function describeNews(item: NewsItem, now = new Date()): { badge: string;
   return { badge: item.label ?? "", line: item.headline };
 }
 
+const SHELF_TAGS: Record<NonNullable<NewsItem["shelf_status"]>, string> = {
+  want_to_read: "On your Want to read shelf",
+  reading: "You’re reading this",
+  read: "You’ve read this",
+  did_not_finish: "You set this down",
+};
+
+/**
+ * The pill saying how a story touches the reader: which shelf the book is on,
+ * or, for a book they don't have, that it's by an author they read. Null for
+ * stories that aren't theirs (and for visitors).
+ */
+export function newsShelfTag(item: NewsItem): { text: string; onShelf: boolean } | null {
+  if (item.shelf_status) return { text: SHELF_TAGS[item.shelf_status], onShelf: true };
+  if (item.for_you) return { text: "An author you read", onShelf: false };
+  return null;
+}
+
 /** Where a story leads: our book page, a search for a book we don't hold yet, or the story itself elsewhere. */
 export function newsTarget(item: NewsItem): { workId: string } | { search: string } | { url: string } {
   if (item.work_id) return { workId: item.work_id };

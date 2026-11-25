@@ -1,4 +1,4 @@
-import { describeNews, getNewsFeed, type NewsItem, newsTarget } from '@booksyde/shared';
+import { describeNews, getNewsFeed, type NewsItem, newsShelfTag, newsTarget } from '@booksyde/shared';
 import { radii, spacing } from '@booksyde/theme';
 import { useRouter } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -48,6 +48,7 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
   const router = useRouter();
   const { badge, line } = describeNews(item, now);
   const target = newsTarget(item);
+  const shelf = newsShelfTag(item);
   const title = item.title ?? item.headline;
   const open = () => {
     if ('url' in target) Linking.openURL(target.url);
@@ -59,7 +60,7 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
     <Pressable
       onPress={open}
       accessibilityRole={'url' in target ? 'link' : 'button'}
-      accessibilityLabel={`${badge ? `${badge}: ` : ''}${title}${item.author_name ? ` by ${item.author_name}` : ''}. ${line}`}
+      accessibilityLabel={`${badge ? `${badge}: ` : ''}${title}${item.author_name ? ` by ${item.author_name}` : ''}. ${line}${shelf ? `. ${shelf.text}` : ''}`}
       style={{ flex: 1 }}
     >
       {({ pressed }) => (
@@ -77,9 +78,17 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
                   {badge.toUpperCase()}
                 </Text>
               ) : null}
-              {item.for_you ? (
-                <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.forYou, { color: theme.accent, borderColor: theme.accent }]}>
-                  {item.kind === 'release' ? 'An author you read' : 'On your shelves'}
+              {shelf ? (
+                <Text
+                  maxFontSizeMultiplier={ChromeMaxScale}
+                  style={[
+                    styles.forYou,
+                    shelf.onShelf
+                      ? { color: theme.background, backgroundColor: theme.accent, borderColor: theme.accent }
+                      : { color: theme.accent, borderColor: theme.accent },
+                  ]}
+                >
+                  {shelf.text}
                 </Text>
               ) : null}
             </View>

@@ -1,4 +1,4 @@
-import { describeNews, getNewsFeed, type NewsItem, newsTarget } from "@booksyde/shared";
+import { describeNews, getNewsFeed, type NewsItem, newsShelfTag, newsTarget } from "@booksyde/shared";
 import Link from "next/link";
 import { connection } from "next/server";
 import { BookCover } from "@/components/book-cover";
@@ -49,6 +49,7 @@ export async function NewsSection() {
 function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
   const { badge, line } = describeNews(item, now);
   const target = newsTarget(item);
+  const shelf = newsShelfTag(item);
   const title = item.title ?? item.headline;
   const body = (
     <>
@@ -63,9 +64,11 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
       <div className="flex min-w-0 flex-1 flex-col self-stretch">
         <div className="flex flex-wrap items-center gap-2">
           {badge ? <span className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{badge}</span> : null}
-          {item.for_you ? (
-            <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[0.7rem] font-semibold text-accent">
-              {item.kind === "release" ? "An author you read" : "On your shelves"}
+          {shelf ? (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ${shelf.onShelf ? "bg-accent text-paper" : "bg-accent/10 text-accent"}`}
+            >
+              {shelf.text}
             </span>
           ) : null}
         </div>
@@ -78,7 +81,7 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
   );
   const className =
     "group flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-accent/50 hover:bg-surface-raised hover:shadow-[0_14px_30px_-22px_rgba(31,27,22,0.6)]";
-  const tracking = track(AnalyticsEvent.NewsClicked, { kind: item.kind, for_you: item.for_you ? 1 : 0, location: "home" });
+  const tracking = track(AnalyticsEvent.NewsClicked, { kind: item.kind, for_you: item.for_you ? 1 : 0, on_shelf: item.shelf_status ? 1 : 0, location: "home" });
 
   if ("url" in target) {
     return (
