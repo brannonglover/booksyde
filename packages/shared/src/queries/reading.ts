@@ -114,6 +114,65 @@ export async function getMyReadingDesk(client: BooksydeClient): Promise<DeskBook
   });
 }
 
+/** Where the reader stands with one book on their shelves. */
+export type ShelfStanding = {
+  /** The last page they logged. On Reading now, only from the open read-through; elsewhere, where they left off. */
+  page: number | null;
+  /** Pages in their copy: the count they set, else their edition's, else the longest edition we know of. */
+  pages: number | null;
+  /** Their star rating, if they've given one. */
+  rating: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  /** When the book went onto the shelf it's on now. */
+  shelvedAt: string;
+};
+
+/**
+ * The signed-in reader's standing with every book on their status shelves,
+ * keyed by work id: their place in it, their rating and the dates that matter.
+ */
+export async function getMyShelfStandings(client: BooksydeClient): Promise<Record<string, ShelfStanding>> {
+  const userId = await requireUserId(client);
+  const [books, sessions, reviews] = await Promise.all([
+    client
+      .from("user_books")
+      .select("work_id, status, started_at, finished_at, shelved_at, page_count, editions ( page_count ), works ( editions ( page_count ) )")
+      .eq("user_id", userId),
+    client
+      .from("reading_sessions")
+      .select("work_id, current_page, finished_at")
+      .eq("user_id", userId)
+      .order("started_at", { ascending: false }),
+    client.from("reviews").select("work_id, rating").eq("user_id", userId).not("rating", "is", null),
+  ]);
+  if (books.error) throw books.error;
+  if (sessions.error) throw sessions.error;
+  if (reviews.error) throw reviews.error;
+
+  // Newest first: only each book's latest read-through counts.
+  const latest = new Map<string, { page: number | null; open: boolean }>();
+  for (const s of sessions.data ?? []) {
+    if (!latest.has(s.work_id)) latest.set(s.work_id, { page: s.current_page, open: !s.finished_at });
+  }
+  const ratings = new Map((reviews.data ?? []).map((r) => [r.work_id, Number(r.rating)]));
+
+  const standings: Record<string, ShelfStanding> = {};
+  for (const b of books.data ?? []) {
+    const session = latest.get(b.work_id);
+    const longest = Math.max(0, ...(b.works?.editions ?? []).map((e) => e.page_count ?? 0)) || null;
+    standings[b.work_id] = {
+      page: session && (session.open || b.status !== "reading") ? session.page : null,
+      pages: b.page_count ?? (b.editions?.page_count || longest),
+      rating: ratings.get(b.work_id) ?? null,
+      startedAt: b.started_at,
+      finishedAt: b.finished_at,
+      shelvedAt: b.shelved_at,
+    };
+  }
+  return standings;
+}
+
 /**
  * Set how many pages the reader's copy has, so their progress matches the book
  * in their hands. Pass null to go back to the catalog's count. The book must be
