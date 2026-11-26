@@ -66,9 +66,11 @@ module.exports = {
       [
         "expo-splash-screen",
         {
-          backgroundColor: "#7C3AED",
+          // Booksyde green with the gold spectacles. SplashOverlay in
+          // src/components/splash-overlay.tsx draws the same, so keep them in step.
+          backgroundColor: "#2D4A3E",
           image: "./assets/images/splash-icon.png",
-          imageWidth: 76,
+          imageWidth: 160,
         },
       ],
       "expo-font",

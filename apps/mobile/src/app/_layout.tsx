@@ -5,8 +5,8 @@ import {
 } from '@expo-google-fonts/instrument-serif';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { CloseButton } from '@/components/close-button';
+import { SplashOverlay } from '@/components/splash-overlay';
 import { ThemeTransitionOverlay } from '@/components/theme-transition';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -34,7 +34,8 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
+      {/* Covers the app with a copy of the splash, then fades it in. */}
+      <SplashOverlay />
       {/* Tabs at the root; book pages slide in on top with a back button. */}
       <Stack
         screenOptions={{
