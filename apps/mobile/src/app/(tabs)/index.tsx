@@ -24,6 +24,7 @@ import { Avatar } from '@/components/avatar';
 import { AppearancePicker } from '@/components/appearance-picker';
 import { BookCover } from '@/components/book-cover';
 import { BookObject } from '@/components/book-object';
+import { ContinueReading } from '@/components/continue-reading';
 import { Grid } from '@/components/grid';
 import { Garland, HollySprig } from '@/components/holly';
 import { LeafStrip } from '@/components/leaves';
@@ -397,6 +398,32 @@ function Nightstand({ books }: { books: NightstandBook[] }) {
   );
 }
 
+const dayFormat = new Intl.DateTimeFormat('en', { weekday: 'long', month: 'long', day: 'numeric' });
+
+/** "Good evening, Sam." over the season's wish (or today's date): the top of Home for a signed-in reader on a phone. */
+function Greeting({ name, kicker }: { name: string | null; kicker: string | null }) {
+  const theme = useTheme();
+  const now = new Date();
+  const hour = now.getHours();
+  const part = hour >= 5 && hour < 12 ? 'morning' : hour >= 12 && hour < 17 ? 'afternoon' : 'evening';
+  return (
+    <View style={{ gap: spacing[1] }}>
+      <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>
+        {(kicker ?? dayFormat.format(now)).toUpperCase()}
+      </Text>
+      <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.greeting, { color: theme.text }]}>
+        Good {part}
+        {name ? (
+          <>
+            , <Text style={[styles.italic, { color: theme.accent }]}>{name}</Text>
+          </>
+        ) : null}
+        .
+      </Text>
+    </View>
+  );
+}
+
 function AsideLink({ href, label }: { href: '/discover' | '/search'; label: string }) {
   const theme = useTheme();
   return (
@@ -410,13 +437,16 @@ export default function HomeScreen() {
   const theme = useTheme();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
-  const { profile, session } = useSession();
+  const { profile, session, loading: sessionLoading } = useSession();
   const nightstand = useNightstandBooks();
   const season = useSeason();
   const isChristmas = season === 'christmas';
   const { md, contentWidth } = useBreakpoint();
   // The season's kicker, headline, quote and greeting (seasonCopy in @booksyde/theme); null for the rest of the year.
   const copy = season ? seasonCopy[season] : null;
+  // A signed-in reader on a phone already knows what Booksyde is: their books come first, not the pitch.
+  const readerFirst = !md && (session !== null || sessionLoading);
+  const firstName = profile ? (profile.display_name?.trim().split(/\s+/)[0] || profile.username) : null;
 
   return (
     <ThemedView style={styles.container}>
@@ -474,34 +504,48 @@ export default function HomeScreen() {
         {season === 'thanksgiving' ? <LeafStrip style={styles.mastheadLeaves} /> : null}
 
         <View style={[styles.content, { maxWidth: contentWidth }]}>
-          {/* The hero, with the featured book beside it on iPad (the web waits for lg, but an iPad in portrait has the room), or below it on phones. */}
-          <View style={md ? styles.heroRow : styles.heroStack}>
-          {/* In December the garland above already makes room, so the hero starts a little closer. */}
-          <View style={[styles.hero, season && { paddingTop: spacing[5] }, md && styles.heroBeside]}>
-            <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>{copy ? copy.kicker.toUpperCase() : 'EST. 2026 · A READING ROOM FOR EVERYONE'}</Text>
-            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.heroTitle, { color: theme.text }]}>
-              {copy ? (
+          {readerFirst ? (
+            <View style={[styles.readerTop, season && { paddingTop: spacing[4] }]}>
+              {session ? (
                 <>
-                  {copy.headline.before} <Text style={[styles.italic, { color: theme.accent }]}>{copy.headline.accent}</Text>{' '}
-                  {copy.headline.after}
+                  {/* The season's wish, without its first half ("Thankful for good books · …"). */}
+                  <Greeting name={firstName} kicker={copy ? (copy.kicker.split(' · ').pop() ?? null) : null} />
+                  <ContinueReading userId={session.user.id} fallback={<FeaturedPick />} />
                 </>
               ) : (
-                <>
-                  Settle in with your next <Text style={[styles.italic, { color: theme.accent }]}>favorite</Text> book.
-                </>
+                <FeaturedPick />
               )}
-            </Text>
-            <Ornament />
-            <ThemedText themeColor="textSecondary" style={styles.lede}>
-              Keep track of what you read, find books that suit your mood, and trade recommendations with friends.
-            </ThemedText>
-          </View>
+            </View>
+          ) : (
+            // The hero, with the featured book beside it on iPad (the web waits for lg, but an iPad in portrait has the room), or below it on phones.
+            <View style={md ? styles.heroRow : styles.heroStack}>
+              {/* In December the garland above already makes room, so the hero starts a little closer. */}
+              <View style={[styles.hero, season && { paddingTop: spacing[5] }, md && styles.heroBeside]}>
+                <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.kicker, { color: theme.accent }]}>{copy ? copy.kicker.toUpperCase() : 'EST. 2026 · A READING ROOM FOR EVERYONE'}</Text>
+                <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.heroTitle, !md && styles.heroTitlePhone, { color: theme.text }]}>
+                  {copy ? (
+                    <>
+                      {copy.headline.before} <Text style={[styles.italic, { color: theme.accent }]}>{copy.headline.accent}</Text>{' '}
+                      {copy.headline.after}
+                    </>
+                  ) : (
+                    <>
+                      Settle in with your next <Text style={[styles.italic, { color: theme.accent }]}>favorite</Text> book.
+                    </>
+                  )}
+                </Text>
+                <Ornament />
+                <ThemedText themeColor="textSecondary" style={styles.lede}>
+                  Keep track of what you read, find books that suit your mood, and trade recommendations with friends.
+                </ThemedText>
+              </View>
 
-          {/* Your next read (or today's pick), staged on a backdrop drawn from the book itself */}
-          <View style={md ? styles.pickBeside : undefined}>
-            <FeaturedPick />
-          </View>
-          </View>
+              {/* Your next read (or today's pick), staged on a backdrop drawn from the book itself */}
+              <View style={md ? styles.pickBeside : undefined}>
+                <FeaturedPick />
+              </View>
+            </View>
+          )}
 
           {/* December: a bestseller and a Christmas book, side by side on the web. */}
           {isChristmas ? <SeasonPicksSection /> : null}
@@ -600,6 +644,10 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
+      {/* Keeps scrolled content from running under the clock and battery. */}
+      {Platform.OS !== 'web' ? (
+        <View pointerEvents="none" style={[styles.statusBarBacking, { height: insets.top, backgroundColor: theme.background }]} />
+      ) : null}
     </ThemedView>
   );
 }
@@ -644,6 +692,11 @@ const styles = StyleSheet.create({
   pickBeside: { flex: 1, paddingTop: spacing[6] },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 2 },
   heroTitle: { fontFamily: DisplayFonts.regular, fontSize: 54, lineHeight: 62, letterSpacing: -0.5 },
+  // On a phone 54pt runs to four or five lines and pushes today's pick under the tab bar.
+  heroTitlePhone: { fontSize: 42, lineHeight: 48 },
+  readerTop: { paddingTop: spacing[5], gap: spacing[5] },
+  greeting: { fontFamily: DisplayFonts.regular, fontSize: 32, lineHeight: 38, letterSpacing: -0.3 },
+  statusBarBacking: { position: 'absolute', top: 0, left: 0, right: 0 },
   italic: { fontFamily: DisplayFonts.italic },
   italicSmall: { fontFamily: DisplayFonts.italic, letterSpacing: 0, fontSize: 13 },
   lede: { fontSize: 17, lineHeight: 25 },
