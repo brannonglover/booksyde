@@ -12,7 +12,7 @@ import { supabaseUrl } from "./supabase/env";
  * and the whole catalogue comes round again in time.
  *
  * It only ever upgrades: the publisher's art from Google Books when it checks
- * out, or, for a cover too small to look sharp, a clearly larger one from
+ * out and is at least as big, or, for a cover too small to look sharp, a clearly larger one from
  * another Open Library edition. It never
  * clears a cover or touches a hand-picked one (cover_source 'manual'), and a
  * pale, minimal design that the checks call "blank" is only replaced by the
@@ -116,7 +116,8 @@ export async function refreshCovers({
         better = current.reason !== "blank" || picked.source === "google_books";
       } else {
         better =
-          (picked.source === "google_books" && work.cover_source !== "google_books") ||
+          // The publisher's art, as long as it's no smaller than what's there.
+          (picked.source === "google_books" && work.cover_source !== "google_books" && picked.height >= current.height) ||
           (current.height < GOOD_HEIGHT && picked.height >= current.height * MUCH_BIGGER);
       }
     }
