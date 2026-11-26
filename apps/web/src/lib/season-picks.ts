@@ -11,7 +11,7 @@ import {
 } from "@booksyde/shared";
 import { cacheLife, cacheTag } from "next/cache";
 import { bestsellerAsFeatured, getBestsellers } from "./bestsellers";
-import { findInCatalogue, getFeaturedBook } from "./catalog";
+import { getFeaturedBook, inCatalogue } from "./catalog";
 
 /*
  * December's pair for the home page (see SeasonPicks in @booksyde/shared).
@@ -48,7 +48,7 @@ async function pickBestseller(skipTitle?: string): Promise<SeasonPick | null> {
   const list = await getBestsellers().catch(() => []);
   const book = list.find((b) => !same(b.title, skipTitle));
   if (!book) return null;
-  const featured = (await findInCatalogue(book.isbn13 ? [book.isbn13] : []).catch(() => null)) ?? bestsellerAsFeatured(book);
+  const featured = await inCatalogue(bestsellerAsFeatured(book), book.isbn13 ? [book.isbn13] : []);
   return {
     ...featured,
     kind: "bestseller",
@@ -64,9 +64,9 @@ async function pickChristmas(day: number, skipTitle?: string): Promise<SeasonPic
     // Open Library's work cover can be any language's edition; ask for the best English one.
     const english = await getOpenLibraryBook(book.olid).catch(() => null);
     const withCover = english?.coverId ? { ...book, coverId: english.coverId } : book;
-    const featured = (await findInCatalogue(book.isbns).catch(() => null)) ?? openLibraryAsFeatured(withCover);
+    const featured = await inCatalogue(openLibraryAsFeatured(withCover), book.isbns);
     return { ...featured, kind: "christmas", note: "Trending this Christmas" };
   }
   const favorite = christmasOfTheDay(FEEL_GOOD_HOLIDAY_PICKS, day, skipTitle);
-  return favorite ? { ...favorite, kind: "christmas", note: "A feel-good holiday read" } : null;
+  return favorite ? { ...(await inCatalogue(favorite)), kind: "christmas", note: "A feel-good holiday read" } : null;
 }

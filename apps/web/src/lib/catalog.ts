@@ -20,6 +20,7 @@ import {
   getMoodTags,
   getTagDrawers,
   getTrendingWorks,
+  linkToCatalogue,
   searchAuthors,
   searchCatalog,
   searchOpenLibrary,
@@ -108,7 +109,8 @@ export async function getFeaturedBook(): Promise<FeaturedBook | null> {
   cacheTag("featured");
   const client = publicClient();
   return getFeaturedBookFor(client, {
-    // Before Booksyde has a crowd: a current bestseller, as its catalogue page when we have it.
+    // Before Booksyde has a crowd: a current bestseller, as its catalogue page when we have it
+    // (by ISBN here; getFeaturedBook tries the title and author after).
     beforeCrowd: async (day) => {
       const pick = await bestsellerOfTheDay(day);
       if (!pick) return null;
@@ -123,6 +125,14 @@ export async function findInCatalogue(isbns: string[]): Promise<FeaturedBook | n
   const { data } = await publicClient().from("editions").select("work_id").in("isbn_13", isbns.slice(0, 40)).limit(1);
   const work = data?.[0] ? await getBook(data[0].work_id) : null;
   return work?.cover_url ? toFeatured(work) : null;
+}
+
+/**
+ * A pick found elsewhere as its catalogue page when we hold it: by ISBN, else
+ * by title and author. A pick we don't hold comes back as it was (no id), for a search.
+ */
+export async function inCatalogue(pick: FeaturedBook, isbns: string[] = []): Promise<FeaturedBook> {
+  return (await findInCatalogue(isbns).catch(() => null)) ?? linkToCatalogue(publicClient(), pick);
 }
 
 /** The most-shelved books, as candidates to try in the hero preview. */

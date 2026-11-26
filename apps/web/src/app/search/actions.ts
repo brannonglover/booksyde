@@ -19,5 +19,8 @@ export async function addToCatalogue(_prev: ImportState, form: FormData): Promis
   if (!workId) return { error: "Open Library couldn’t find that one after all." };
   updateTag("catalog-search");
   updateTag("catalog-drawers");
+  // A home-page pick that was a search can now open the book itself.
+  updateTag("featured");
+  updateTag("season-picks");
   redirect(`/books/${workId}`);
 }

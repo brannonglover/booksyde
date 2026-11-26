@@ -1,4 +1,5 @@
 import type { BooksydeClient } from "../client";
+import { bylineNames, sameBook } from "./open-library";
 import { getWork } from "./works";
 
 type Book = NonNullable<Awaited<ReturnType<typeof getWork>>>;
@@ -34,8 +35,8 @@ const olCover = (id: number) => `https://covers.openlibrary.org/b/id/${id}-L.jpg
  * Public-domain classics the pick of the day falls back on before there's a
  * crowd, when no other pick (e.g. a bestseller) is to hand. Built in rather
  * than looked up, because a young catalogue is mostly whatever its first
- * readers imported. No `id`: they may not be in the catalogue, so the home
- * page links them to a search instead.
+ * readers imported. No `id`: they may not be in the catalogue, so
+ * `linkToCatalogue` looks them up, and the home page searches for any we don't hold.
  */
 export const CLASSIC_PICKS: FeaturedBook[] = [
   { title: "Pride and Prejudice", author: "Jane Austen", year: 1813, coverId: 14348537, color: "#C2416B" },
@@ -70,7 +71,7 @@ export async function getFeaturedBook(
   const { data: crowd } = await client.rpc("has_crowd");
   if (!crowd) {
     const pick = beforeCrowd ? await beforeCrowd(day).catch(() => null) : null;
-    return pick ?? CLASSIC_PICKS[day % CLASSIC_PICKS.length];
+    return linkToCatalogue(client, pick ?? CLASSIC_PICKS[day % CLASSIC_PICKS.length]);
   }
 
   const { data, error } = await client.rpc("featured_pool", { max_results: FEATURED_POOL });
@@ -78,4 +79,43 @@ export async function getFeaturedBook(
   if (!data?.length) return null;
   const book = await getWork(client, data[day % data.length].work_id);
   return book ? toFeatured(book) : null;
+}
+
+/**
+ * Our copy of a book found elsewhere (a bestseller list, Open Library, a
+ * built-in pick), by its title and an author in common; null if we don't hold
+ * it. Prefers a copy with a cover, should we hold the title twice.
+ */
+export async function findWorkByTitle(client: BooksydeClient, title: string, author: string): Promise<string | null> {
+  const lead = title.split(/[:;(]/)[0].trim();
+  if (!lead || !author.trim()) return null;
+  const { data, error } = await client
+    .from("works")
+    .select("id, title, cover_url, work_contributors ( role, authors ( name ) )")
+    // Starts with the title, so ours can carry a subtitle, and any punctuation
+    // stands for any one character ("Moby-Dick" finds "Moby Dick"); `sameBook` has the final say.
+    .ilike("title", `${lead.replace(/[^\p{L}\p{N}\s]/gu, "_")}%`)
+    .limit(20);
+  if (error) throw error;
+  const theirs = { title, authors: bylineNames(author) };
+  const matches = (data ?? []).filter((w) => {
+    const authors = w.work_contributors.flatMap((c) => (c.role === "author" && c.authors ? [c.authors.name] : []));
+    // An authorless record would match on title alone; not enough to stake a pick on.
+    return authors.length > 0 && sameBook(theirs, { title: w.title, authors });
+  });
+  return (matches.find((w) => w.cover_url) ?? matches[0])?.id ?? null;
+}
+
+/**
+ * A pick with no `id` as its catalogue page, when we hold it, so it opens
+ * there instead of in a search. Keeps the pick's own cover if ours has none.
+ * A pick we don't hold (or a failed lookup) comes back as it was.
+ */
+export async function linkToCatalogue(client: BooksydeClient, pick: FeaturedBook): Promise<FeaturedBook> {
+  if (pick.id) return pick;
+  const id = await findWorkByTitle(client, pick.title, pick.author).catch(() => null);
+  const work = id ? await getWork(client, id).catch(() => null) : null;
+  if (!work) return pick;
+  const ours = toFeatured(work);
+  return { ...ours, cover_url: ours.cover_url ?? pick.cover_url, cover_color: ours.cover_color ?? pick.cover_color };
 }

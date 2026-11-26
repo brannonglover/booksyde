@@ -100,7 +100,11 @@ function chartStory({ rank, rankLastWeek: last, weeksOnList: weeks }: ListEntry)
 /** NYT bylines can be "A and B" or "A with B"; the first name is the one we'd hold. */
 const leadAuthor = (byline: string) => byline.split(/\s+(?:and|with)\s+|,|&/)[0].trim();
 
-/** Our work and lead author for each list entry (by rank), by ISBN first and the author's exact name second. */
+/**
+ * Our work and lead author for each list entry (by rank), by ISBN first and
+ * the author's exact name second. A book whose list ISBN none of our editions
+ * carry is still ours if that author's works include its title.
+ */
 async function matchCatalogue(db: BooksydeClient, books: ListEntry[]) {
   const isbns = [...new Set(books.flatMap((b) => b.isbns))];
   const { data: editions } = isbns.length
@@ -120,10 +124,18 @@ async function matchCatalogue(db: BooksydeClient, books: ListEntry[]) {
   const byName = new Map<string, string | null>();
   for (const a of authors ?? []) byName.set(a.name, byName.has(a.name) ? null : a.id);
 
+  const unmatched = books.filter((b) => !b.isbns.some((i) => workByIsbn.has(i)));
+  const theirIds = [...new Set(unmatched.flatMap((b) => byName.get(leadAuthor(b.author)) ?? []))];
+  const { data: theirs } = theirIds.length
+    ? await db.from("work_contributors").select("author_id, works ( id, title )").eq("role", "author").in("author_id", theirIds)
+    : { data: [] };
+  const byTitle = new Map((theirs ?? []).flatMap((c) => (c.works ? [[`${c.author_id}|${titleKey(c.works.title)}`, c.works.id] as const] : [])));
+
   return new Map(
     books.map((b) => {
-      const workId = b.isbns.map((i) => workByIsbn.get(i)).find(Boolean) ?? null;
-      const authorId = (workId && authorByWork.get(workId)) || byName.get(leadAuthor(b.author)) || null;
+      const named = byName.get(leadAuthor(b.author)) ?? null;
+      const workId = b.isbns.map((i) => workByIsbn.get(i)).find(Boolean) ?? (named && byTitle.get(`${named}|${titleKey(b.title)}`)) ?? null;
+      const authorId = (workId && authorByWork.get(workId)) || named;
       return [b.rank, { workId, authorId }] as const;
     }),
   );

@@ -75,7 +75,7 @@ export const FEEL_GOOD_HOLIDAY_PICKS: FeaturedBook[] = (
   tags: [],
 }));
 
-/** An Open Library book as a featured book (not in the catalogue, so no id: it links to search). */
+/** An Open Library book as a featured book (no id: see `linkToCatalogue` for finding our copy). */
 export function openLibraryAsFeatured(book: OpenLibraryBook): FeaturedBook {
   return {
     id: "",

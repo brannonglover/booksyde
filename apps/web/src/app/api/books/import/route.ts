@@ -25,6 +25,9 @@ export async function POST(request: Request) {
     if (!id) return Response.json({ error: "Not found on Open Library" }, { status: 404, headers: cors });
     revalidateTag("catalog-search", { expire: 0 });
     revalidateTag("catalog-drawers", { expire: 0 });
+    // A home-page pick that was a search can now open the book itself.
+    revalidateTag("featured", { expire: 0 });
+    revalidateTag("season-picks", { expire: 0 });
     return Response.json({ id }, { headers: cors });
   } catch (e) {
     console.error("Open Library import failed", olid, e);
