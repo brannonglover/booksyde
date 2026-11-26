@@ -94,6 +94,16 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
           className="absolute inset-0 rounded-2xl"
           {...tracking("book")}
         />
+      ) : story ? (
+        // No book to open (an older headline): the whole card opens the story, so it's never a dead card.
+        <a
+          href={story.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={title}
+          className="absolute inset-0 rounded-2xl"
+          {...tracking("story")}
+        />
       ) : null}
       <BookCover
         title={coverTitle}
