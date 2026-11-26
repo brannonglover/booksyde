@@ -42,15 +42,19 @@ export async function importBestseller(entry: ListEntry): Promise<string | null>
     googleKey && isbn ? await getGoogleBookByIsbn(isbn, googleKey, { cache: "no-store" }).catch(() => null) : null;
   // Only trust Google's details when it's plainly the same book.
   const same = google && titleKey(google.title) === titleKey(entry.title) ? google : null;
+  // Google may only have a special edition ("Peculiar Stars (Special Edition)"), whose blurb is about the
+  // edition: its description is used only when its title is exactly the book's.
+  const exact = same && same.title.trim().toLowerCase() === entry.title.trim().toLowerCase() ? same : null;
   const cover = await pickCover({ isbns: entry.isbns, init: { ...userAgent, cache: "no-store" } });
 
   const db = adminClient();
   const { data: work, error } = await db
     .from("works")
     .insert({
-      title: same?.title ?? entry.title,
+      // The list's title is the book's; Google's can carry an edition ("(Special Edition)").
+      title: entry.title,
       subtitle: same?.subtitle ?? null,
-      description: decode(same?.description ?? entry.description ?? "") || null,
+      description: decode(exact?.description ?? entry.description ?? "") || null,
       first_published_year: same?.year ?? new Date().getUTCFullYear(),
       // The list's own image when nothing better checks out; left unsourced so the cover backfill can improve on it.
       cover_url: cover?.url ?? (entry.coverUrl || null),
