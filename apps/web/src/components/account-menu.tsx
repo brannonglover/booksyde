@@ -51,7 +51,7 @@ export function AccountMenu({ profile }: { profile: Profile }) {
             className="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-surface"
             onClick={() => setOpen(false)}
           >
-            Your bookplate
+            Your shelves
           </Link>
           <Link
             role="menuitem"
