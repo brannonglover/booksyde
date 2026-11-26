@@ -18,8 +18,10 @@ import { supabaseUrl } from "./supabase/env";
  * pale, minimal design that the checks call "blank" is only replaced by the
  * publisher's own art.
  *
- * Google's daily quota is the limit: once Google refuses, the run stops and
- * the rest wait for tomorrow, rather than being marked checked without it.
+ * Google sets the pace: when it says slow down (its per-minute limit) the run
+ * pauses a minute and carries on; refused three times running, it's out of
+ * the day's quota, so the run stops and the rest wait for tomorrow rather
+ * than being marked checked without it.
  */
 
 const secretKey = process.env.SUPABASE_SECRET_KEY ?? "";
@@ -52,8 +54,11 @@ type Work = {
 
 export type CoverRunResult = { checked: number; upgraded: number; found: number; kept: number; skipped: number; stoppedBy: string | null };
 
-/** Whether an error from Google means "no more today" (quota or rate limit) rather than a one-off. */
+/** Whether an error from Google means "slow down" or "no more today" (rate limit or quota) rather than a one-off. */
 const isQuota = (e: unknown) => /\((429|403)\)/.test(String(e));
+/** Google's per-minute limit resets within a minute; refused this many times running, it's the daily quota. */
+const GOOGLE_PAUSE_MS = 65_000;
+const GOOGLE_REFUSALS = 3;
 
 export async function refreshCovers({
   budgetMs = 240_000,
@@ -67,16 +72,23 @@ export async function refreshCovers({
   const changes: string[] = [];
   const stop = (why: string) => (result.stoppedBy ??= why);
   const going = () => !result.stoppedBy && Date.now() < deadline && result.checked + result.skipped < limit;
+  // When Google says slow down, every worker waits until then; refused again and again, the run stops.
+  let pausedUntil = 0;
+  let refusedInARow = 0;
+  const waitForGoogle = async () => {
+    const wait = pausedUntil - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  };
 
-  /** One book: its best cover, and whether we could judge it today. */
-  async function check(work: Work): Promise<void> {
+  /** One book: whether it got its look today, or Google turned it away. */
+  async function check(work: Work): Promise<"done" | "google refused"> {
     let googleRefused = false;
     const current = work.cover_url ? await inspectCover(work.cover_url, init) : null;
     // Open Library busy or down: we can't tell how good the current cover is, so try again another day.
     if (current && !current.ok && /^HTTP (429|5\d\d)$|^download failed$/.test(current.reason)) {
       result.skipped++;
       if (current.reason.startsWith("HTTP 429")) stop("Open Library rate limit");
-      return;
+      return "done";
     }
 
     const currentId = Number(work.cover_url?.match(/covers\.openlibrary\.org\/b\/id\/(\d+)-/)?.[1]) || null;
@@ -92,12 +104,9 @@ export async function refreshCovers({
         if (isQuota(e)) googleRefused = true;
       },
     });
-    if (googleRefused) {
-      // Not checked: it gets Google's look tomorrow.
-      result.skipped++;
-      stop("Google Books quota");
-      return;
-    }
+    // Not judged without Google: the caller waits and tries again.
+    if (googleRefused) return "google refused";
+    refusedInARow = 0;
 
     let better = false;
     if (picked && picked.url !== work.cover_url) {
@@ -121,12 +130,34 @@ export async function refreshCovers({
       result.kept++;
     }
     result.checked++;
-    if (!apply) return;
+    if (!apply) return "done";
     const { error } = await db
       .from("works")
       .update(better && picked ? { cover_url: picked.url, cover_source: picked.source, cover_checked_at: now } : { cover_checked_at: now })
       .eq("id", work.id);
     if (error) throw error;
+    return "done";
+  }
+
+  /** A book, retried after a pause while Google is only rate-limiting; left for tomorrow if Google is out for the day. */
+  async function checkPatiently(work: Work) {
+    for (;;) {
+      await waitForGoogle();
+      if (await check(work) === "done") return;
+      // Workers refused in the same burst share one pause; refused again once it's over counts again.
+      if (Date.now() >= pausedUntil) {
+        if (++refusedInARow >= GOOGLE_REFUSALS) {
+          stop("Google Books quota");
+          result.skipped++;
+          return;
+        }
+        pausedUntil = Date.now() + GOOGLE_PAUSE_MS;
+      }
+      if (pausedUntil >= deadline) {
+        result.skipped++;
+        return;
+      }
+    }
   }
 
   // Pages of the longest-waiting books, a few at a time, until the time, the quota or the limit runs out.
@@ -149,7 +180,7 @@ export async function refreshCovers({
       Array.from({ length: CONCURRENCY }, async () => {
         for (let w = queue.shift(); w && going(); w = queue.shift()) {
           try {
-            await check(w);
+            await checkPatiently(w);
           } catch (e) {
             console.error(`Covers: ${w.title} failed`, e);
             result.skipped++;
