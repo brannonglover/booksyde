@@ -491,6 +491,14 @@ export function bookIdentity(title: string, author?: string | null) {
 /** Just what matching needs: a title and author names, lead author first. */
 export type BookLike = { title: string; authors: string[] };
 
+/** A one-line byline as the NYT lists print it ("Dean Norris with Joe Layden", "James Patterson and Mike Lupica") → each person. */
+export function bylineNames(byline: string) {
+  return byline
+    .split(/\s+(?:and|with)\s+|,\s*|\s+&\s+/)
+    .map((n) => n.trim())
+    .filter(Boolean);
+}
+
 /**
  * Whether two records are the same book, across catalogues: the same title,
  * and at least one author surname in common. A side with no authors at all

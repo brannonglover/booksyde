@@ -146,7 +146,7 @@ async function addChartBooks(db: BooksydeClient, books: ListEntry[], matched: Ma
     try {
       const olid = await findOnOpenLibrary(b).catch(() => null);
       // Brand-new books often aren't on Open Library yet: those get a page from the list and Google Books.
-      const workId = (olid ? await importOpenLibraryWork(olid) : null) ?? (await importBestseller(b));
+      const workId = (olid ? await importOpenLibraryWork(olid, { coverUrl: b.coverUrl, isbns: b.isbns }) : null) ?? (await importBestseller(b));
       if (workId) added.push({ rank: b.rank, workId });
     } catch (e) {
       console.error(`News: couldn't add "${b.title}" to the catalogue`, e);

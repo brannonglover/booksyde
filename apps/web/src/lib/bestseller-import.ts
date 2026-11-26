@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createBooksydeClient, getGoogleBookByIsbn, titleKey } from "@booksyde/shared";
+import { bylineNames, createBooksydeClient, getGoogleBookByIsbn, titleKey } from "@booksyde/shared";
 import type { ListEntry } from "./bestsellers";
 import { pickCover } from "./covers";
 import { findCatalogueMatch, userAgent } from "./open-library-import";
@@ -23,13 +23,6 @@ const secretKey = process.env.SUPABASE_SECRET_KEY ?? "";
 function adminClient() {
   return createBooksydeClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
-
-/** "Dean Norris with Joe Layden", "James Patterson and Mike Lupica" → each person. */
-const bylineNames = (byline: string) =>
-  byline
-    .split(/\s+(?:and|with)\s+|,\s*|\s+&\s+/)
-    .map((n) => n.trim())
-    .filter(Boolean);
 
 const ENTITIES: Record<string, string> = { amp: "&", quot: '"', apos: "'", "#39": "'", lt: "<", gt: ">", nbsp: " " };
 const decode = (text: string) => text.replace(/&(amp|quot|apos|#39|lt|gt|nbsp);/g, (_, e: string) => ENTITIES[e]);

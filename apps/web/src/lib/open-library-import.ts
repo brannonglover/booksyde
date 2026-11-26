@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   type BookLike,
+  bylineNames,
   createBooksydeClient,
   fileInSeries,
   getOpenLibraryAuthor,
@@ -12,7 +13,7 @@ import {
   sameBook,
   titleKey,
 } from "@booksyde/shared";
-import { pickCover } from "./covers";
+import { inspectCover, pickCover } from "./covers";
 import { supabaseUrl } from "./supabase/env";
 
 const secretKey = process.env.SUPABASE_SECRET_KEY ?? "";
@@ -22,6 +23,8 @@ export const canImportBooks = Boolean(supabaseUrl && secretKey);
 function adminClient() {
   return createBooksydeClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
+
+type Db = ReturnType<typeof adminClient>;
 
 export const userAgent = { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } };
 
@@ -67,28 +70,76 @@ export async function findCatalogueMatch(book: BookLike & { isbns?: string[] }):
   return (sameTitle ?? []).map(toHeld).find((w) => sameBook(w, book)) ?? null;
 }
 
+/** How a New York Times list has a book: its cover image and ISBNs, the list's main one first. */
+export type Listing = { coverUrl: string | null; isbns: string[] };
+
+/**
+ * This book on a New York Times list we've seen (the latest week it was on
+ * one), by ISBN or else by title and an author. Null if it hasn't charted.
+ */
+export async function findListing(db: Db, book: BookLike & { isbns: string[] }): Promise<Listing | null> {
+  const fields = "isbn13, cover_url, title, author";
+  const toListing = (e: { isbn13: string | null; cover_url: string | null }) => ({ coverUrl: e.cover_url, isbns: e.isbn13 ? [e.isbn13] : [] });
+
+  if (book.isbns.length) {
+    const { data } = await db.from("bestseller_entries").select(fields).in("isbn13", book.isbns).order("list_date", { ascending: false }).limit(1);
+    if (data?.[0]) return toListing(data[0]);
+  }
+  // The lists print titles in capitals, so match loosely here and compare properly after.
+  const words = book.title.split(/[:;(]/)[0].trim().replace(/[%_\\]/g, "");
+  if (!words) return null;
+  const { data } = await db.from("bestseller_entries").select(fields).ilike("title", `${words}%`).order("list_date", { ascending: false }).limit(20);
+  const hit = (data ?? []).find((e) => sameBook({ title: e.title, authors: bylineNames(e.author) }, book));
+  return hit ? toListing(hit) : null;
+}
+
+/**
+ * Files a listing's main ISBN with the work, so the news job finds our copy
+ * by ISBN (Open Library often lacks the US edition a list names), and points
+ * the list's rows and stories for that ISBN at it so their cards open the book now.
+ */
+async function fileListing(db: Db, workId: string, listing: Listing) {
+  const isbn = listing.isbns[0];
+  if (!isbn) return;
+  const held = await db.from("editions").select("work_id").eq("isbn_13", isbn).maybeSingle();
+  if (held.data && held.data.work_id !== workId) return;
+  if (!held.data) await db.from("editions").insert({ work_id: workId, isbn_13: isbn, format: "other" });
+  await db.from("bestseller_entries").update({ work_id: workId }).eq("isbn13", isbn).is("work_id", null);
+  await db.from("news_items").update({ work_id: workId }).like("key", `chart:%:${isbn}`).is("work_id", null);
+}
+
 /**
  * Brings an Open Library work into the catalogue (title, description, cover,
  * authors, one edition, genre tags) and returns its Booksyde id. Idempotent:
  * a work we already hold — by Open Library id, a shared ISBN, or same title
  * and an author in common — just returns the existing id. Null if Open Library doesn't know the work.
+ *
+ * `listing` is the book as a New York Times list has it, when the caller is
+ * working from one (the news job); otherwise the lists we've stored are
+ * checked. New bestsellers often chart before anyone gives Open Library a
+ * cover, so the list's image stands in until a better one turns up.
  */
-export async function importOpenLibraryWork(olid: string): Promise<string | null> {
+export async function importOpenLibraryWork(olid: string, listing?: Listing): Promise<string | null> {
   if (!OPEN_LIBRARY_WORK_ID.test(olid)) return null;
   if (!canImportBooks) throw new Error("SUPABASE_SECRET_KEY is not set, so books can't be added to the catalogue.");
   const db = adminClient();
 
   const existing = await db.from("works").select("id").eq("open_library_id", olid).maybeSingle();
-  if (existing.data) return existing.data.id;
+  if (existing.data) {
+    if (listing) await fileListing(db, existing.data.id, listing);
+    return existing.data.id;
+  }
 
   const book = await getOpenLibraryBook(olid, userAgent);
   if (!book) return null;
+  const authors = book.authors.map((a) => a.name);
 
   // Already on file under another (or no) Open Library id? See findCatalogueMatch for what counts.
-  const match = await findCatalogueMatch({ title: book.title, authors: book.authors.map((a) => a.name), isbns: book.isbns });
+  const match = await findCatalogueMatch({ title: book.title, authors, isbns: book.isbns });
   if (match) {
     if (!match.open_library_id) await db.from("works").update({ open_library_id: olid }).eq("id", match.id);
     await fileSeries(db, match.id, book.series, { onlyIfUnfiled: true });
+    if (listing) await fileListing(db, match.id, listing);
     return match.id;
   }
 
@@ -98,6 +149,10 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
       ? [{ coverId: book.coverId, isbn13: book.isbn13 }, ...book.editions]
       : book.editions;
   const cover = await pickCover({ isbns: [book.isbn13], editions, init: userAgent });
+  const listed = listing ?? (await findListing(db, { title: book.title, authors, isbns: book.isbns }));
+  // Left unsourced, like the list covers bestseller-import uses, so the cover backfill can improve on it.
+  const listCover =
+    !cover && listed?.coverUrl && (await inspectCover(listed.coverUrl, userAgent)).ok ? listed.coverUrl : null;
 
   const { data: work, error } = await db
     .from("works")
@@ -106,7 +161,7 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
       subtitle: book.subtitle,
       description: book.description,
       first_published_year: book.year,
-      cover_url: cover?.url ?? null,
+      cover_url: cover?.url ?? listCover,
       cover_source: cover?.source ?? null,
       open_library_id: olid,
     })
@@ -162,6 +217,7 @@ export async function importOpenLibraryWork(olid: string): Promise<string | null
     const { error: editionError } = await db.from("editions").insert(edition);
     if (editionError && book.isbn13) await db.from("editions").insert({ ...edition, isbn_13: null });
   }
+  if (listed) await fileListing(db, work.id, listed);
 
   const slugs = openLibraryTags(book.subjects);
   if (slugs.length) {
