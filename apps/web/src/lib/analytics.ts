@@ -41,6 +41,9 @@ export const AnalyticsEvent = {
   BookUnshelved: "book_unshelved",
   /** Following a reader (a request, for a private profile). */
   ReaderFollowed: "reader_followed",
+  /** Following an author, to hear about their new books and news. */
+  AuthorFollowed: "author_followed",
+  AuthorUnfollowed: "author_unfollowed",
   /** Server-side, once a new club exists. */
   ClubCreated: "club_created",
   /** Server-side, per batch of a Goodreads import (a big library arrives in several). */

@@ -61,16 +61,42 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"authors": {
+                },"author_follows": {
                   Row: {
-                    "bio": string | null,"birth_date": string | null,"created_at": string,"death_date": string | null,"id": string,"name": string,"open_library_id": string | null,"photo_url": string | null,"releases_checked_at": string | null,"updated_at": string
+                    "author_id": string,"created_at": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"id"?: string,"name": string,"open_library_id"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
+                    "author_id": string,"created_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"id"?: string,"name"?: string,"open_library_id"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
+                    "author_id"?: string,"created_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "author_follows_author_id_fkey"
+      columns: ["author_id"]
+isOneToOne: false
+      referencedRelation: "authors"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "author_follows_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"authors": {
+                  Row: {
+                    "bio": string | null,"birth_date": string | null,"created_at": string,"death_date": string | null,"followers_count": number,"id": string,"name": string,"open_library_id": string | null,"photo_url": string | null,"releases_checked_at": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"followers_count"?: number,"id"?: string,"name": string,"open_library_id"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"followers_count"?: number,"id"?: string,"name"?: string,"open_library_id"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -643,6 +669,11 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
+"author_news":
+{ Args: { "max_results"?: number,"target": string }; Returns: {
+              "author_id": string | null,"author_name": string | null,"book_id": string | null,"cover_color": string | null,"cover_url": string | null,"for_you": boolean,"happens_at": string | null,"headline": string,"id": string,"kind": Database["public"]["Enums"]["news_kind"],"label": string | null,"published_at": string,"shelf_status": Database["public"]["Enums"]["reading_status"] | null,"source": string | null,"title": string | null,"url": string | null,"work_id": string | null
+            }[]
+                           },
             "arrange_shelf":
 { Args: { "p_status": Database["public"]['Enums']["reading_status"],"p_work_ids": (string)[] }; Returns: undefined
                            },

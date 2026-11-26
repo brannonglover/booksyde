@@ -43,7 +43,8 @@ export function NewsSection({ readerId }: { readerId: string | null }) {
   );
 }
 
-function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
+/** A story card; on the author's own screen (`onAuthorPage`) the byline doesn't link back to it. */
+export function NewsCard({ item, now, onAuthorPage = false }: { item: NewsItem; now: Date; onAuthorPage?: boolean }) {
   const theme = useTheme();
   const router = useRouter();
   const { badge, title, line, coverTitle } = describeNews(item, now);
@@ -85,9 +86,13 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
       accessibilityLabel={`${badge ? `${badge}: ` : ''}${title}${item.author_name ? ` by ${item.author_name}` : ''}. ${line}${shelf ? `. ${shelf.text}` : ''}`}
       accessibilityHint={openBook ? 'Opens the book' : 'Opens the story'}
       // The card reads as one element to a screen reader, so the story link inside it is offered as an action.
-      accessibilityActions={openBook && openStory ? [{ name: 'openStory', label: 'Open the story' }] : undefined}
+      accessibilityActions={[
+        ...(openBook && openStory ? [{ name: 'openStory', label: 'Open the story' }] : []),
+        ...(item.author_id && item.author_name && !onAuthorPage ? [{ name: 'openAuthor', label: `More from ${item.author_name}` }] : []),
+      ]}
       onAccessibilityAction={(e) => {
         if (e.nativeEvent.actionName === 'openStory') openStory?.();
+        if (e.nativeEvent.actionName === 'openAuthor' && item.author_id) router.push({ pathname: '/author/[id]', params: { id: item.author_id } });
       }}
       style={{ flex: 1 }}
     >
@@ -121,7 +126,19 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
               ) : null}
             </View>
             {heading}
-            {item.author_name ? (
+            {item.author_name && item.author_id && !onAuthorPage ? (
+              <Pressable
+                onPress={() => router.push({ pathname: '/author/[id]', params: { id: item.author_id! } })}
+                accessibilityRole="link"
+                accessibilityLabel={`More from ${item.author_name}`}
+                hitSlop={6}
+                style={({ pressed }) => ({ alignSelf: 'flex-start', opacity: pressed ? 0.6 : 1 })}
+              >
+                <Text style={[styles.byline, { color: theme.textSecondary, textDecorationLine: 'underline', textDecorationColor: theme.border }]} numberOfLines={1}>
+                  {item.author_name}
+                </Text>
+              </Pressable>
+            ) : item.author_name ? (
               <Text style={[styles.byline, { color: theme.textSecondary }]} numberOfLines={1}>
                 {item.author_name}
               </Text>

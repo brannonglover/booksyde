@@ -19,7 +19,7 @@ import {
 } from '@booksyde/shared';
 import { genreColor, mixHex, palette, radii, spacing } from '@booksyde/theme';
 import { Image } from 'expo-image';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -68,6 +68,7 @@ function parseTags(raw: string | string[] | undefined) {
 export default function SearchScreen() {
   const theme = useTheme();
   const quick = useQuickShelf();
+  const router = useRouter();
   const scheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { contentWidth } = useBreakpoint();
@@ -263,7 +264,12 @@ export default function SearchScreen() {
                     <View style={{ gap: spacing[3] }}>
                       <AsideHeading>AUTHORS</AsideHeading>
                       {results.authors.map((a) => (
-                        <Pressable key={a.id} onPress={() => setQ(a.name)} style={styles.authorRow}>
+                        <Pressable
+                          key={a.id}
+                          onPress={() => router.push({ pathname: '/author/[id]', params: { id: a.id } })}
+                          accessibilityRole="link"
+                          style={({ pressed }) => [styles.authorRow, pressed && { opacity: 0.7 }]}
+                        >
                           <View style={[styles.authorBadge, { borderColor: palette.gilt, backgroundColor: theme.backgroundElement }]}>
                             <Text style={[styles.authorInitials, { color: theme.text }]}>
                               {a.name

@@ -55,7 +55,16 @@ export async function NewsSection() {
  * opens the story itself where it lives elsewhere (the article, the list, the
  * prize's or film's page).
  */
-function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
+export function NewsCard({
+  item,
+  now,
+  location = "home",
+}: {
+  item: NewsItem;
+  now: Date;
+  /** Where the card is, for analytics. On the author's own page, the byline doesn't link back to it. */
+  location?: "home" | "author";
+}) {
   const { badge, title, line, coverTitle } = describeNews(item, now);
   const book = newsBook(item);
   const story = newsStory(item);
@@ -67,7 +76,7 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
       target,
       for_you: item.for_you ? 1 : 0,
       on_shelf: item.shelf_status ? 1 : 0,
-      location: "home",
+      location,
     });
   // Sits above the book link that covers the card, so it takes its own clicks.
   const storyLink = "pointer-events-auto relative z-10 block rounded-md decoration-accent/50 underline-offset-4 hover:text-accent hover:underline";
@@ -125,7 +134,13 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
           ) : null}
         </div>
         {heading}
-        {item.author_name ? <p className="truncate text-sm text-muted">{item.author_name}</p> : null}
+        {item.author_name && item.author_id && location !== "author" ? (
+          <Link href={`/authors/${item.author_id}`} className={`${storyLink} self-start truncate text-sm text-muted`}>
+            {item.author_name}
+          </Link>
+        ) : item.author_name ? (
+          <p className="truncate text-sm text-muted">{item.author_name}</p>
+        ) : null}
         <div className="mt-auto pt-2">
           {story ? (
             <a href={story.url} target="_blank" rel="noopener noreferrer" className={`${storyLink} self-start`} {...tracking("story")}>

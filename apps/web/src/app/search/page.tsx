@@ -388,7 +388,7 @@ function AuthorList({ authors }: { authors: Author[] }) {
           const n = a.works;
           return (
             <li key={a.id}>
-              <Link href={hrefFor(a.name, [])} className="flex items-center gap-3 rounded-xl p-2 hover:bg-surface">
+              <Link href={`/authors/${a.id}`} className="flex items-center gap-3 rounded-xl p-2 hover:bg-surface">
                 <span
                   aria-hidden
                   className="relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border border-gilt/60 bg-surface font-display text-xl"

@@ -218,7 +218,24 @@ function BookDetail({ data }: { data: BookData }) {
           </Pressable>
         ) : null}
         <Ornament />
-        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.byline, { color: theme.text }]}>by {authorNames}</Text>
+        <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.byline, { color: theme.text }]}>
+          by{' '}
+          {authors.length === 0
+            ? authorNames
+            : authors.map((a, i) => (
+                <Text key={a.id}>
+                  {i > 0 ? ' & ' : null}
+                  <Link
+                    href={{ pathname: '/author/[id]', params: { id: a.id } }}
+                    push
+                    accessibilityRole="link"
+                    style={[styles.inlineLink, { color: theme.text, textDecorationColor: theme.border }]}
+                  >
+                    {a.name}
+                  </Link>
+                </Text>
+              ))}
+        </Text>
         {work.first_published_year ? (
           <Text style={[styles.kicker, { color: theme.textSecondary, letterSpacing: 1.6 }]}>
             FIRST PRINTED IN {work.first_published_year}
@@ -408,6 +425,14 @@ function BookDetail({ data }: { data: BookData }) {
               </Text>
             ) : null}
             {a.bio ? <Text style={[styles.authorBio, { color: theme.textSecondary }]}>{a.bio}</Text> : null}
+            <Link href={{ pathname: '/author/[id]', params: { id: a.id } }} push asChild>
+              <Pressable
+                accessibilityRole="link"
+                style={({ pressed }) => [styles.moreFrom, { borderColor: pressed ? theme.accent : theme.border }]}
+              >
+                <Text style={{ color: theme.text, fontWeight: '700', fontSize: 14 }}>More from {a.name} →</Text>
+              </Pressable>
+            </Link>
           </Card>
         ))}
 
@@ -817,6 +842,7 @@ const styles = StyleSheet.create({
   cameoInitial: { color: palette.paper, fontFamily: DisplayFonts.regular, fontSize: 44 },
   authorName: { fontFamily: DisplayFonts.regular, fontSize: 30 },
   authorBio: { lineHeight: 22, textAlign: 'center' },
+  moreFrom: { borderWidth: 1, borderRadius: radii.pill, paddingHorizontal: spacing[4], paddingVertical: spacing[2], marginTop: spacing[2] },
   shelfScroll: { paddingHorizontal: spacing[4], paddingTop: spacing[5] },
   shelfRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[4], paddingHorizontal: spacing[3] },
   shelfBoard: {

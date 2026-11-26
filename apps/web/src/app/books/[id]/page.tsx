@@ -163,7 +163,20 @@ async function BookDetail({ params }: { params: Params }) {
               {book.subtitle ? <p className="mt-2 font-display text-xl italic text-muted">{book.subtitle}</p> : null}
               {series ? <SeriesTag series={series} /> : null}
               <p className="mt-5 font-display text-2xl italic">
-                by {authorNames}
+                by{" "}
+                {authors.length === 0
+                  ? authorNames
+                  : authors.map((a, i) => (
+                      <span key={a.id}>
+                        {i > 0 ? " & " : null}
+                        <Link
+                          href={`/authors/${a.id}`}
+                          className="underline decoration-border decoration-1 underline-offset-4 transition hover:text-accent hover:decoration-accent"
+                        >
+                          {a.name}
+                        </Link>
+                      </span>
+                    ))}
                 {book.first_published_year ? (
                   <span className="ml-2 align-middle text-xs font-semibold not-italic uppercase tracking-[0.22em] text-muted">
                     · {book.first_published_year}
@@ -349,6 +362,12 @@ async function BookDetail({ params }: { params: Params }) {
                     </p>
                   ) : null}
                   {a.bio ? <p className="mt-3 leading-relaxed text-muted">{a.bio}</p> : null}
+                  <Link
+                    href={`/authors/${a.id}`}
+                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:border-accent hover:text-accent"
+                  >
+                    More from {a.name} <span aria-hidden>→</span>
+                  </Link>
                 </figcaption>
               </figure>
             ))}

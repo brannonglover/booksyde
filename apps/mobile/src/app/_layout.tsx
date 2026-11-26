@@ -51,6 +51,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="book/[id]" options={{ title: '' }} />
+        <Stack.Screen name="author/[id]" options={{ title: '' }} />
         <Stack.Screen name="u/[username]" options={{ title: '' }} />
         <Stack.Screen name="shelf/[status]" options={{ title: '' }} />
         <Stack.Screen name="clubs/[slug]" options={{ title: '' }} />

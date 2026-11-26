@@ -2,6 +2,8 @@ import "server-only";
 
 import {
   createBooksydeClient,
+  getAuthor as getAuthorFor,
+  getAuthorNews,
   getDiscoverShelves as getDiscoverShelvesFor,
   getFeaturedBook as getFeaturedBookFor,
   type FeaturedBook,
@@ -55,6 +57,24 @@ export async function getSeriesBooks(seriesId: string) {
   cacheTag(`series:${seriesId}`, "catalog-search");
   if (!UUID.test(seriesId)) return [];
   return getSeriesShelf(publicClient(), seriesId);
+}
+
+/** An author and their books; null if there's no such author. Adding a book to the catalogue can add to it. */
+export async function getAuthorPage(id: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(`author:${id}`, "catalog-search");
+  if (!UUID.test(id)) return null;
+  return getAuthorFor(publicClient(), id);
+}
+
+/** An author's current stories. The news job writes once a day. */
+export async function getAuthorStories(id: string) {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(`author:${id}`, "news");
+  if (!UUID.test(id)) return [];
+  return getAuthorNews(publicClient(), id, 6);
 }
 
 /** Ratings, reviews and shelf counts change more often than the book itself. */
