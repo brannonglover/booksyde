@@ -1,4 +1,4 @@
-import { describeNews, getNewsFeed, type NewsItem, newsShelfTag, newsTarget } from '@booksyde/shared';
+import { describeNews, getNewsFeed, type NewsItem, newsBook, newsShelfTag, newsStory } from '@booksyde/shared';
 import { radii, spacing } from '@booksyde/theme';
 import { useRouter } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -47,19 +47,49 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
   const theme = useTheme();
   const router = useRouter();
   const { badge, title, line, coverTitle } = describeNews(item, now);
-  const target = newsTarget(item);
+  const book = newsBook(item);
+  const story = newsStory(item);
   const shelf = newsShelfTag(item);
-  const open = () => {
-    if ('url' in target) Linking.openURL(target.url);
-    else if ('workId' in target) router.push({ pathname: '/book/[id]', params: { id: target.workId } });
-    // A book that isn't in the catalogue yet goes to search, where it can be found and added.
-    else router.push({ pathname: '/search', params: { q: target.search } });
-  };
+  // Two ways in: the card opens the book, and the story line (a headline's title too) opens the story where it lives.
+  const openBook = book
+    ? () => {
+        if ('workId' in book) router.push({ pathname: '/book/[id]', params: { id: book.workId } });
+        // A book that isn't in the catalogue yet goes to search, where it can be found and added.
+        else router.push({ pathname: '/search', params: { q: book.search } });
+      }
+    : null;
+  const openStory = story ? () => Linking.openURL(story.url) : null;
+  const titleIsStory = item.kind === 'article' && openStory;
+  const storyLine = (
+    <>
+      <Text style={[styles.line, { color: theme.text }]} numberOfLines={2}>
+        {line}
+      </Text>
+      {item.source ? (
+        <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.source, { color: openStory ? theme.accent : theme.textSecondary }]} numberOfLines={1}>
+          {item.source}
+          {openStory ? ' ↗' : ''}
+        </Text>
+      ) : null}
+    </>
+  );
+  const heading = (
+    <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.bookTitle, { color: theme.text }]} numberOfLines={2}>
+      {title}
+    </Text>
+  );
   return (
     <Pressable
-      onPress={open}
-      accessibilityRole={'url' in target ? 'link' : 'button'}
+      onPress={openBook ?? openStory ?? undefined}
+      disabled={!openBook && !openStory}
+      accessibilityRole={openBook ? 'button' : 'link'}
       accessibilityLabel={`${badge ? `${badge}: ` : ''}${title}${item.author_name ? ` by ${item.author_name}` : ''}. ${line}${shelf ? `. ${shelf.text}` : ''}`}
+      accessibilityHint={openBook ? 'Opens the book' : 'Opens the story'}
+      // The card reads as one element to a screen reader, so the story link inside it is offered as an action.
+      accessibilityActions={openBook && openStory ? [{ name: 'openStory', label: 'Open the story' }] : undefined}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'openStory') openStory?.();
+      }}
       style={{ flex: 1 }}
     >
       {({ pressed }) => (
@@ -91,22 +121,32 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
                 </Text>
               ) : null}
             </View>
-            <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.bookTitle, { color: theme.text }]} numberOfLines={2}>
-              {title}
-            </Text>
+            {titleIsStory && openBook ? (
+              <Pressable onPress={openStory} accessibilityRole="link" accessibilityHint="Opens the story">
+                {heading}
+              </Pressable>
+            ) : (
+              heading
+            )}
             {item.author_name ? (
               <Text style={[styles.byline, { color: theme.textSecondary }]} numberOfLines={1}>
                 {item.author_name}
               </Text>
             ) : null}
-            <Text style={[styles.line, { color: theme.text }]} numberOfLines={2}>
-              {line}
-            </Text>
-            {item.source ? (
-              <Text maxFontSizeMultiplier={ChromeMaxScale} style={[styles.source, { color: theme.textSecondary }]} numberOfLines={1}>
-                {item.source}
-              </Text>
-            ) : null}
+            {openStory && openBook ? (
+              <Pressable
+                onPress={openStory}
+                accessibilityRole="link"
+                accessibilityLabel={`${line}. ${item.source ?? ''}`}
+                accessibilityHint="Opens the story"
+                hitSlop={6}
+                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+              >
+                {storyLine}
+              </Pressable>
+            ) : (
+              storyLine
+            )}
           </View>
         </View>
       )}

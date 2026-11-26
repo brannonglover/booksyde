@@ -81,9 +81,23 @@ export function newsShelfTag(item: NewsItem): { text: string; onShelf: boolean }
   return null;
 }
 
-/** Where a story leads: our book page, a search for a book we don't hold yet, or the story itself elsewhere. */
-export function newsTarget(item: NewsItem): { workId: string } | { search: string } | { url: string } {
-  if (item.work_id) return { workId: item.work_id };
-  if (item.url) return { url: item.url };
-  return { search: `${item.title ?? ""} ${item.author_name ?? ""}`.trim() };
+/**
+ * Where a card's cover (and, except for a headline, its title) leads: our book
+ * page, or a search for a book we don't hold yet. For a headline it's the
+ * author's book on the card's cover. Null when there's no book to open.
+ */
+export function newsBook(item: NewsItem): { workId: string } | { search: string } | null {
+  const id = item.book_id ?? item.work_id;
+  if (id) return { workId: id };
+  if (item.kind === "article" || !item.title) return null;
+  return { search: `${item.title} ${item.author_name ?? ""}`.trim() };
+}
+
+/**
+ * Where the story itself leads, for stories that live somewhere else: the
+ * article, the bestseller list, or the prize's or film's page. Null for
+ * stories that are only about the book (new releases, Booksyde buzz).
+ */
+export function newsStory(item: NewsItem): { url: string } | null {
+  return item.url ? { url: item.url } : null;
 }

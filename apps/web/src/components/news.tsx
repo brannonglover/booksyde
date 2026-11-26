@@ -1,4 +1,4 @@
-import { describeNews, getNewsFeed, type NewsItem, newsShelfTag, newsTarget } from "@booksyde/shared";
+import { describeNews, getNewsFeed, type NewsItem, newsBook, newsShelfTag, newsStory } from "@booksyde/shared";
 import Link from "next/link";
 import { connection } from "next/server";
 import { BookCover } from "@/components/book-cover";
@@ -49,21 +49,62 @@ export async function NewsSection() {
   );
 }
 
+/**
+ * A story about a book, with two ways in: the cover and title open the book
+ * (its page, or a search if we don't hold it yet), and the story line opens
+ * the story itself where it lives elsewhere (the article, the list, the
+ * prize's or film's page). For a headline, the headline is the story's.
+ */
 function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
   const { badge, title, line, coverTitle } = describeNews(item, now);
-  const target = newsTarget(item);
+  const book = newsBook(item);
+  const story = newsStory(item);
   const shelf = newsShelfTag(item);
-  const body = (
+  const bookHref = book ? ("workId" in book ? `/books/${book.workId}` : `/search?q=${encodeURIComponent(book.search)}`) : null;
+  const titleIsStory = item.kind === "article" && story;
+  const tracking = (target: "book" | "story") =>
+    track(AnalyticsEvent.NewsClicked, {
+      kind: item.kind,
+      target,
+      for_you: item.for_you ? 1 : 0,
+      on_shelf: item.shelf_status ? 1 : 0,
+      location: "home",
+    });
+  // Sits above the book link that covers the card, so it takes its own clicks.
+  const storyLink = "pointer-events-auto relative z-10 block rounded-md decoration-accent/50 underline-offset-4 hover:text-accent hover:underline";
+
+  const heading = <h3 className="mt-1.5 line-clamp-2 font-display text-xl leading-tight">{title}</h3>;
+  const storyLine = (
     <>
+      <span className="block text-sm font-medium">{line}</span>
+      {item.source ? (
+        <span className="block text-xs text-muted">
+          {item.source}
+          {story ? <span aria-hidden> ↗</span> : null}
+        </span>
+      ) : null}
+    </>
+  );
+
+  return (
+    <div className="group relative flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-accent/50 hover:bg-surface-raised hover:shadow-[0_14px_30px_-22px_rgba(31,27,22,0.6)]">
+      {bookHref ? (
+        <Link
+          href={bookHref}
+          aria-label={`${coverTitle === "a book" ? "The author's book" : coverTitle}${item.author_name ? ` by ${item.author_name}` : ""}`}
+          className="absolute inset-0 rounded-2xl"
+          {...tracking("book")}
+        />
+      ) : null}
       <BookCover
         title={coverTitle}
         author={item.author_name ?? ""}
         src={item.cover_url}
         color={item.cover_color}
         sizes="80px"
-        className="w-16 shrink-0 sm:w-20"
+        className="pointer-events-none w-16 shrink-0 sm:w-20"
       />
-      <div className="flex min-w-0 flex-1 flex-col self-stretch">
+      <div className="pointer-events-none flex min-w-0 flex-1 flex-col self-stretch">
         <div className="flex flex-wrap items-center gap-2">
           {badge ? <span className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{badge}</span> : null}
           {shelf ? (
@@ -74,28 +115,24 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
             </span>
           ) : null}
         </div>
-        <h3 className="mt-1.5 line-clamp-2 font-display text-xl leading-tight">{title}</h3>
+        {titleIsStory ? (
+          <a href={story.url} target="_blank" rel="noopener noreferrer" tabIndex={-1} className={storyLink} {...tracking("story")}>
+            {heading}
+          </a>
+        ) : (
+          heading
+        )}
         {item.author_name ? <p className="truncate text-sm text-muted">{item.author_name}</p> : null}
-        <p className="mt-auto pt-2 text-sm font-medium">{line}</p>
-        {item.source ? <p className="text-xs text-muted">{item.source}</p> : null}
+        <div className="mt-auto pt-2">
+          {story ? (
+            <a href={story.url} target="_blank" rel="noopener noreferrer" className={`${storyLink} self-start`} {...tracking("story")}>
+              {storyLine}
+            </a>
+          ) : (
+            storyLine
+          )}
+        </div>
       </div>
-    </>
-  );
-  const className =
-    "group flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 transition hover:-translate-y-0.5 hover:border-accent/50 hover:bg-surface-raised hover:shadow-[0_14px_30px_-22px_rgba(31,27,22,0.6)]";
-  const tracking = track(AnalyticsEvent.NewsClicked, { kind: item.kind, for_you: item.for_you ? 1 : 0, on_shelf: item.shelf_status ? 1 : 0, location: "home" });
-
-  if ("url" in target) {
-    return (
-      <a href={target.url} target="_blank" rel="noopener noreferrer" className={className} {...tracking}>
-        {body}
-      </a>
-    );
-  }
-  const href = "workId" in target ? `/books/${target.workId}` : `/search?q=${encodeURIComponent(target.search)}`;
-  return (
-    <Link href={href} className={className} {...tracking}>
-      {body}
-    </Link>
+    </div>
   );
 }

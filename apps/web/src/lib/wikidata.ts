@@ -93,6 +93,8 @@ export type PrizeNews = WikidataBook & {
   year: number;
   /** "2026-11-09" when Wikidata has the day; usually it only has the year. */
   date: string | null;
+  /** The prize's English Wikipedia article, where a reader can find out more. */
+  prizeUrl: string | null;
 };
 
 /**
@@ -102,13 +104,14 @@ export type PrizeNews = WikidataBook & {
  */
 export async function getPrizeNews(sinceYear: number): Promise<PrizeNews[]> {
   const rows = await sparql(`
-    SELECT ?subject ?subjectLabel ?human ?prop ?award ?t ?prec ?work ?workLabel ?workOl ?subjectOl ?author ?authorLabel ?authorOl WHERE {
+    SELECT ?subject ?subjectLabel ?human ?prop ?award ?awardWiki ?t ?prec ?work ?workLabel ?workOl ?subjectOl ?author ?authorLabel ?authorOl WHERE {
       VALUES ?award { ${values(Object.keys(PRIZES))} }
       VALUES (?prop ?ps) { (p:P166 ps:P166) (p:P1411 ps:P1411) }
       ?subject ?prop ?st . ?st ?ps ?award ; pq:P585 ?t .
       FILTER(?t >= "${sinceYear}-01-01T00:00:00Z"^^xsd:dateTime)
       ?st pqv:P585 [ wikibase:timePrecision ?prec ] .
       OPTIONAL { ?subject wdt:P31 wd:Q5 . BIND(true AS ?human) }
+      OPTIONAL { ?awardWiki schema:about ?award ; schema:isPartOf <https://en.wikipedia.org/> }
       OPTIONAL { ?subject wdt:P648 ?subjectOl }
       OPTIONAL { ?st pq:P1686 ?work . OPTIONAL { ?work wdt:P648 ?workOl } }
       OPTIONAL { ?subject wdt:P50 ?author . OPTIONAL { ?author wdt:P648 ?authorOl } }
@@ -134,6 +137,7 @@ export async function getPrizeNews(sinceYear: number): Promise<PrizeNews[]> {
           won: text(r, "prop")!.endsWith("P166"),
           year: Number(t.slice(0, 4)),
           date: Number(text(r, "prec")) >= DAY_PRECISION ? day(t) : null,
+          prizeUrl: text(r, "awardWiki"),
         }
       : {
           bookId: subject,
@@ -147,6 +151,7 @@ export async function getPrizeNews(sinceYear: number): Promise<PrizeNews[]> {
           won: text(r, "prop")!.endsWith("P166"),
           year: Number(t.slice(0, 4)),
           date: Number(text(r, "prec")) >= DAY_PRECISION ? day(t) : null,
+          prizeUrl: text(r, "awardWiki"),
         };
     // A book with no author on record, or a person with neither a book nor a name, isn't a story we can tell.
     if (!entry.authorId || !entry.author || (entry.bookId && !entry.title)) continue;
@@ -205,6 +210,8 @@ export type Adaptation = WikidataBook & {
   /** When it's out: the US release if Wikidata has one, else its first. */
   date: string;
   bookId: string;
+  /** The film's or series' English Wikipedia article, if it has one. */
+  screenUrl: string | null;
 };
 
 /** Films and series based on a book, out (or starting) between `from` and `to`. */
@@ -224,12 +231,13 @@ export async function getAdaptations(from: Date, to: Date): Promise<Adaptation[]
 
   const [details, dates] = await Promise.all([
     sparql(`
-      SELECT ?film ?filmLabel ?links ?type ?book ?bookLabel ?bookOl ?author ?authorLabel ?authorOl WHERE {
+      SELECT ?film ?filmLabel ?filmWiki ?links ?type ?book ?bookLabel ?bookOl ?author ?authorLabel ?authorOl WHERE {
         VALUES ?film { ${values(ids)} }
         ?film wdt:P144 ?book ; wikibase:sitelinks ?links ; wdt:P31 ?type .
         ?book wdt:P50 ?author .
         OPTIONAL { ?book wdt:P648 ?bookOl }
         OPTIONAL { ?author wdt:P648 ?authorOl }
+        OPTIONAL { ?filmWiki schema:about ?film ; schema:isPartOf <https://en.wikipedia.org/> }
         SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
       }`),
     sparql(`
@@ -269,6 +277,7 @@ export async function getAdaptations(from: Date, to: Date): Promise<Adaptation[]
     out.set(key, {
       screenId,
       screenTitle: label(r, "filmLabel"),
+      screenUrl: text(r, "filmWiki"),
       format: "film",
       date,
       bookId,

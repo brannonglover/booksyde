@@ -11,7 +11,7 @@ import type { Database } from "@booksyde/types";
 import { createHash } from "node:crypto";
 import { getBestsellerList, type ListEntry, NEWS_LISTS } from "./bestsellers";
 import { BOOK_FEEDS, type FeedArticle, fetchFeed } from "./feeds";
-import { userAgent } from "./open-library-import";
+import { importOpenLibraryWork, userAgent } from "./open-library-import";
 import { supabaseUrl } from "./supabase/env";
 import { type Adaptation, getAdaptations, getPrizeNews, type PrizeNews, type WikidataBook } from "./wikidata";
 
@@ -128,12 +128,49 @@ async function matchCatalogue(db: BooksydeClient, books: ListEntry[]) {
   );
 }
 
+/** Open Library's work for a list entry: by ISBN, else by title and author, as long as the title agrees. */
+async function findOnOpenLibrary(b: ListEntry) {
+  const init = { ...userAgent, cache: "no-store" as const, signal: AbortSignal.timeout(15_000) };
+  const same = (t: string) => titleKey(t) === titleKey(b.title);
+  for (const isbn of b.isbns.slice(0, 2)) {
+    const hit = (await searchOpenLibraryBooks({ q: `isbn:${isbn}`, limit: "1" }, init)).find((x) => same(x.title));
+    if (hit) return hit.olid;
+  }
+  return (await searchOpenLibraryBooks({ title: b.title, author: leadAuthor(b.author), limit: "5" }, init)).find((x) => same(x.title))?.olid ?? null;
+}
+
+async function addChartBooks(db: BooksydeClient, books: ListEntry[], matched: Map<number, { workId: string | null; authorId: string | null }>) {
+  const added: { rank: number; workId: string }[] = [];
+  await eachLimited(books, 2, async (b) => {
+    try {
+      const olid = await findOnOpenLibrary(b);
+      const workId = olid ? await importOpenLibraryWork(olid) : null;
+      if (workId) added.push({ rank: b.rank, workId });
+    } catch (e) {
+      console.error(`News: couldn't add "${b.title}" to the catalogue`, e);
+    }
+  });
+  if (!added.length) return;
+  const { data: credits } = await db
+    .from("work_contributors")
+    .select("work_id, author_id, position")
+    .eq("role", "author")
+    .in("work_id", added.map((a) => a.workId))
+    .order("position");
+  for (const { rank, workId } of added) {
+    const authorId = matched.get(rank)?.authorId ?? credits?.find((c) => c.work_id === workId)?.author_id ?? null;
+    matched.set(rank, { workId, authorId });
+  }
+}
+
 async function refreshCharts(db: BooksydeClient) {
   let stories = 0;
   for (const { list, name } of NEWS_LISTS) {
     const current = await getBestsellerList(list);
     if (!current?.books.length) continue;
     const matched = await matchCatalogue(db, current.books);
+    // Books with a story that we don't hold yet come in from Open Library, so the card opens a book page.
+    await addChartBooks(db, current.books.filter((b) => chartStory(b) && !matched.get(b.rank)?.workId), matched);
 
     const { error: snapshotError } = await db.from("bestseller_entries").upsert(
       current.books.map((b) => ({
@@ -168,6 +205,7 @@ async function refreshCharts(db: BooksydeClient) {
           author_id: authorId,
           cover_url: b.coverUrl || null,
           source: `New York Times · ${name}`,
+          url: `https://www.nytimes.com/books/best-sellers/${list}/`,
           happens_at: listDate.toISOString(),
           expires_at: new Date(listDate.getTime() + 14 * DAY).toISOString(),
           data: { list, list_date: current.date, rank: b.rank, rank_last_week: b.rankLastWeek, weeks_on_list: b.weeksOnList },
@@ -480,20 +518,23 @@ export function authorsInArticle<A extends { key: string }>(article: Pick<FeedAr
   return inSummary.length === 1 ? inSummary : [];
 }
 
-/** A cover for a story about an author rather than one book: their most-shelved book we hold with one. */
+/**
+ * The book on the card of a story about an author rather than one book: their
+ * most-shelved book we hold with a cover. Its cover is the card's, and it's what the cover opens.
+ */
 async function authorCovers(db: BooksydeClient, authorIds: string[]) {
   const ids = [...new Set(authorIds)];
   const { data: credits } = ids.length
-    ? await db.from("work_contributors").select("author_id, works ( cover_url, shelved_count )").eq("role", "author").in("author_id", ids)
+    ? await db.from("work_contributors").select("author_id, works ( id, cover_url, shelved_count )").eq("role", "author").in("author_id", ids)
     : { data: [] };
-  const best = new Map<string, { url: string; shelved: number }>();
+  const best = new Map<string, { url: string; workId: string; shelved: number }>();
   for (const c of credits ?? []) {
     const w = c.works;
     if (!w?.cover_url) continue;
     const seen = best.get(c.author_id);
-    if (!seen || w.shelved_count > seen.shelved) best.set(c.author_id, { url: w.cover_url, shelved: w.shelved_count });
+    if (!seen || w.shelved_count > seen.shelved) best.set(c.author_id, { url: w.cover_url, workId: w.id, shelved: w.shelved_count });
   }
-  return new Map([...best].map(([id, { url }]) => [id, url]));
+  return best;
 }
 
 async function refreshHeadlines(db: BooksydeClient) {
@@ -515,7 +556,8 @@ async function refreshHeadlines(db: BooksydeClient) {
   const cover = await authorCovers(db, found.map((f) => f.author.author_id));
 
   const rows: NewsInsert[] = found.flatMap(({ article, author }) => {
-    const coverUrl = cover.get(author.author_id);
+    const book = cover.get(author.author_id);
+    const coverUrl = book?.url;
     // Without a cover the card would typeset the headline as if it were a book.
     if (!coverUrl) return [];
     const at = article.publishedAt.toISOString();
@@ -535,7 +577,7 @@ async function refreshHeadlines(db: BooksydeClient) {
         published_at: at,
         expires_at: new Date(article.publishedAt.getTime() + HEADLINE_DAYS * DAY).toISOString(),
         weight: 55,
-        data: {},
+        data: { book_id: book!.workId },
       },
     ];
   });
@@ -549,7 +591,14 @@ async function refreshHeadlines(db: BooksydeClient) {
 
 /* ───────────── Wikidata books, matched to ours ───────────── */
 
-type CatalogueMatch = { workId: string | null; title: string | null; coverUrl: string | null; authorId: string | null };
+type CatalogueMatch = {
+  workId: string | null;
+  title: string | null;
+  coverUrl: string | null;
+  authorId: string | null;
+  /** Open Library's work for a book we don't hold, so it can be added. */
+  openLibraryId: string | null;
+};
 
 const isWorkId = (ol: string | null): ol is string => Boolean(ol && /^OL\d+W$/.test(ol));
 const isAuthorId = (ol: string | null): ol is string => Boolean(ol && /^OL\d+A$/.test(ol));
@@ -581,7 +630,13 @@ async function matchWikidataBooks(db: BooksydeClient, books: WikidataBook[]): Pr
   const matches = books.map((b): CatalogueMatch => {
     const work = b.openLibraryId ? workByOl.get(b.openLibraryId) : undefined;
     const authorId = (b.authorOpenLibraryId && authorByOl.get(b.authorOpenLibraryId)) || (b.author && authorByName.get(b.author)) || null;
-    return { workId: work?.id ?? null, title: work?.title ?? null, coverUrl: work?.cover_url ?? null, authorId };
+    return {
+      workId: work?.id ?? null,
+      title: work?.title ?? null,
+      coverUrl: work?.cover_url ?? null,
+      authorId,
+      openLibraryId: isWorkId(b.openLibraryId) ? b.openLibraryId : null,
+    };
   });
 
   // Books we didn't find by ID: the author's book of the same title, if we hold the author.
@@ -619,13 +674,28 @@ async function matchWikidataBooks(db: BooksydeClient, books: WikidataBook[]): Pr
           { ...userAgent, cache: "no-store", signal: AbortSignal.timeout(15_000) },
         );
         const hit = found.find((b) => b.coverId && titleKey(b.title) === titleKey(book.title!));
-        if (hit?.coverId) matches[i].coverUrl = cover(hit.coverId);
+        if (hit?.coverId) Object.assign(matches[i], { coverUrl: cover(hit.coverId), openLibraryId: matches[i].openLibraryId ?? hit.olid });
       } catch {
         // No cover; the story waits for another day.
       }
     },
   );
   return matches;
+}
+
+/** Brings books we don't hold in from Open Library, so a story's card can open a book page. */
+async function addToCatalogue(matches: CatalogueMatch[]) {
+  await eachLimited(
+    matches.filter((m) => !m.workId && m.openLibraryId),
+    2,
+    async (m) => {
+      try {
+        m.workId = await importOpenLibraryWork(m.openLibraryId!);
+      } catch (e) {
+        console.error(`News: couldn't add ${m.openLibraryId} to the catalogue`, e);
+      }
+    },
+  );
 }
 
 /* ───────────── Prizes ───────────── */
@@ -647,6 +717,7 @@ export function prizeHeadline(p: Pick<PrizeNews, "prize" | "year" | "won">) {
 async function refreshPrizes(db: BooksydeClient) {
   const now = Date.now();
   const today = new Date(now);
+  const iso = (t: number) => new Date(t).toISOString();
   // Last year's prizes still count in January, when Wikidata is catching up on December's.
   const latestYear = today.getUTCFullYear() - (today.getUTCMonth() === 0 ? 1 : 0);
   const prizes = await getPrizeNews(today.getUTCFullYear() - 1);
@@ -654,52 +725,83 @@ async function refreshPrizes(db: BooksydeClient) {
 
   // Prizes are written once, when first seen: Wikidata mostly records only the
   // year, so the day we first see one is the closest we get to the day it was given.
-  const { data: have, error } = await db.from("news_items").select("key").in("key", prizes.map((p) => prizeKey(p, p.won)));
+  // Ones in the feed now are only touched up (their book, link and cover).
+  const { data: have, error } = await db
+    .from("news_items")
+    .select("key, expires_at")
+    .in("key", prizes.map((p) => prizeKey(p, p.won)));
   if (error) throw error;
-  const known = new Set((have ?? []).map((r) => r.key));
+  const known = new Map((have ?? []).map((r) => [r.key, r.expires_at]));
   const fresh = prizes.filter((p) => !known.has(prizeKey(p, p.won)));
-  if (!fresh.length) return 0;
+  const showing = prizes.filter((p) => (known.get(prizeKey(p, p.won)) ?? "") > iso(now));
+  if (!fresh.length && !showing.length) return 0;
   // On the very first run everything is "first seen", including May's Pulitzers, so only dated prizes count then.
   const { count, error: countError } = await db.from("news_items").select("id", { count: "exact", head: true }).eq("kind", "award");
   if (countError) throw countError;
   const firstRun = !count;
 
-  const matched = await matchWikidataBooks(db, fresh);
-  const covers = await authorCovers(db, matched.flatMap((m, i) => (!fresh[i].bookId && m.authorId ? [m.authorId] : [])));
-  const iso = (t: number) => new Date(t).toISOString();
-
-  const rows: NewsInsert[] = fresh.flatMap((p, i) => {
-    const m = matched[i];
+  const all = [...fresh, ...showing];
+  const matched = await matchWikidataBooks(db, all);
+  const covers = await authorCovers(db, matched.flatMap((m, i) => (!all[i].bookId && m.authorId ? [m.authorId] : [])));
+  const shown = (p: PrizeNews, i: number) => {
     const dated = p.date ? new Date(`${p.date}T12:00:00Z`).getTime() : null;
     // Undated, it's news the day it turns up, unless it's an older year Wikidata is only now filling in.
-    const news = dated ? dated > now - PRIZE_FRESH_DAYS * DAY : !firstRun && p.year >= latestYear;
+    const news = i >= fresh.length || (dated ? dated > now - PRIZE_FRESH_DAYS * DAY : !firstRun && p.year >= latestYear);
     // A prize for an author's work as a whole has the author as its title, and one of their books as its cover.
-    const coverUrl = p.bookId ? m.coverUrl : m.authorId ? (covers.get(m.authorId) ?? null) : null;
+    const book = p.bookId ? null : matched[i].authorId ? covers.get(matched[i].authorId!) : undefined;
+    const coverUrl = p.bookId ? matched[i].coverUrl : (book?.url ?? null);
+    return { dated, news, coverUrl, bookId: book?.workId ?? null };
+  };
+  // Books in the feed that we don't hold come in from Open Library.
+  await addToCatalogue(all.flatMap((p, i) => (p.bookId && shown(p, i).news && shown(p, i).coverUrl ? [matched[i]] : [])));
+
+  const details = (p: PrizeNews, i: number) => {
+    const { coverUrl, bookId } = shown(p, i);
+    return {
+      work_id: matched[i].workId,
+      author_id: matched[i].authorId,
+      cover_url: coverUrl,
+      // The prize's Wikipedia page is where a reader finds out more.
+      source: p.prizeUrl ? "Wikipedia" : "Wikidata",
+      url: p.prizeUrl,
+      data: { prize_id: p.prizeId, prize: p.prize, year: p.year, won: p.won, wikidata: p.bookId ?? p.authorId, book_id: bookId },
+    };
+  };
+
+  const rows: NewsInsert[] = fresh.flatMap((p, i) => {
+    const { dated, news, coverUrl } = shown(p, i);
     // News with nothing to put on the card isn't written yet: tomorrow's run may find a cover.
     if (news && !coverUrl) return [];
     const at = dated && news ? dated : now;
-    return [{
-      kind: "award",
-      key: prizeKey(p, p.won),
-      label: p.won ? "Prize winner" : "Nominated",
-      headline: prizeHeadline(p),
-      title: p.bookId ? (m.title ?? p.title) : p.author,
-      author_name: p.bookId ? p.author : null,
-      work_id: m.workId,
-      author_id: m.authorId,
-      cover_url: coverUrl,
-      source: "Wikidata",
-      happens_at: dated ? iso(dated) : null,
-      published_at: iso(at),
-      // Old news: kept (so it isn't news tomorrow) but never shown.
-      expires_at: iso(news ? at + PRIZE_SHOWN_DAYS * DAY : now),
-      weight: p.won ? 75 : 50,
-      data: { prize_id: p.prizeId, prize: p.prize, year: p.year, won: p.won, wikidata: p.bookId ?? p.authorId },
-    }];
+    return [
+      {
+        kind: "award",
+        key: prizeKey(p, p.won),
+        label: p.won ? "Prize winner" : "Nominated",
+        headline: prizeHeadline(p),
+        title: p.bookId ? (matched[i].title ?? p.title) : p.author,
+        author_name: p.bookId ? p.author : null,
+        ...details(p, i),
+        happens_at: dated ? iso(dated) : null,
+        published_at: iso(at),
+        // Old news: kept (so it isn't news tomorrow) but never shown.
+        expires_at: iso(news ? at + PRIZE_SHOWN_DAYS * DAY : now),
+        weight: p.won ? 75 : 50,
+      },
+    ];
   });
   if (rows.length) {
     const { error: insertError } = await db.from("news_items").upsert(rows, { onConflict: "key", ignoreDuplicates: true });
     if (insertError) throw insertError;
+  }
+  for (const [j, p] of showing.entries()) {
+    const i = fresh.length + j;
+    const { cover_url, ...rest } = details(p, i);
+    const { error: touchError } = await db
+      .from("news_items")
+      .update({ ...rest, ...(cover_url ? { cover_url } : {}) })
+      .eq("key", prizeKey(p, p.won));
+    if (touchError) throw touchError;
   }
 
   // A nominee that's now won: the win replaces the nomination.
@@ -729,6 +831,7 @@ async function refreshAdaptations(db: BooksydeClient) {
   const thisYear = new Date(now).getUTCFullYear();
   const found = await getAdaptations(new Date(now - SCREEN_BEHIND_DAYS * DAY), new Date(now + SCREEN_AHEAD_DAYS * DAY));
   const matched = await matchWikidataBooks(db, found);
+  await addToCatalogue(matched.filter((m) => m.coverUrl));
 
   const rows: NewsInsert[] = found.flatMap((a, i) => {
     const m = matched[i];
@@ -747,7 +850,9 @@ async function refreshAdaptations(db: BooksydeClient) {
         work_id: m.workId,
         author_id: m.authorId,
         cover_url: m.coverUrl,
-        source: "Wikidata",
+        // The film's Wikipedia page, where there is one, is where a reader finds out more.
+        source: a.screenUrl ? "Wikipedia" : "Wikidata",
+        url: a.screenUrl,
         happens_at: new Date(at).toISOString(),
         // Rewritten daily while it's in the window (like buzz), nearest release first.
         published_at: new Date(now).toISOString(),
@@ -763,10 +868,12 @@ async function refreshAdaptations(db: BooksydeClient) {
     if (error) throw error;
   }
 
-  // Ones whose date has moved out of the window (or off Wikidata) drop out today.
+  // Ones whose date has moved out of the window (or off Wikidata) drop out today; one
+  // still listed keeps yesterday's story if today's cover lookup failed.
   const iso = new Date(now).toISOString();
+  const listed = found.map((a) => `adaptation:${a.screenId}:${a.bookId}`);
   let gone = db.from("news_items").update({ expires_at: iso }).eq("kind", "adaptation").gt("expires_at", iso);
-  if (unique.length) gone = gone.not("key", "in", `(${unique.map((r) => `"${r.key}"`).join(",")})`);
+  if (listed.length) gone = gone.not("key", "in", `(${listed.map((k) => `"${k}"`).join(",")})`);
   const { error: goneError } = await gone;
   if (goneError) throw goneError;
   return unique.length;
