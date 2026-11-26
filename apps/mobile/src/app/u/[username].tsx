@@ -270,6 +270,11 @@ function Bookplate({
                 <Text style={{ color: text, fontWeight: '700' }}>Edit your bookplate</Text>
               </Pressable>
             </Link>
+            <Link href="/settings/email" asChild>
+              <Pressable style={StyleSheet.flatten([styles.outlineButton, { borderColor: theme.border, marginTop: spacing[2] }])}>
+                <Text style={{ color: text, fontWeight: '700' }}>Email settings</Text>
+              </Pressable>
+            </Link>
             {/* Your settings live with your profile; signed-out readers have the picker at the foot of Home. */}
             <View style={styles.appearance}>
               <Text style={[styles.appearanceLabel, { color: theme.textSecondary }]}>APPEARANCE</Text>

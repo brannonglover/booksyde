@@ -57,6 +57,7 @@ export default function RootLayout() {
         <Stack.Screen name="clubs/[slug]" options={{ title: '' }} />
         <Stack.Screen name="clubs/new" options={{ presentation: 'modal', title: 'Start a club', ...closeable }} />
         <Stack.Screen name="settings/profile" options={{ presentation: 'modal', title: 'Edit your bookplate', ...closeable }} />
+        <Stack.Screen name="settings/email" options={{ presentation: 'modal', title: 'Email settings', ...closeable }} />
         <Stack.Screen name="sign-in" options={{ presentation: 'modal', title: 'Sign in', ...closeable }} />
         <Stack.Screen name="sign-up" options={{ presentation: 'modal', title: 'Join Booksyde', ...closeable }} />
       </Stack>
