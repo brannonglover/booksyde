@@ -5,6 +5,7 @@
  *   npm run covers:backfill                 # dry run: prints what would change
  *   npm run covers:backfill -- --apply      # writes the changes
  *   npm run covers:backfill -- --limit=20   # only the 20 most-shelved works
+ *   npm run covers:backfill -- --author=<id> # only that author's books
  *
  * Reads NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY and (optionally)
  * GOOGLE_BOOKS_API_KEY from apps/web/.env.local. Hand-picked covers
@@ -20,18 +21,23 @@ const limit = Number(process.argv.find((a) => a.startsWith("--limit="))?.split("
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SECRET_KEY;
 const googleKey = process.env.GOOGLE_BOOKS_API_KEY || undefined;
+const author = process.argv.find((a) => a.startsWith("--author="))?.split("=")[1];
 if (!url || !key) throw new Error("Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY (apps/web/.env.local).");
 
 const db = createBooksydeClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 const init = { headers: { "User-Agent": "Booksyde/1.0 (https://www.booksyde.co)" } };
 const GOOD_HEIGHT = 400;
 
-const { data: works, error } = await db
+let query = db
   .from("works")
   .select("id, title, cover_url, cover_source, open_library_id, editions ( isbn_13 )")
-  .or("cover_source.is.null,cover_source.neq.manual")
-  .order("shelved_count", { ascending: false })
-  .limit(limit);
+  .or("cover_source.is.null,cover_source.neq.manual");
+if (author) {
+  const { data: credits, error: creditError } = await db.from("work_contributors").select("work_id").eq("author_id", author);
+  if (creditError) throw creditError;
+  query = query.in("id", credits.map((c) => c.work_id));
+}
+const { data: works, error } = await query.order("shelved_count", { ascending: false }).limit(limit);
 if (error) throw error;
 
 console.log(`${apply ? "Applying" : "Dry run"} over ${works.length} works · Google Books ${googleKey ? "on" : "off (no GOOGLE_BOOKS_API_KEY)"}\n`);
@@ -62,7 +68,8 @@ for (const work of works) {
   const why = current ? (current.ok ? `small (${current.width}×${current.height})` : current.reason) : "no cover";
 
   let update: { cover_url: string | null; cover_source: CoverSource | null } | null = null;
-  if (picked && picked.url !== work.cover_url) {
+  // Like the daily job: never trade a working cover for a smaller one.
+  if (picked && picked.url !== work.cover_url && !(current?.ok && picked.height < current.height)) {
     update = { cover_url: picked.url, cover_source: picked.source };
     tally[work.cover_url ? "replaced" : "found"]++;
     console.log(`${label} ${why} → ${picked.source} ${picked.width}×${picked.height}  ${picked.url}`);

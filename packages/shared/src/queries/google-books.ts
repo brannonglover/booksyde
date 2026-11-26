@@ -37,7 +37,15 @@ export async function getGoogleBooksCovers(isbn: string, apiKey: string, init?: 
   const volume = await fetch(`${API}/${encodeURIComponent(id)}?fields=volumeInfo/imageLinks&key=${key}`, init);
   if (!volume.ok) throw new Error(`Google Books volume failed (${volume.status})`);
   const links = ((await volume.json()) as { volumeInfo?: { imageLinks?: ImageLinks } }).volumeInfo?.imageLinks ?? {};
-  return [...new Set(SIZES.flatMap((size) => (links[size] ? [cleanImageUrl(links[size])] : [])))];
+  const urls = [...new Set(SIZES.flatMap((size) => (links[size] ? [cleanImageUrl(links[size])] : [])))];
+  // Many self-published books only get a 128px thumbnail, but Google will render the same
+  // image larger (about 300×450) when asked with fife; offered first, the thumbnail after.
+  if (!links.small && !links.medium && !links.large && !links.extraLarge && links.thumbnail) {
+    const larger = new URL(cleanImageUrl(links.thumbnail));
+    larger.searchParams.set("fife", "w800-h1200");
+    urls.unshift(larger.toString());
+  }
+  return urls;
 }
 
 export type GoogleBooksRelease = {
