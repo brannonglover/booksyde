@@ -13,7 +13,7 @@ import { palette, radii, spacing } from '@booksyde/theme';
 import { Image } from 'expo-image';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/book-cover';
 import { Grid } from '@/components/grid';
@@ -78,6 +78,7 @@ function AuthorDetail({ author }: { author: Author }) {
       <View style={styles.content}>
         <View style={styles.header}>
           <Portrait author={author} />
+          <PhotoCredit author={author} />
           <Text style={[styles.kicker, { color: theme.accent }]}>AUTHOR</Text>
           <Text maxFontSizeMultiplier={DisplayMaxScale} style={[styles.name, { color: theme.text }]}>
             {author.name}
@@ -191,6 +192,18 @@ function Portrait({ author }: { author: Author }) {
   );
 }
 
+/** Commons photos must name their photographer and licence (see apps/web/src/lib/author-portrait.ts). */
+function PhotoCredit({ author }: { author: Author }) {
+  const theme = useTheme();
+  if (!author.photo_url || !author.photo_credit || !author.photo_credit_url) return null;
+  const url = author.photo_credit_url;
+  return (
+    <Pressable accessibilityRole="link" hitSlop={8} onPress={() => Linking.openURL(url)} style={styles.credit}>
+      <Text style={{ color: theme.textSecondary, fontSize: 11, textAlign: 'center' }}>Photo: {author.photo_credit}</Text>
+    </Pressable>
+  );
+}
+
 function FollowAuthorButton({ authorId, initialCount }: { authorId: string; initialCount: number }) {
   const theme = useTheme();
   const router = useRouter();
@@ -277,6 +290,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   initials: { fontFamily: DisplayFonts.regular, fontSize: 48, color: palette.paper },
+  credit: { marginTop: -spacing[2], marginBottom: spacing[2], maxWidth: 220 },
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 2.4, textAlign: 'center' },
   name: { fontFamily: DisplayFonts.regular, fontSize: 40, lineHeight: 44, textAlign: 'center' },
   followWrap: { alignItems: 'center', gap: spacing[2], marginTop: spacing[3] },

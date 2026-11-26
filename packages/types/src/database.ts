@@ -89,14 +89,14 @@ isOneToOne: false
                   ]
                 },"authors": {
                   Row: {
-                    "bio": string | null,"birth_date": string | null,"created_at": string,"death_date": string | null,"followers_count": number,"id": string,"name": string,"open_library_id": string | null,"photo_url": string | null,"releases_checked_at": string | null,"updated_at": string
+                    "bio": string | null,"birth_date": string | null,"catalogue_checked_at": string | null,"created_at": string,"death_date": string | null,"followers_count": number,"id": string,"name": string,"open_library_id": string | null,"photo_credit": string | null,"photo_credit_url": string | null,"photo_url": string | null,"releases_checked_at": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"followers_count"?: number,"id"?: string,"name": string,"open_library_id"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
+                    "bio"?: string | null,"birth_date"?: string | null,"catalogue_checked_at"?: string | null,"created_at"?: string,"death_date"?: string | null,"followers_count"?: number,"id"?: string,"name": string,"open_library_id"?: string | null,"photo_credit"?: string | null,"photo_credit_url"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "bio"?: string | null,"birth_date"?: string | null,"created_at"?: string,"death_date"?: string | null,"followers_count"?: number,"id"?: string,"name"?: string,"open_library_id"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
+                    "bio"?: string | null,"birth_date"?: string | null,"catalogue_checked_at"?: string | null,"created_at"?: string,"death_date"?: string | null,"followers_count"?: number,"id"?: string,"name"?: string,"open_library_id"?: string | null,"photo_credit"?: string | null,"photo_credit_url"?: string | null,"photo_url"?: string | null,"releases_checked_at"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -696,6 +696,11 @@ isOneToOne: false
                            },
             "arrange_shelf":
 { Args: { "p_status": Database["public"]['Enums']["reading_status"],"p_work_ids": (string)[] }; Returns: undefined
+                           },
+"authors_to_refresh":
+{ Args: { "max_results"?: number }; Returns: {
+              "author_id": string,"name": string,"open_library_id": string | null,"photo_url": string | null,"readers": number
+            }[]
                            },
 "buzz_works":
 { Args: { "days"?: number,"max_results"?: number,"min_readers"?: number }; Returns: {

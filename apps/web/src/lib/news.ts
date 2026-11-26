@@ -4,6 +4,7 @@ import {
   type BooksydeClient,
   createBooksydeClient,
   getGoogleBooksByAuthor,
+  NOT_A_BOOK,
   searchOpenLibraryBooks,
   titleKey,
 } from "@booksyde/shared";
@@ -259,10 +260,6 @@ type Release = {
   year: number;
 };
 
-/** Things filed under an author that aren't a new book of theirs (bundles like "Ward D / The Tenant", and "Untitled…" placeholders, too). */
-const NOT_A_NEW_BOOK =
-  /\b(summary|study guide|analysis|workbook|box(ed)? set|collection|omnibus|books? \d+\s*[-–&]|trilogy|series|coloring|colouring|journal|calendar|sampler|excerpt|preview|bestsellers)\b|\s\/\s|^untitled\b/i;
-
 /** "J.K. Rowling" and "J. K. Rowling" are the same person. */
 const nameKey = (name: string) => name.toLowerCase().replace(/[^\p{L}]/gu, "");
 
@@ -271,7 +268,7 @@ async function googleReleases(author: WatchedAuthor, apiKey: string, now: number
   const key = nameKey(author.name);
   const byTitle = new Map<string, Release>();
   for (const v of volumes) {
-    if (!v.authors.some((a) => nameKey(a) === key) || NOT_A_NEW_BOOK.test(v.title)) continue;
+    if (!v.authors.some((a) => nameKey(a) === key) || NOT_A_BOOK.test(v.title)) continue;
     const at = new Date(`${v.publishedDate}T12:00:00Z`).getTime();
     if (at < now - BEHIND_DAYS * DAY || at > now + AHEAD_DAYS * DAY) continue;
     const k = titleKey(v.title);
@@ -300,7 +297,7 @@ async function openLibraryReleases(author: WatchedAuthor, now: number): Promise<
     { ...userAgent, cache: "no-store" },
   );
   return books
-    .filter((b) => b.year && b.year >= thisYear && b.coverId && b.authors[0]?.olid === author.open_library_id && !NOT_A_NEW_BOOK.test(b.title))
+    .filter((b) => b.year && b.year >= thisYear && b.coverId && b.authors[0]?.olid === author.open_library_id && !NOT_A_BOOK.test(b.title))
     .map((b) => ({
       title: b.title,
       isbn13: b.isbn13,

@@ -139,3 +139,36 @@ export async function getGoogleBookByIsbn(isbn: string, apiKey: string, init?: R
     pageCount: info.pageCount && info.pageCount > 0 ? info.pageCount : null,
   };
 }
+
+export type GoogleBooksVolume = { title: string; authors: string[]; isbns: string[] };
+
+/**
+ * Up to `max` of an author's English volumes on Google Books, any date (every
+ * edition is its own volume). Google takes its languages from publishers'
+ * feeds, so this is how to tell an English book from a translation when Open
+ * Library can't. Throws on HTTP errors so callers can tell "none" from "no quota".
+ */
+export async function getGoogleBooksEnglishVolumes(author: string, apiKey: string, init?: RequestInit, max = 120): Promise<GoogleBooksVolume[]> {
+  const volumes: GoogleBooksVolume[] = [];
+  for (let start = 0; start < max; start += 40) {
+    const params = new URLSearchParams({
+      q: `inauthor:"${author.replace(/"/g, "")}"`,
+      printType: "books",
+      langRestrict: "en",
+      startIndex: String(start),
+      maxResults: "40",
+      fields: "items(volumeInfo(title,authors,language,industryIdentifiers))",
+      key: apiKey,
+    });
+    const res = await fetch(`${API}?${params}`, init);
+    if (!res.ok) throw new Error(`Google Books search failed (${res.status})`);
+    const items = ((await res.json()) as { items?: SearchVolume[] }).items ?? [];
+    for (const { volumeInfo: info } of items) {
+      if (!info?.title || info.language !== "en") continue;
+      const isbns = (info.industryIdentifiers ?? []).filter((i) => i.type === "ISBN_13").map((i) => i.identifier);
+      volumes.push({ title: info.title, authors: info.authors ?? [], isbns });
+    }
+    if (items.length < 40) break;
+  }
+  return volumes;
+}

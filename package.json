@@ -20,6 +20,7 @@
     "db:import": "tsx supabase/import/open-library.mts",
     "covers:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-covers.mts",
     "authors:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-authors.mts",
+    "authors:refresh": "tsx --conditions=react-server --env-file=apps/web/.env.local apps/web/scripts/refresh-authors.mts",
     "series:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-series.mts",
     "series:prune": "tsx --env-file=apps/web/.env.local apps/web/scripts/prune-edition-series.mts",
     "non-fiction:backfill": "tsx --env-file=apps/web/.env.local apps/web/scripts/backfill-non-fiction.mts",

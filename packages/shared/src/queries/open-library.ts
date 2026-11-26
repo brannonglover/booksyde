@@ -9,7 +9,7 @@ import { isValidIsbn13, isbn10To13, normalizeIsbn } from "../utils/isbn";
 
 const API = "https://openlibrary.org";
 const FIELDS =
-  "key,title,subtitle,author_name,author_key,first_publish_year,cover_i,isbn,number_of_pages_median,subject,edition_count,readinglog_count,series_key,series_name,series_position";
+  "key,title,subtitle,author_name,author_key,first_publish_year,cover_i,isbn,number_of_pages_median,subject,edition_count,readinglog_count,series_key,series_name,series_position,language";
 
 export type OpenLibraryBook = {
   /** Work id, e.g. "OL38495W". */
@@ -30,6 +30,8 @@ export type OpenLibraryBook = {
   subjects: string[];
   /** The series the book belongs to, if Open Library files it in one. */
   series: OpenLibrarySeries | null;
+  /** The languages of its editions ("eng", "dut"); often empty for books catalogued from a single record. */
+  languages: string[];
 };
 
 export type OpenLibrarySeries = {
@@ -56,6 +58,7 @@ type SearchDoc = {
   series_key?: string[];
   series_name?: string[];
   series_position?: string[];
+  language?: string[];
 };
 
 export const OPEN_LIBRARY_WORK_ID = /^OL\d{1,12}W$/;
@@ -115,6 +118,7 @@ function toBook(doc: SearchDoc): OpenLibraryBook | null {
     pages: doc.number_of_pages_median ?? null,
     subjects: (doc.subject ?? []).slice(0, 40),
     series: firstSeries(doc),
+    languages: doc.language ?? [],
   };
 }
 
@@ -427,6 +431,13 @@ export async function getOpenLibraryAuthor(olid: string, init?: RequestInit): Pr
     deathDate: fullDate(a.death_date),
   };
 }
+
+/**
+ * Things filed under an author that aren't one book of theirs: bundles ("Ward D / The Tenant",
+ * box sets, starter kits), study guides and the like, audio editions, and "Untitled…" placeholders.
+ */
+export const NOT_A_BOOK =
+  /\b(summary|study guide|analysis|workbook|box(ed)? set|complete set|gift set|starter kit|collection|omnibus|books? \d+\s*[-–&]|trilogy|series|coloring|colouring|journal|calendar|sampler|excerpt|preview|bestsellers|cd|dvd|audio ?(book|cd)|(un)?abridged)\b|\s\/\s|^untitled\b/i;
 
 /** Map Open Library's free-form subjects onto our genre tags. */
 const subjectRules: [RegExp, string][] = [

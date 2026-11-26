@@ -29,6 +29,9 @@ const nextConfig: NextConfig = {
       // NYT Best Sellers covers (static01 today; older lists used the Google bucket).
       { protocol: "https", hostname: "static01.nyt.com", pathname: "/bestsellers/images/**" },
       { protocol: "https", hostname: "storage.googleapis.com", pathname: "/du-prd/books/images/**" },
+      // Author portraits from Wikimedia Commons (see src/lib/author-portrait.ts).
+      { protocol: "https", hostname: "upload.wikimedia.org", pathname: "/wikipedia/commons/**" },
+      { protocol: "https", hostname: "thumb.wikimedia.org", pathname: "/wikipedia/commons/**" },
     ],
   },
   turbopack: {

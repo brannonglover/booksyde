@@ -11,7 +11,7 @@ export async function getAuthor(client: BooksydeClient, authorId: string) {
   const { data, error } = await client
     .from("authors")
     .select(
-      `id, name, bio, photo_url, birth_date, death_date, followers_count,
+      `id, name, bio, photo_url, photo_credit, photo_credit_url, birth_date, death_date, followers_count,
        work_contributors ( role, works ( id, title, first_published_year, cover_url, cover_color, avg_rating, ratings_count, shelved_count ) )`,
     )
     .eq("id", authorId)

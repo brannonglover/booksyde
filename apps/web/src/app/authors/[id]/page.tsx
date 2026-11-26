@@ -134,14 +134,27 @@ function Portrait({ author }: { author: Author }) {
     .slice(0, 2)
     .join("");
   return (
-    <div
-      aria-hidden
-      className="relative grid size-40 shrink-0 place-items-center overflow-hidden rounded-full bg-green font-display text-6xl text-paper shadow-[0_18px_36px_-18px_rgba(31,27,22,0.6)] sm:size-48"
-    >
-      {initials}
-      {/* The portrait sits over the initials, so a photo that fails to load still leaves them. */}
-      {author.photo_url ? (
-        <Image src={author.photo_url} alt="" fill sizes="192px" priority className="object-cover object-top" />
+    <div className="flex shrink-0 flex-col items-center gap-3">
+      <div
+        aria-hidden
+        className="relative grid size-40 place-items-center overflow-hidden rounded-full bg-green font-display text-6xl text-paper shadow-[0_18px_36px_-18px_rgba(31,27,22,0.6)] sm:size-48"
+      >
+        {initials}
+        {/* The portrait sits over the initials, so a photo that fails to load still leaves them. */}
+        {author.photo_url ? (
+          <Image src={author.photo_url} alt="" fill sizes="192px" priority className="object-cover object-top" />
+        ) : null}
+      </div>
+      {/* Commons photos must name their photographer and licence (see src/lib/author-portrait.ts). */}
+      {author.photo_url && author.photo_credit && author.photo_credit_url ? (
+        <a
+          href={author.photo_credit_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="max-w-48 text-center text-[11px] leading-snug text-muted underline-offset-2 hover:text-accent hover:underline"
+        >
+          Photo: {author.photo_credit}
+        </a>
       ) : null}
     </div>
   );
