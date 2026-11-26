@@ -28,6 +28,8 @@ const GOOD_HEIGHT = 400;
 const MIN_CONTRAST = 8;
 /** Downloads per work, so one book can't stall an import. */
 const MAX_CHECKS = 6;
+/** Near-white share at or above which an image is a blank page, not a cover (even white covers carry far more ink). */
+const MAX_PAPER = 0.97;
 
 export const openLibraryCoverUrl = (coverId: number) => `https://covers.openlibrary.org/b/id/${coverId}-L.jpg`;
 
@@ -56,6 +58,12 @@ export async function inspectCover(url: string, init?: RequestInit): Promise<Cov
     const colour = channels.slice(0, 3);
     const contrast = colour.reduce((sum, c) => sum + c.stdev, 0) / colour.length;
     if (contrast < MIN_CONTRAST) return { ok: false, reason: "blank" };
+    // A publisher's "front cover" is sometimes a white interior page with a line of type (a
+    // half-title or imprint page): enough contrast to pass above, but nearly all paper.
+    const { data: grey } = await sharp(bytes).removeAlpha().greyscale().resize(100).raw().toBuffer({ resolveWithObject: true });
+    let paper = 0;
+    for (const v of grey) if (v >= 235) paper++;
+    if (paper / grey.length >= MAX_PAPER) return { ok: false, reason: "blank page" };
     return { ok: true, width, height };
   } catch {
     return { ok: false, reason: "unreadable" };
