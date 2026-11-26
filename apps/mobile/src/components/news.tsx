@@ -50,7 +50,7 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
   const book = newsBook(item);
   const story = newsStory(item);
   const shelf = newsShelfTag(item);
-  // Two ways in: the card opens the book, and the story line (a headline's title too) opens the story where it lives.
+  // Two ways in: the card opens the book, and only the story line at the bottom opens the story where it lives.
   const openBook = book
     ? () => {
         if ('workId' in book) router.push({ pathname: '/book/[id]', params: { id: book.workId } });
@@ -59,7 +59,6 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
       }
     : null;
   const openStory = story ? () => Linking.openURL(story.url) : null;
-  const titleIsStory = item.kind === 'article' && openStory;
   const storyLine = (
     <>
       <Text style={[styles.line, { color: theme.text }]} numberOfLines={2}>
@@ -121,13 +120,7 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
                 </Text>
               ) : null}
             </View>
-            {titleIsStory && openBook ? (
-              <Pressable onPress={openStory} accessibilityRole="link" accessibilityHint="Opens the story">
-                {heading}
-              </Pressable>
-            ) : (
-              heading
-            )}
+            {heading}
             {item.author_name ? (
               <Text style={[styles.byline, { color: theme.textSecondary }]} numberOfLines={1}>
                 {item.author_name}

@@ -50,10 +50,10 @@ export async function NewsSection() {
 }
 
 /**
- * A story about a book, with two ways in: the cover and title open the book
- * (its page, or a search if we don't hold it yet), and the story line opens
- * the story itself where it lives elsewhere (the article, the list, the
- * prize's or film's page). For a headline, the headline is the story's.
+ * A story about a book, with two ways in: the card opens the book (its page,
+ * or a search if we don't hold it yet), and only the story line at the bottom
+ * opens the story itself where it lives elsewhere (the article, the list, the
+ * prize's or film's page).
  */
 function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
   const { badge, title, line, coverTitle } = describeNews(item, now);
@@ -61,7 +61,6 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
   const story = newsStory(item);
   const shelf = newsShelfTag(item);
   const bookHref = book ? ("workId" in book ? `/books/${book.workId}` : `/search?q=${encodeURIComponent(book.search)}`) : null;
-  const titleIsStory = item.kind === "article" && story;
   const tracking = (target: "book" | "story") =>
     track(AnalyticsEvent.NewsClicked, {
       kind: item.kind,
@@ -115,13 +114,7 @@ function NewsCard({ item, now }: { item: NewsItem; now: Date }) {
             </span>
           ) : null}
         </div>
-        {titleIsStory ? (
-          <a href={story.url} target="_blank" rel="noopener noreferrer" tabIndex={-1} className={storyLink} {...tracking("story")}>
-            {heading}
-          </a>
-        ) : (
-          heading
-        )}
+        {heading}
         {item.author_name ? <p className="truncate text-sm text-muted">{item.author_name}</p> : null}
         <div className="mt-auto pt-2">
           {story ? (
