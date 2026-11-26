@@ -22,6 +22,8 @@ type NytBook = {
   author: string;
   book_image: string | null;
   primary_isbn13: string | null;
+  description?: string | null;
+  publisher?: string | null;
   isbns?: { isbn13?: string }[];
 };
 
@@ -37,6 +39,9 @@ export type ListEntry = Bestseller & {
   weeksOnList: number;
   /** Every ISBN-13 the list gives for it, for finding our copy. */
   isbns: string[];
+  /** The list's one-line description, and the publisher: enough for a book page when no one else has the book yet. */
+  description: string | null;
+  publisher: string | null;
 };
 
 /** A whole current list with each book's movement, uncached, for the news job. Null without a key. */
@@ -59,6 +64,8 @@ export async function getBestsellerList(list: string): Promise<{ date: string; b
     rankLastWeek: b.rank_last_week ?? 0,
     weeksOnList: b.weeks_on_list ?? 0,
     isbns: [...new Set([b.primary_isbn13, ...(b.isbns ?? []).map((i) => i.isbn13)].filter((i): i is string => Boolean(i)))],
+    description: b.description?.trim() || null,
+    publisher: b.publisher?.trim() || null,
   }));
   return { date, books };
 }

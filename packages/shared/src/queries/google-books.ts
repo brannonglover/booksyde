@@ -99,3 +99,43 @@ export async function getGoogleBooksByAuthor(author: string, apiKey: string, ini
     ];
   });
 }
+
+export type GoogleBook = {
+  title: string;
+  subtitle: string | null;
+  authors: string[];
+  description: string | null;
+  /** "2026-11-18" when Google has the day; null otherwise. */
+  publishedDate: string | null;
+  year: number | null;
+  pageCount: number | null;
+};
+
+/** What Google Books says about the book with this ISBN, for a page about a book Open Library doesn't have yet. Null when Google has no such volume. */
+export async function getGoogleBookByIsbn(isbn: string, apiKey: string, init?: RequestInit): Promise<GoogleBook | null> {
+  const clean = normalizeIsbn(isbn);
+  if (clean.length !== 10 && clean.length !== 13) return null;
+  const params = new URLSearchParams({
+    q: `isbn:${clean}`,
+    maxResults: "1",
+    fields: "items(volumeInfo(title,subtitle,authors,description,publishedDate,pageCount))",
+    key: apiKey,
+  });
+  const res = await fetch(`${API}?${params}`, init);
+  if (!res.ok) throw new Error(`Google Books search failed (${res.status})`);
+  const info = ((await res.json()) as {
+    items?: { volumeInfo?: { title?: string; subtitle?: string; authors?: string[]; description?: string; publishedDate?: string; pageCount?: number } }[];
+  }).items?.[0]?.volumeInfo;
+  if (!info?.title) return null;
+  const date = info.publishedDate ?? "";
+  return {
+    title: info.title,
+    subtitle: info.subtitle ?? null,
+    authors: info.authors ?? [],
+    // Descriptions come as light HTML; the book page shows plain paragraphs.
+    description: info.description ? info.description.replace(/<br\s*\/?>|<\/p>/gi, "\n").replace(/<[^>]+>/g, "").replace(/\n{3,}/g, "\n\n").trim() : null,
+    publishedDate: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+    year: /^\d{4}/.test(date) ? Number(date.slice(0, 4)) : null,
+    pageCount: info.pageCount && info.pageCount > 0 ? info.pageCount : null,
+  };
+}

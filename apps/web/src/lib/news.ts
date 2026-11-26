@@ -9,6 +9,7 @@ import {
 } from "@booksyde/shared";
 import type { Database } from "@booksyde/types";
 import { createHash } from "node:crypto";
+import { importBestseller } from "./bestseller-import";
 import { getBestsellerList, type ListEntry, NEWS_LISTS } from "./bestsellers";
 import { BOOK_FEEDS, type FeedArticle, fetchFeed } from "./feeds";
 import { importOpenLibraryWork, userAgent } from "./open-library-import";
@@ -143,8 +144,9 @@ async function addChartBooks(db: BooksydeClient, books: ListEntry[], matched: Ma
   const added: { rank: number; workId: string }[] = [];
   await eachLimited(books, 2, async (b) => {
     try {
-      const olid = await findOnOpenLibrary(b);
-      const workId = olid ? await importOpenLibraryWork(olid) : null;
+      const olid = await findOnOpenLibrary(b).catch(() => null);
+      // Brand-new books often aren't on Open Library yet: those get a page from the list and Google Books.
+      const workId = (olid ? await importOpenLibraryWork(olid) : null) ?? (await importBestseller(b));
       if (workId) added.push({ rank: b.rank, workId });
     } catch (e) {
       console.error(`News: couldn't add "${b.title}" to the catalogue`, e);
@@ -169,7 +171,7 @@ async function refreshCharts(db: BooksydeClient) {
     const current = await getBestsellerList(list);
     if (!current?.books.length) continue;
     const matched = await matchCatalogue(db, current.books);
-    // Books with a story that we don't hold yet come in from Open Library, so the card opens a book page.
+    // Books with a story that we don't hold yet are added (from Open Library, else the list itself), so the card opens a book page.
     await addChartBooks(db, current.books.filter((b) => chartStory(b) && !matched.get(b.rank)?.workId), matched);
 
     const { error: snapshotError } = await db.from("bestseller_entries").upsert(
