@@ -23,7 +23,7 @@ const MAX_ASPECT = 0.78;
 /** Shelves draw covers up to ~200 CSS px wide; anything shorter than this looks smeared. */
 const MIN_HEIGHT = 250;
 /** Tall enough to stay sharp on a 2× screen: stop looking once a source gives us this. */
-const GOOD_HEIGHT = 400;
+export const GOOD_HEIGHT = 400;
 /** Average colour spread per channel; real covers score 15+, a blank or black frame ~1. */
 const MIN_CONTRAST = 8;
 /** Downloads per work, so one book can't stall an import. */
@@ -81,6 +81,7 @@ export async function pickCover({
   googleKey = process.env.GOOGLE_BOOKS_API_KEY,
   init,
   onCheck,
+  onGoogleError,
 }: {
   isbns?: (string | null | undefined)[];
   editions?: EditionCover[];
@@ -88,6 +89,8 @@ export async function pickCover({
   init?: RequestInit;
   /** Called with every candidate's verdict (the backfill prints them). */
   onCheck?: (url: string, source: CoverSource, check: CoverCheck) => void;
+  /** Called when a Google lookup fails (quota, network); the pick carries on without Google either way. */
+  onGoogleError?: (error: unknown) => void;
 }): Promise<PickedCover | null> {
   let checks = 0;
   let best: PickedCover | null = null;
@@ -107,7 +110,10 @@ export async function pickCover({
       if (!isbn || tried.has(isbn) || tried.size >= 2) continue;
       tried.add(isbn);
       // A failed lookup (quota, network) just means we fall through to Open Library.
-      const urls = await getGoogleBooksCovers(isbn, googleKey, init).catch(() => []);
+      const urls = await getGoogleBooksCovers(isbn, googleKey, init).catch((e: unknown) => {
+        onGoogleError?.(e);
+        return [];
+      });
       // The largest size can 404 on some volumes; the next one down is still fine.
       for (const url of urls.slice(0, 2)) if (await consider(url, "google_books")) return best;
     }
