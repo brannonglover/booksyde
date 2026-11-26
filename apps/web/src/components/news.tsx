@@ -10,8 +10,9 @@ import { createClient } from "@/lib/supabase/server";
 const SHOWN = 6;
 
 /**
- * "This week in books": moves on the bestseller lists, and new books from the
- * authors on the reader's shelves (theirs first). Nothing at all until the
+ * "This week in books": moves on the bestseller lists, prizes, screen
+ * adaptations, and news and new books from the authors on the reader's
+ * shelves (theirs first). Nothing at all until the
  * daily news job has written something.
  */
 export async function NewsSection() {
@@ -34,7 +35,9 @@ export async function NewsSection() {
           </h2>
         </div>
         <p className="hidden max-w-xs shrink-0 text-right text-sm text-muted sm:block">
-          {personal ? "What’s moving on the bestseller lists, and what’s new from the authors you read." : "What’s moving on the bestseller lists this week."}
+          {personal
+            ? "The bestseller lists, prizes and screen adaptations, and what’s new from the authors you read."
+            : "What’s moving on the bestseller lists, which books are winning prizes, and which are coming to the screen."}
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

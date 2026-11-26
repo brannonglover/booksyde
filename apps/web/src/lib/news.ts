@@ -13,6 +13,7 @@ import { getBestsellerList, type ListEntry, NEWS_LISTS } from "./bestsellers";
 import { BOOK_FEEDS, type FeedArticle, fetchFeed } from "./feeds";
 import { userAgent } from "./open-library-import";
 import { supabaseUrl } from "./supabase/env";
+import { type Adaptation, getAdaptations, getPrizeNews, type PrizeNews, type WikidataBook } from "./wikidata";
 
 /*
  * The daily news job behind "This week in books" (run by /api/cron/news):
@@ -28,6 +29,9 @@ import { supabaseUrl } from "./supabase/env";
  * - Headline stories: articles about the authors readers shelve, from
  *   literary outlets' feeds (see feeds.ts), linking out to the outlet. Like
  *   releases, news_feed() shows each only to readers of that author.
+ * - Prize stories: winners and nominees of the major book prizes, and screen
+ *   stories: films and series of books coming out soon, both from Wikidata
+ *   (see wikidata.ts), for everyone.
  *
  * Rows are upserted by a stable key, so running it twice in a day is harmless.
  */
@@ -49,18 +53,26 @@ const AUTHORS_PER_RUN = 40;
 const AHEAD_DAYS = 240;
 const BEHIND_DAYS = 60;
 
-export type NewsRunResult = { charts: number | string; releases: number | string; buzz: number | string; headlines: number | string };
+const JOBS = {
+  charts: refreshCharts,
+  releases: refreshReleases,
+  buzz: refreshBuzz,
+  headlines: refreshHeadlines,
+  prizes: refreshPrizes,
+  adaptations: refreshAdaptations,
+} satisfies Record<string, (db: BooksydeClient) => Promise<number>>;
 
-export async function refreshNews(): Promise<NewsRunResult> {
+export type NewsJob = keyof typeof JOBS;
+/** Stories written by each part, or why it failed. */
+export type NewsRunResult = Partial<Record<NewsJob, number | string>>;
+
+/** Runs every part of the job (or just `only`); each reports its own failure, so a Google outage doesn't cost the week's chart stories. */
+export async function refreshNews(only: NewsJob[] = Object.keys(JOBS) as NewsJob[]): Promise<NewsRunResult> {
   const db = adminClient();
-  // Each half reports its own failure, so a Google outage doesn't cost the week's chart stories.
-  const [charts, releases, buzz, headlines] = await Promise.all([
-    refreshCharts(db).catch((e: unknown) => (console.error("News: charts failed", e), String(e))),
-    refreshReleases(db).catch((e: unknown) => (console.error("News: releases failed", e), String(e))),
-    refreshBuzz(db).catch((e: unknown) => (console.error("News: buzz failed", e), String(e))),
-    refreshHeadlines(db).catch((e: unknown) => (console.error("News: headlines failed", e), String(e))),
-  ]);
-  return { charts, releases, buzz, headlines };
+  const results = await Promise.all(
+    only.map(async (name) => [name, await JOBS[name](db).catch((e: unknown) => (console.error(`News: ${name} failed`, e), String(e)))] as const),
+  );
+  return Object.fromEntries(results);
 }
 
 /* ───────────── Bestseller charts ───────────── */
@@ -468,6 +480,22 @@ export function authorsInArticle<A extends { key: string }>(article: Pick<FeedAr
   return inSummary.length === 1 ? inSummary : [];
 }
 
+/** A cover for a story about an author rather than one book: their most-shelved book we hold with one. */
+async function authorCovers(db: BooksydeClient, authorIds: string[]) {
+  const ids = [...new Set(authorIds)];
+  const { data: credits } = ids.length
+    ? await db.from("work_contributors").select("author_id, works ( cover_url, shelved_count )").eq("role", "author").in("author_id", ids)
+    : { data: [] };
+  const best = new Map<string, { url: string; shelved: number }>();
+  for (const c of credits ?? []) {
+    const w = c.works;
+    if (!w?.cover_url) continue;
+    const seen = best.get(c.author_id);
+    if (!seen || w.shelved_count > seen.shelved) best.set(c.author_id, { url: w.cover_url, shelved: w.shelved_count });
+  }
+  return new Map([...best].map(([id, { url }]) => [id, url]));
+}
+
 async function refreshHeadlines(db: BooksydeClient) {
   const now = Date.now();
   const { data: watched, error } = await db.rpc("watched_authors", { max_results: 200 });
@@ -484,23 +512,10 @@ async function refreshHeadlines(db: BooksydeClient) {
   const found = articles.flatMap((article) => authorsInArticle(article, authors).map((author) => ({ article, author })));
   if (!found.length) return 0;
 
-  // A cover for the card: the author's most-shelved book we hold with one.
-  const authorIds = [...new Set(found.map((f) => f.author.author_id))];
-  const { data: credits } = await db
-    .from("work_contributors")
-    .select("author_id, works ( cover_url, shelved_count )")
-    .eq("role", "author")
-    .in("author_id", authorIds);
-  const cover = new Map<string, { url: string; shelved: number }>();
-  for (const c of credits ?? []) {
-    const w = c.works;
-    if (!w?.cover_url) continue;
-    const best = cover.get(c.author_id);
-    if (!best || w.shelved_count > best.shelved) cover.set(c.author_id, { url: w.cover_url, shelved: w.shelved_count });
-  }
+  const cover = await authorCovers(db, found.map((f) => f.author.author_id));
 
   const rows: NewsInsert[] = found.flatMap(({ article, author }) => {
-    const coverUrl = cover.get(author.author_id)?.url;
+    const coverUrl = cover.get(author.author_id);
     // Without a cover the card would typeset the headline as if it were a book.
     if (!coverUrl) return [];
     const at = article.publishedAt.toISOString();
@@ -529,5 +544,230 @@ async function refreshHeadlines(db: BooksydeClient) {
     const { error: upsertError } = await db.from("news_items").upsert(unique, { onConflict: "key" });
     if (upsertError) throw upsertError;
   }
+  return unique.length;
+}
+
+/* ───────────── Wikidata books, matched to ours ───────────── */
+
+type CatalogueMatch = { workId: string | null; title: string | null; coverUrl: string | null; authorId: string | null };
+
+const isWorkId = (ol: string | null): ol is string => Boolean(ol && /^OL\d+W$/.test(ol));
+const isAuthorId = (ol: string | null): ol is string => Boolean(ol && /^OL\d+A$/.test(ol));
+
+/**
+ * Our copy of each book Wikidata named (by Open Library ID, else by its
+ * author and title) and our record of its author. A book we don't hold keeps
+ * Open Library's cover, so the card still shows the book.
+ */
+async function matchWikidataBooks(db: BooksydeClient, books: WikidataBook[]): Promise<CatalogueMatch[]> {
+  const workOls = [...new Set(books.map((b) => b.openLibraryId).filter(isWorkId))];
+  const authorOls = [...new Set(books.map((b) => b.authorOpenLibraryId).filter(isAuthorId))];
+  const names = [...new Set(books.flatMap((b) => (b.author ? [b.author] : [])))];
+  const [{ data: works }, { data: byOl }, { data: byName }] = await Promise.all([
+    workOls.length
+      ? db.from("works").select("id, title, cover_url, open_library_id").in("open_library_id", workOls)
+      : Promise.resolve({ data: [] as { id: string; title: string; cover_url: string | null; open_library_id: string | null }[] }),
+    authorOls.length
+      ? db.from("authors").select("id, open_library_id").in("open_library_id", authorOls)
+      : Promise.resolve({ data: [] as { id: string; open_library_id: string | null }[] }),
+    names.length ? db.from("authors").select("id, name").in("name", names) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+  ]);
+  const workByOl = new Map((works ?? []).map((w) => [w.open_library_id, w]));
+  const authorByOl = new Map((byOl ?? []).map((a) => [a.open_library_id, a.id]));
+  // Only a name that means one author; two "John Smith"s and we'd rather not guess.
+  const authorByName = new Map<string, string | null>();
+  for (const a of byName ?? []) authorByName.set(a.name, authorByName.has(a.name) ? null : a.id);
+
+  const matches = books.map((b): CatalogueMatch => {
+    const work = b.openLibraryId ? workByOl.get(b.openLibraryId) : undefined;
+    const authorId = (b.authorOpenLibraryId && authorByOl.get(b.authorOpenLibraryId)) || (b.author && authorByName.get(b.author)) || null;
+    return { workId: work?.id ?? null, title: work?.title ?? null, coverUrl: work?.cover_url ?? null, authorId };
+  });
+
+  // Books we didn't find by ID: the author's book of the same title, if we hold the author.
+  const unmatchedAuthors = [...new Set(matches.flatMap((m, i) => (!m.workId && m.authorId && books[i].title ? [m.authorId] : [])))];
+  if (unmatchedAuthors.length) {
+    const { data: credits } = await db
+      .from("work_contributors")
+      .select("author_id, works ( id, title, cover_url )")
+      .eq("role", "author")
+      .in("author_id", unmatchedAuthors);
+    const held = new Map((credits ?? []).flatMap((c) => (c.works ? [[`${c.author_id}|${titleKey(c.works.title)}`, c.works] as const] : [])));
+    matches.forEach((m, i) => {
+      if (m.workId || !m.authorId || !books[i].title) return;
+      const w = held.get(`${m.authorId}|${titleKey(books[i].title!)}`);
+      if (w) Object.assign(m, { workId: w.id, title: w.title, coverUrl: w.cover_url });
+    });
+  }
+
+  // Books we hold no copy of (or no cover for): Open Library's cover, from the work Wikidata
+  // names, else from a search by title and author (new books often have the cover on another record).
+  const cover = (id: number) => `https://covers.openlibrary.org/b/id/${id}-L.jpg`;
+  await eachLimited(
+    matches.flatMap((m, i) => (!m.coverUrl && books[i].title ? [i] : [])),
+    4,
+    async (i) => {
+      const book = books[i];
+      try {
+        if (isWorkId(book.openLibraryId)) {
+          const res = await fetch(`https://openlibrary.org/works/${book.openLibraryId}.json`, { ...userAgent, cache: "no-store", signal: AbortSignal.timeout(15_000) });
+          const id = res.ok ? ((await res.json()) as { covers?: number[] }).covers?.find((c) => c > 0) : undefined;
+          if (id) return void (matches[i].coverUrl = cover(id));
+        }
+        const found = await searchOpenLibraryBooks(
+          { title: book.title!, ...(book.author ? { author: book.author } : {}), limit: "5" },
+          { ...userAgent, cache: "no-store", signal: AbortSignal.timeout(15_000) },
+        );
+        const hit = found.find((b) => b.coverId && titleKey(b.title) === titleKey(book.title!));
+        if (hit?.coverId) matches[i].coverUrl = cover(hit.coverId);
+      } catch {
+        // No cover; the story waits for another day.
+      }
+    },
+  );
+  return matches;
+}
+
+/* ───────────── Prizes ───────────── */
+
+/** A dated prize is news for this long after it's given. */
+const PRIZE_FRESH_DAYS = 30;
+/** How long a prize story stays in the feed. */
+const PRIZE_SHOWN_DAYS = 21;
+
+const prizeKey = (p: Pick<PrizeNews, "bookId" | "authorId" | "prizeId" | "year">, won: boolean) =>
+  `award:${p.bookId ?? p.authorId}:${p.prizeId}:${p.year}:${won ? "won" : "nominated"}`;
+
+/** "Won the 2026 Booker Prize", "Nominated for a 2026 Goodreads Choice Award". */
+export function prizeHeadline(p: Pick<PrizeNews, "prize" | "year" | "won">) {
+  const prize = /Awards$/.test(p.prize) ? `a ${p.year} ${p.prize.replace(/Awards$/, "Award")}` : `the ${p.year} ${p.prize}`;
+  return `${p.won ? "Won" : "Nominated for"} ${prize}`;
+}
+
+async function refreshPrizes(db: BooksydeClient) {
+  const now = Date.now();
+  const today = new Date(now);
+  // Last year's prizes still count in January, when Wikidata is catching up on December's.
+  const latestYear = today.getUTCFullYear() - (today.getUTCMonth() === 0 ? 1 : 0);
+  const prizes = await getPrizeNews(today.getUTCFullYear() - 1);
+  if (!prizes.length) return 0;
+
+  // Prizes are written once, when first seen: Wikidata mostly records only the
+  // year, so the day we first see one is the closest we get to the day it was given.
+  const { data: have, error } = await db.from("news_items").select("key").in("key", prizes.map((p) => prizeKey(p, p.won)));
+  if (error) throw error;
+  const known = new Set((have ?? []).map((r) => r.key));
+  const fresh = prizes.filter((p) => !known.has(prizeKey(p, p.won)));
+  if (!fresh.length) return 0;
+  // On the very first run everything is "first seen", including May's Pulitzers, so only dated prizes count then.
+  const { count, error: countError } = await db.from("news_items").select("id", { count: "exact", head: true }).eq("kind", "award");
+  if (countError) throw countError;
+  const firstRun = !count;
+
+  const matched = await matchWikidataBooks(db, fresh);
+  const covers = await authorCovers(db, matched.flatMap((m, i) => (!fresh[i].bookId && m.authorId ? [m.authorId] : [])));
+  const iso = (t: number) => new Date(t).toISOString();
+
+  const rows: NewsInsert[] = fresh.flatMap((p, i) => {
+    const m = matched[i];
+    const dated = p.date ? new Date(`${p.date}T12:00:00Z`).getTime() : null;
+    // Undated, it's news the day it turns up, unless it's an older year Wikidata is only now filling in.
+    const news = dated ? dated > now - PRIZE_FRESH_DAYS * DAY : !firstRun && p.year >= latestYear;
+    // A prize for an author's work as a whole has the author as its title, and one of their books as its cover.
+    const coverUrl = p.bookId ? m.coverUrl : m.authorId ? (covers.get(m.authorId) ?? null) : null;
+    // News with nothing to put on the card isn't written yet: tomorrow's run may find a cover.
+    if (news && !coverUrl) return [];
+    const at = dated && news ? dated : now;
+    return [{
+      kind: "award",
+      key: prizeKey(p, p.won),
+      label: p.won ? "Prize winner" : "Nominated",
+      headline: prizeHeadline(p),
+      title: p.bookId ? (m.title ?? p.title) : p.author,
+      author_name: p.bookId ? p.author : null,
+      work_id: m.workId,
+      author_id: m.authorId,
+      cover_url: coverUrl,
+      source: "Wikidata",
+      happens_at: dated ? iso(dated) : null,
+      published_at: iso(at),
+      // Old news: kept (so it isn't news tomorrow) but never shown.
+      expires_at: iso(news ? at + PRIZE_SHOWN_DAYS * DAY : now),
+      weight: p.won ? 75 : 50,
+      data: { prize_id: p.prizeId, prize: p.prize, year: p.year, won: p.won, wikidata: p.bookId ?? p.authorId },
+    }];
+  });
+  if (rows.length) {
+    const { error: insertError } = await db.from("news_items").upsert(rows, { onConflict: "key", ignoreDuplicates: true });
+    if (insertError) throw insertError;
+  }
+
+  // A nominee that's now won: the win replaces the nomination.
+  const superseded = rows.filter((r) => r.key.endsWith(":won")).map((r) => r.key.replace(/:won$/, ":nominated"));
+  if (superseded.length) {
+    const { error: expireError } = await db.from("news_items").update({ expires_at: iso(now) }).in("key", superseded).gt("expires_at", iso(now));
+    if (expireError) throw expireError;
+  }
+  return rows.filter((r) => r.expires_at! > iso(now)).length;
+}
+
+/* ───────────── Screen adaptations ───────────── */
+
+/** A film or series is news from this long before it's out until this long after. */
+const SCREEN_AHEAD_DAYS = 45;
+const SCREEN_BEHIND_DAYS = 7;
+
+/** "The film comes out Nov 20", or with its own name when it isn't the book's: "The film Ebenezer comes out Nov 12". */
+export function screenHeadline(a: Pick<Adaptation, "format" | "screenTitle" | "date">, bookTitle: string, upcoming: boolean, thisYear: number) {
+  const named = a.screenTitle && !matchKey(a.screenTitle).includes(matchKey(bookTitle)) ? ` ${a.screenTitle}` : "";
+  const verb = a.format === "series" ? (upcoming ? "starts" : "started") : upcoming ? "comes out" : "came out";
+  return `The ${a.format}${named} ${verb} ${dateLabel(a.date, thisYear)}`;
+}
+
+async function refreshAdaptations(db: BooksydeClient) {
+  const now = Date.now();
+  const thisYear = new Date(now).getUTCFullYear();
+  const found = await getAdaptations(new Date(now - SCREEN_BEHIND_DAYS * DAY), new Date(now + SCREEN_AHEAD_DAYS * DAY));
+  const matched = await matchWikidataBooks(db, found);
+
+  const rows: NewsInsert[] = found.flatMap((a, i) => {
+    const m = matched[i];
+    if (!m.coverUrl) return [];
+    const at = new Date(`${a.date}T12:00:00Z`).getTime();
+    const title = m.title ?? a.title!;
+    const days = Math.abs(at - now) / DAY;
+    return [
+      {
+        kind: "adaptation",
+        key: `adaptation:${a.screenId}:${a.bookId}`,
+        label: "On screen",
+        headline: screenHeadline(a, title, at > now, thisYear),
+        title,
+        author_name: a.author,
+        work_id: m.workId,
+        author_id: m.authorId,
+        cover_url: m.coverUrl,
+        source: "Wikidata",
+        happens_at: new Date(at).toISOString(),
+        // Rewritten daily while it's in the window (like buzz), nearest release first.
+        published_at: new Date(now).toISOString(),
+        expires_at: new Date(at + SCREEN_BEHIND_DAYS * DAY).toISOString(),
+        weight: 70 - Math.round(Math.min(days, 40) / 2),
+        data: { screen_id: a.screenId, screen_title: a.screenTitle, format: a.format, date: a.date, wikidata: a.bookId },
+      },
+    ];
+  });
+  const unique = [...new Map(rows.map((r) => [r.key, r])).values()];
+  if (unique.length) {
+    const { error } = await db.from("news_items").upsert(unique, { onConflict: "key" });
+    if (error) throw error;
+  }
+
+  // Ones whose date has moved out of the window (or off Wikidata) drop out today.
+  const iso = new Date(now).toISOString();
+  let gone = db.from("news_items").update({ expires_at: iso }).eq("kind", "adaptation").gt("expires_at", iso);
+  if (unique.length) gone = gone.not("key", "in", `(${unique.map((r) => `"${r.key}"`).join(",")})`);
+  const { error: goneError } = await gone;
+  if (goneError) throw goneError;
   return unique.length;
 }

@@ -2,9 +2,10 @@ import type { Database } from "@booksyde/types";
 import type { BooksydeClient } from "../client";
 
 /*
- * "This week in books": bestseller-list moves for everyone, and new releases
- * from the reader's own authors (see the news migration and the web's daily
- * job). Both apps read the feed straight from Supabase.
+ * "This week in books": bestseller-list moves, prizes and screen adaptations
+ * for everyone, and news and new releases from the reader's own authors (see
+ * the news migrations and the web's daily job). Both apps read the feed
+ * straight from Supabase.
  */
 
 export type NewsItem = Database["public"]["Functions"]["news_feed"]["Returns"][number];
@@ -45,6 +46,15 @@ export function describeNews(
   if (item.kind === "release" && item.happens_at) {
     const out = new Date(item.happens_at).getTime() <= now.getTime();
     return { badge: out ? "Out now" : "Coming soon", title, line: `${out ? "Out" : "Coming"} ${dateLabel(item.happens_at, now)}`, coverTitle: title };
+  }
+  if (item.kind === "adaptation" && item.happens_at && new Date(item.happens_at).getTime() <= now.getTime()) {
+    // Worded by the daily job, which may not have run since it came out.
+    const line = item.headline.replace(/ comes out /, " came out ").replace(/ starts /, " started ");
+    return { badge: item.label ?? "On screen", title, line, coverTitle: title };
+  }
+  if (item.kind === "award" && !item.work_id && !item.author_name) {
+    // A prize for an author's work as a whole: the author is the title, and the cover is one of their books.
+    return { badge: item.label ?? "", title, line: item.headline, coverTitle: `a book by ${title}` };
   }
   if (item.kind === "article") {
     const line = item.happens_at ? `Published ${dateLabel(item.happens_at, now)}` : "";
