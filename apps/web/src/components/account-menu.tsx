@@ -69,6 +69,14 @@ export function AccountMenu({ profile }: { profile: Profile }) {
           >
             Import from Goodreads
           </Link>
+          <Link
+            role="menuitem"
+            href="/settings/email"
+            className="block rounded-lg px-3 py-2 text-sm font-medium hover:bg-surface"
+            onClick={() => setOpen(false)}
+          >
+            Email settings
+          </Link>
           <form action={signOut}>
             <button role="menuitem" type="submit" className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-accent hover:bg-surface">
               Sign out

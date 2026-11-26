@@ -271,6 +271,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"email_preferences": {
+                  Row: {
+                    "monthly_picks": boolean,"monthly_picks_issue": string | null,"unsubscribe_token": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "monthly_picks"?: boolean,"monthly_picks_issue"?: string | null,"unsubscribe_token"?: string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "monthly_picks"?: boolean,"monthly_picks_issue"?: string | null,"unsubscribe_token"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "email_preferences_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"follows": {
                   Row: {
                     "created_at": string,"follower_id": string,"following_id": string,"status": Database["public"]['Enums']["follow_status"]
@@ -738,6 +758,16 @@ isOneToOne: false
 "merge_works":
 { Args: { "p_dupe": string,"p_keep": string }; Returns: undefined
                            },
+"monthly_picks":
+{ Args: { "max_results"?: number,"target": string }; Returns: {
+              "context": string | null,"reason": string,"work_id": string
+            }[]
+                           },
+"monthly_picks_recipients":
+{ Args: { "issue": string,"max_results"?: number }; Returns: {
+              "display_name": string | null,"email": string,"unsubscribe_token": string,"user_id": string,"username": string
+            }[]
+                           },
 "next_read":
 { Args: Record<PropertyKey, never>; Returns: {
               "context": string,"reason": string,"work_id": string
@@ -758,6 +788,9 @@ isOneToOne: false
                            },
 "reader_page":
 { Args: { "p_work_id": string }; Returns: number
+                           },
+"unsubscribe_monthly_picks":
+{ Args: { "token": string }; Returns: boolean
                            },
 "watched_authors":
 { Args: { "max_results"?: number }; Returns: {
